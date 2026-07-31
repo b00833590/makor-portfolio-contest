@@ -3,8 +3,7 @@
 import { useActionState } from "react";
 import { createChangeSession, type ChangeSessionFormState } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ChangeSessionFormFields } from "./change-session-form-fields";
 
 const initialState: ChangeSessionFormState = {};
 
@@ -20,29 +19,7 @@ export function ChangeSessionForm({
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-border p-6">
-      <div>
-        <Label htmlFor="weekNumber">Semaine n°</Label>
-        <Input id="weekNumber" name="weekNumber" type="number" min={1} required className="w-24" />
-      </div>
-      <div>
-        <Label htmlFor="opensAt">Ouverture</Label>
-        <Input id="opensAt" name="opensAt" type="datetime-local" required />
-      </div>
-      <div>
-        <Label htmlFor="closesAt">Fermeture</Label>
-        <Input id="closesAt" name="closesAt" type="datetime-local" required />
-      </div>
-      <div>
-        <Label htmlFor="maxChangesPerParticipant">Changements max / participant</Label>
-        <Input
-          id="maxChangesPerParticipant"
-          name="maxChangesPerParticipant"
-          type="number"
-          defaultValue={defaultMaxChanges}
-          required
-          className="w-24"
-        />
-      </div>
+      <ChangeSessionFormFields defaults={{ maxChangesPerParticipant: defaultMaxChanges }} />
       <Button type="submit" disabled={pending}>
         {pending ? "Création..." : "Créer la session"}
       </Button>

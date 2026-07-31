@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -17,7 +19,10 @@ export default async function ParticipantsPage() {
     db.user.findMany({
       where: { role: "PARTICIPANT" },
       orderBy: { createdAt: "desc" },
-      include: { promotion: { select: { name: true } } },
+      include: {
+        promotion: { select: { name: true } },
+        portfolios: { select: { id: true, promotionId: true } },
+      },
     }),
   ]);
 
@@ -34,25 +39,41 @@ export default async function ParticipantsPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell className="font-medium">{user.name}</TableCell>
-              <TableCell>
-                {user.promotion ? (
-                  user.promotion.name
-                ) : (
-                  <Badge variant="secondary">Aucune</Badge>
-                )}
-              </TableCell>
-              <TableCell>
-                <ParticipantRowActions
-                  userId={user.id}
-                  currentPromotionId={user.promotionId}
-                  promotions={promotions}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
+          {users.map((user) => {
+            const currentPortfolio = user.portfolios.find((p) => p.promotionId === user.promotionId);
+            return (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell>
+                  {user.promotion ? (
+                    user.promotion.name
+                  ) : (
+                    <Badge variant="secondary">Aucune</Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    {currentPortfolio && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        nativeButton={false}
+                        render={<Link href={`/admin/portfolios/${currentPortfolio.id}`} />}
+                      >
+                        Portefeuille
+                      </Button>
+                    )}
+                    <ParticipantRowActions
+                      userId={user.id}
+                      name={user.name}
+                      currentPromotionId={user.promotionId}
+                      promotions={promotions}
+                    />
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
           {users.length === 0 && (
             <TableRow>
               <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">

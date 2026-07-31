@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { provisionPortfolios } from "@/lib/portfolio-provisioning";
 import { PromotionStatus } from "@/generated/prisma/enums";
-import { createPromotionSchema } from "./schema";
+import { createPromotionSchema, updatePromotionSchema } from "./schema";
 
 export interface PromotionFormState {
   error?: string;
@@ -60,6 +60,77 @@ export async function createPromotion(
 
   revalidatePath("/admin/promotions");
   return {};
+}
+
+export async function updatePromotion(
+  promotionId: string,
+  _prevState: PromotionFormState,
+  formData: FormData,
+): Promise<PromotionFormState> {
+  const session = await requireAdmin();
+
+  const parsed = updatePromotionSchema.safeParse({
+    name: formData.get("name"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
+    initialCapital: formData.get("initialCapital"),
+    minPositionSize: formData.get("minPositionSize"),
+    maxPositionSize: formData.get("maxPositionSize"),
+    maxPositions: formData.get("maxPositions"),
+    maxCryptoAllocationPct: formData.get("maxCryptoAllocationPct"),
+    changeSessionsPerWeek: formData.get("changeSessionsPerWeek"),
+    maxChangesPerSession: formData.get("maxChangesPerSession"),
+    freezeHoursBeforeEnd: formData.get("freezeHoursBeforeEnd"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
+  }
+
+  const { name, startDate, endDate, initialCapital, ...ruleFields } = parsed.data;
+  const rules = promotionRulesSchema.parse(ruleFields);
+
+  const before = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
+  await db.promotion.update({
+    where: { id: promotionId },
+    data: { name, startDate, endDate, initialCapital, rules },
+  });
+
+  await logAudit({
+    adminId: session.user.id,
+    action: "promotion.update",
+    target: promotionId,
+    before: { name: before.name, startDate: before.startDate, endDate: before.endDate, initialCapital: before.initialCapital, rules: before.rules },
+    after: { name, startDate, endDate, initialCapital, rules },
+  });
+
+  revalidatePath("/admin/promotions");
+  return {};
+}
+
+export async function deletePromotion(promotionId: string) {
+  const session = await requireAdmin();
+
+  const promotion = await db.promotion.findUniqueOrThrow({
+    where: { id: promotionId },
+    include: { _count: { select: { users: true, portfolios: true } } },
+  });
+
+  await db.promotion.delete({ where: { id: promotionId } });
+
+  await logAudit({
+    adminId: session.user.id,
+    action: "promotion.delete",
+    target: promotionId,
+    before: {
+      name: promotion.name,
+      status: promotion.status,
+      participantCount: promotion._count.users,
+      portfolioCount: promotion._count.portfolios,
+    },
+  });
+
+  revalidatePath("/admin/promotions");
 }
 
 export async function setPromotionStatus(promotionId: string, status: PromotionStatus) {

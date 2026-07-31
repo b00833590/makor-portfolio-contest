@@ -6,8 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { toParisDateTimeLocalValue } from "@/lib/timezone";
 import { ChangeSessionForm } from "./change-session-form";
-import { setChangeSessionStatus } from "./actions";
+import { ChangeSessionRowActions } from "./change-session-row-actions";
+import { BulkParticipantsForm } from "./bulk-participants-form";
+import { setChangeSessionStatus, recalculateAllSnapshots } from "./actions";
 
 const statusLabels: Record<ChangeSessionStatus, string> = {
   SCHEDULED: "Planifiée",
@@ -26,6 +29,7 @@ export default async function PromotionDetailPage({
     where: { id },
     include: {
       changeSessions: { orderBy: { weekNumber: "asc" } },
+      users: { orderBy: { name: "asc" }, select: { id: true, name: true } },
     },
   });
 
@@ -41,11 +45,39 @@ export default async function PromotionDetailPage({
         <Link href="/admin/promotions" className="text-sm text-muted-foreground hover:underline">
           ← Promotions
         </Link>
-        <h2 className="mt-1 text-lg font-semibold">{promotion.name}</h2>
+        <div className="mt-1 flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">{promotion.name}</h2>
+          <form action={recalculateAllSnapshots.bind(null, promotion.id)}>
+            <Button type="submit" variant="outline" size="sm">
+              Recalculer tous les portefeuilles
+            </Button>
+          </form>
+        </div>
         <p className="text-sm text-muted-foreground">
           {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Participants</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {promotion.users.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {promotion.users.map((user) => (
+                <li key={user.id}>
+                  <Badge variant="secondary">{user.name}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          <BulkParticipantsForm promotionId={promotion.id} />
+          <Link href="/admin/participants" className="text-sm text-muted-foreground hover:underline">
+            Gérer tous les participants →
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -75,7 +107,7 @@ export default async function PromotionDetailPage({
                 {statusLabels[changeSession.status]}
               </Badge>
             </CardHeader>
-            <CardContent className="flex gap-2">
+            <CardContent className="flex flex-wrap items-center gap-2">
               {changeSession.status === ChangeSessionStatus.SCHEDULED && (
                 <form
                   action={setChangeSessionStatus.bind(null, promotion.id, changeSession.id, ChangeSessionStatus.OPEN)}
@@ -94,6 +126,14 @@ export default async function PromotionDetailPage({
                   </Button>
                 </form>
               )}
+              <ChangeSessionRowActions
+                promotionId={promotion.id}
+                changeSessionId={changeSession.id}
+                weekNumber={changeSession.weekNumber}
+                opensAt={toParisDateTimeLocalValue(changeSession.opensAt)}
+                closesAt={toParisDateTimeLocalValue(changeSession.closesAt)}
+                maxChangesPerParticipant={changeSession.maxChangesPerParticipant}
+              />
             </CardContent>
           </Card>
         ))}

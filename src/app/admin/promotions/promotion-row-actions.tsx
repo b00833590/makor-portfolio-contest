@@ -1,0 +1,117 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { updatePromotion, deletePromotion, type PromotionFormState } from "./actions";
+import type { PromotionRules } from "@/lib/promotion-rules";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { PromotionFormFields } from "./promotion-form-fields";
+
+const initialState: PromotionFormState = {};
+
+export interface PromotionRowActionsProps {
+  promotionId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  initialCapital: number;
+  rules: PromotionRules;
+  participantCount: number;
+  portfolioCount: number;
+}
+
+export function PromotionRowActions({
+  promotionId,
+  name,
+  startDate,
+  endDate,
+  initialCapital,
+  rules,
+  participantCount,
+  portfolioCount,
+}: PromotionRowActionsProps) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const updateAction = updatePromotion.bind(null, promotionId);
+  const [state, formAction, pending] = useActionState(updateAction, initialState);
+  const [deletePending, setDeletePending] = useState(false);
+
+  async function handleDelete() {
+    setDeletePending(true);
+    await deletePromotion(promotionId);
+    setDeletePending(false);
+    setDeleteOpen(false);
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+          Modifier
+        </Button>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Modifier {name}</DialogTitle>
+          </DialogHeader>
+          <form action={formAction} className="grid grid-cols-2 gap-4">
+            <PromotionFormFields
+              idPrefix="edit-"
+              defaults={{
+                name,
+                startDate,
+                endDate,
+                initialCapital,
+                ...rules,
+              }}
+            />
+            {state.error && <p className="col-span-2 text-sm text-destructive">{state.error}</p>}
+            <div className="col-span-2">
+              <Button type="submit" disabled={pending}>
+                {pending ? "Enregistrement..." : "Enregistrer les modifications"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          Supprimer
+        </Button>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer {name} ?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Cette action est <strong className="text-destructive">définitive et irréversible</strong>. Elle
+              supprimera :
+            </p>
+            <ul className="list-disc pl-5 text-sm text-muted-foreground">
+              <li>les {portfolioCount} portefeuille(s) de cette promotion (positions, transactions, historique)</li>
+              <li>toutes les sessions de changement de cette promotion</li>
+              <li>les badges obtenus pendant cette promotion</li>
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              Les {participantCount} compte(s) participant(s) ne seront <strong>pas</strong> supprimés, seulement
+              détachés de cette promotion.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
+                Annuler
+              </Button>
+              <Button variant="destructive" size="sm" disabled={deletePending} onClick={handleDelete}>
+                {deletePending ? "Suppression..." : "Supprimer définitivement"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

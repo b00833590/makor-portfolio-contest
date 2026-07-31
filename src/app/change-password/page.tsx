@@ -1,11 +1,8 @@
-import { LoginForm } from "./login-form";
+import { verifySession } from "@/lib/dal";
+import { ChangePasswordForm } from "./change-password-form";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ callbackUrl?: string }>;
-}) {
-  const { callbackUrl } = await searchParams;
+export default async function ChangePasswordPage() {
+  const session = await verifySession();
 
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-background">
@@ -20,13 +17,13 @@ export default async function LoginPage({
             Makor Concours
           </span>
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Concours de portefeuille Makor
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight">Changer de mot de passe</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Connectez-vous avec l&apos;identifiant et le mot de passe fournis par l&apos;administrateur.
+          {session.user.mustChangePassword
+            ? "Votre mot de passe est temporaire — choisissez-en un nouveau pour continuer."
+            : "Choisissez un nouveau mot de passe."}
         </p>
-        <LoginForm callbackUrl={callbackUrl ?? ""} />
+        <ChangePasswordForm />
       </div>
     </div>
   );

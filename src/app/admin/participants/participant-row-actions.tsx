@@ -9,7 +9,6 @@ import {
   type ParticipantFormState,
 } from "./actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -25,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CredentialsResult } from "@/components/credentials-result";
 
 const initialState: ParticipantFormState = {};
 
@@ -35,10 +35,12 @@ interface PromotionOption {
 
 export function ParticipantRowActions({
   userId,
+  name,
   currentPromotionId,
   promotions,
 }: {
   userId: string;
+  name: string;
   currentPromotionId: string | null;
   promotions: PromotionOption[];
 }) {
@@ -85,12 +87,17 @@ export function ParticipantRowActions({
 
             <form action={resetAction} className="flex flex-col gap-2 border-t border-border pt-4">
               <input type="hidden" name="userId" value={userId} />
-              <Label htmlFor={`password-${userId}`}>Nouveau mot de passe</Label>
-              <Input id={`password-${userId}`} name="password" required placeholder="Nouveau mot de passe" />
+              <Label>Mot de passe</Label>
+              <p className="text-xs text-muted-foreground">
+                Génère un nouveau mot de passe temporaire — {name} devra en choisir un nouveau à sa prochaine connexion.
+              </p>
               <Button type="submit" size="sm" disabled={resetPending} className="self-start">
-                Réinitialiser le mot de passe
+                {resetPending ? "Génération..." : "Réinitialiser le mot de passe"}
               </Button>
               {resetState.error && <p className="text-sm text-destructive">{resetState.error}</p>}
+              {resetState.created && (
+                <CredentialsResult name={resetState.created.name} tempPassword={resetState.created.tempPassword} />
+              )}
             </form>
           </div>
         </DialogContent>

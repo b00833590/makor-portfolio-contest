@@ -31,5 +31,6 @@ export async function login(
   }
 
   await createSession(user.id);
-  redirect(typeof callbackUrl === "string" && callbackUrl ? callbackUrl : "/dashboard");
+  const defaultHome = user.role === "ADMIN" ? "/admin" : "/dashboard";
+  redirect(typeof callbackUrl === "string" && callbackUrl ? callbackUrl : defaultHome);
 }

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 
-const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/admin"];
+const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/admin", "/change-password"];
 const adminPrefixes = ["/admin"];
+const CHANGE_PASSWORD_PATH = "/change-password";
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -17,6 +18,12 @@ export default async function proxy(req: NextRequest) {
     const signInUrl = new URL("/login", req.nextUrl);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
+  }
+
+  // Force le changement de mot de passe temporaire avant tout autre accès —
+  // seule la page de changement de mot de passe elle-même y échappe.
+  if (user.mustChangePassword && pathname !== CHANGE_PASSWORD_PATH) {
+    return NextResponse.redirect(new URL(CHANGE_PASSWORD_PATH, req.nextUrl));
   }
 
   if (isAdminRoute && user.role !== "ADMIN") {

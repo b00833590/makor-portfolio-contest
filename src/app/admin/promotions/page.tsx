@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
+import type { PromotionRules } from "@/lib/promotion-rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PromotionForm } from "./promotion-form";
 import { setPromotionStatus } from "./actions";
+import { PromotionRowActions } from "./promotion-row-actions";
+
+function toDateInputValue(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
 const statusLabels: Record<PromotionStatus, string> = {
   DRAFT: "Brouillon",
@@ -63,7 +69,7 @@ export default async function PromotionsPage() {
                   {statusLabels[promotion.status]}
                 </Badge>
               </CardHeader>
-              <CardContent className="flex gap-2">
+              <CardContent className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" nativeButton={false} render={<Link href={`/admin/promotions/${promotion.id}`} />}>
                   Sessions de changement
                 </Button>
@@ -74,6 +80,16 @@ export default async function PromotionsPage() {
                     </Button>
                   </form>
                 )}
+                <PromotionRowActions
+                  promotionId={promotion.id}
+                  name={promotion.name}
+                  startDate={toDateInputValue(promotion.startDate)}
+                  endDate={toDateInputValue(promotion.endDate)}
+                  initialCapital={Number(promotion.initialCapital)}
+                  rules={promotion.rules as unknown as PromotionRules}
+                  participantCount={promotion._count.users}
+                  portfolioCount={promotion._count.portfolios}
+                />
               </CardContent>
             </Card>
           );

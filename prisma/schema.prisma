@@ -37,13 +37,19 @@ model User {
   id           String   @id @default(cuid())
   name         String   @unique
   passwordHash String
-  role         UserRole @default(PARTICIPANT)
-  createdAt    DateTime @default(now())
+  /// Vrai juste après la création du compte par l'admin (mot de passe
+  /// temporaire) — force le changement de mot de passe à la première
+  /// connexion, avant tout autre accès (voir src/proxy.ts).
+  mustChangePassword Boolean  @default(false)
+  role               UserRole @default(PARTICIPANT)
+  createdAt          DateTime @default(now())
 
   sessions Session[]
 
   promotionId String?
-  promotion   Promotion? @relation(fields: [promotionId], references: [id])
+  /// SetNull (pas Cascade) : supprimer une promotion ne doit jamais supprimer
+  /// les comptes participants, seulement les en détacher.
+  promotion   Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
 
   portfolios  Portfolio[]
   changeUsage ChangeUsage[]

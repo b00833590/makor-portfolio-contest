@@ -31,11 +31,11 @@ export async function assertCryptoSlotAvailable(): Promise<string | null> {
 }
 
 /**
- * Récupère l'actif correspondant au ticker choisi dans la recherche, ou le
- * crée à la volée s'il n'existe pas encore. Rafraîchit toujours le prix pour
- * qu'un achat juste après création dispose d'une cotation valide.
+ * Récupère l'actif correspondant au ticker, ou le crée s'il n'existe pas
+ * encore — sans toucher aux prix. Utilisé pour la correction manuelle admin
+ * (le prix historique est saisi directement, pas rafraîchi depuis l'API).
  */
-export async function ensureAssetForPurchase(candidate: AssetCandidate): Promise<EnsureAssetResult> {
+export async function ensureAssetExists(candidate: AssetCandidate): Promise<EnsureAssetResult> {
   const symbol = candidate.symbol.trim().toUpperCase();
 
   let asset = await db.asset.findUnique({ where: { symbol } });
@@ -57,6 +57,19 @@ export async function ensureAssetForPurchase(candidate: AssetCandidate): Promise
       },
     });
   }
+
+  return { ok: true, asset };
+}
+
+/**
+ * Récupère l'actif correspondant au ticker choisi dans la recherche, ou le
+ * crée à la volée s'il n'existe pas encore. Rafraîchit toujours le prix pour
+ * qu'un achat juste après création dispose d'une cotation valide.
+ */
+export async function ensureAssetForPurchase(candidate: AssetCandidate): Promise<EnsureAssetResult> {
+  const result = await ensureAssetExists(candidate);
+  if (!result.ok) return result;
+  const { asset } = result;
 
   if (!asset.isActive) {
     return { ok: false, error: "Cet actif n'est plus disponible à l'achat." };

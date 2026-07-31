@@ -23,8 +23,14 @@ interface NavLink {
   label: string;
 }
 
-const navLinks: NavLink[] = [
+const participantNavLinks: NavLink[] = [
   { href: "/dashboard", label: "Portefeuille" },
+  { href: "/leaderboard", label: "Classement" },
+  { href: "/hall-of-fame", label: "Hall of Fame" },
+];
+
+// L'admin ne joue pas — pas de portefeuille, mais garde un œil sur le classement et le Hall of Fame.
+const adminNavLinks: NavLink[] = [
   { href: "/leaderboard", label: "Classement" },
   { href: "/hall-of-fame", label: "Hall of Fame" },
 ];
@@ -46,12 +52,14 @@ export function SiteHeader({
   role: "ADMIN" | "PARTICIPANT";
 }) {
   const pathname = usePathname();
+  const homeHref = role === "ADMIN" ? "/admin" : "/dashboard";
+  const navLinks = role === "ADMIN" ? adminNavLinks : participantNavLinks;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href={homeHref} className="flex items-center gap-2">
             <span className="inline-block size-2 rounded-full bg-primary shadow-[0_0_12px_theme(colors.primary)]" />
             <span className="text-base font-semibold tracking-tight">
               Makor <span className="text-muted-foreground font-normal">Concours</span>
@@ -107,6 +115,9 @@ export function SiteHeader({
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/change-password" />}>
+              Changer mon mot de passe
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 void handleSignOut();

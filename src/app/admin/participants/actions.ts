@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, generateTempPassword } from "@/lib/auth/password";
+import { createParticipantWithTempPassword } from "@/lib/participants/create-participant";
 import { createParticipantSchema, resetPasswordSchema, reassignPromotionSchema } from "./schema";
 
 export interface ParticipantFormState {
   error?: string;
+  created?: { name: string; email?: string; tempPassword: string };
 }
 
 export async function createParticipant(
@@ -19,7 +21,7 @@ export async function createParticipant(
 
   const parsed = createParticipantSchema.safeParse({
     name: formData.get("name"),
-    password: formData.get("password"),
+    email: formData.get("email") || undefined,
     promotionId: formData.get("promotionId"),
   });
 
@@ -27,25 +29,22 @@ export async function createParticipant(
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const { name, password, promotionId } = parsed.data;
+  const { name, email, promotionId } = parsed.data;
 
-  const existing = await db.user.findUnique({ where: { name } });
-  if (existing) {
+  const result = await createParticipantWithTempPassword({ name, promotionId });
+  if (result.status === "exists") {
     return { error: `L'identifiant "${name}" est déjà utilisé.` };
   }
-
-  const passwordHash = await hashPassword(password);
-  const user = await db.user.create({ data: { name, passwordHash, promotionId } });
 
   await logAudit({
     adminId: session.user.id,
     action: "participant.create",
-    target: user.id,
+    target: name,
     after: { name, promotionId },
   });
 
   revalidatePath("/admin/participants");
-  return {};
+  return { created: { name, email: email || undefined, tempPassword: result.tempPassword } };
 }
 
 export async function resetParticipantPassword(
@@ -56,15 +55,18 @@ export async function resetParticipantPassword(
 
   const parsed = resetPasswordSchema.safeParse({
     userId: formData.get("userId"),
-    password: formData.get("password"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const passwordHash = await hashPassword(parsed.data.password);
-  await db.user.update({ where: { id: parsed.data.userId }, data: { passwordHash } });
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
+  const user = await db.user.update({
+    where: { id: parsed.data.userId },
+    data: { passwordHash, mustChangePassword: true },
+  });
 
   await logAudit({
     adminId: session.user.id,
@@ -73,7 +75,7 @@ export async function resetParticipantPassword(
   });
 
   revalidatePath("/admin/participants");
-  return {};
+  return { created: { name: user.name, tempPassword } };
 }
 
 export async function reassignParticipantPromotion(

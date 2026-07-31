@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { getPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
@@ -17,6 +18,10 @@ const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", cu
 
 export default async function DashboardPage() {
   const session = await verifySession();
+  // L'admin ne joue pas — pas de portefeuille, le panneau d'administration le remplace.
+  if (session.user.role === "ADMIN") {
+    redirect("/admin");
+  }
   const portfolioView = await getPortfolioView(session.user.id);
 
   const [performanceHistory, transactionHistory, badges, openChangeSession] = portfolioView
