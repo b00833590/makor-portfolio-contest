@@ -1,0 +1,27 @@
+import { z } from "zod";
+
+/**
+ * Versionné par Promotion (stocké en JSON) — cf. docs/CONCEPTION.md section 6.
+ * Changer les règles d'une saison n'affecte jamais l'historique des saisons précédentes.
+ */
+export const promotionRulesSchema = z.object({
+  minPositionSize: z.number().positive(),
+  maxPositionSize: z.number().positive(),
+  maxPositions: z.number().int().positive(),
+  maxCryptoAllocationPct: z.number().min(0).max(100),
+  changeSessionsPerWeek: z.number().int().positive(),
+  maxChangesPerSession: z.number().int().positive(),
+  freezeHoursBeforeEnd: z.number().int().min(0),
+});
+
+export type PromotionRules = z.infer<typeof promotionRulesSchema>;
+
+export const defaultPromotionRules: PromotionRules = {
+  minPositionSize: 25_000,
+  maxPositionSize: 100_000,
+  maxPositions: 20,
+  maxCryptoAllocationPct: 20,
+  changeSessionsPerWeek: 2,
+  maxChangesPerSession: 4,
+  freezeHoursBeforeEnd: 48,
+};
