@@ -22,7 +22,7 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", tim
 
 export function TransactionHistoryTable({ transactions }: { transactions: TransactionHistoryItem[] }) {
   if (transactions.length === 0) {
-    return <p className="text-sm text-zinc-500">Aucune transaction pour le moment.</p>;
+    return <p className="text-sm text-muted-foreground">Aucune transaction pour le moment.</p>;
   }
 
   return (

@@ -19,7 +19,7 @@ export function ChangeSessionForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
+    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-border p-6">
       <div>
         <Label htmlFor="weekNumber">Semaine n°</Label>
         <Input id="weekNumber" name="weekNumber" type="number" min={1} required className="w-24" />

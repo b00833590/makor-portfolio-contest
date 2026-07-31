@@ -38,11 +38,11 @@ export default async function PromotionDetailPage({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Link href="/admin/promotions" className="text-sm text-zinc-500 hover:underline">
+        <Link href="/admin/promotions" className="text-sm text-muted-foreground hover:underline">
           ← Promotions
         </Link>
         <h2 className="mt-1 text-lg font-semibold">{promotion.name}</h2>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
         </p>
       </div>
@@ -58,14 +58,14 @@ export default async function PromotionDetailPage({
 
       <div className="flex flex-col gap-4">
         {promotion.changeSessions.length === 0 && (
-          <p className="text-sm text-zinc-500">Aucune session de changement pour le moment.</p>
+          <p className="text-sm text-muted-foreground">Aucune session de changement pour le moment.</p>
         )}
         {promotion.changeSessions.map((changeSession) => (
           <Card key={changeSession.id}>
             <CardHeader className="flex-row items-center justify-between">
               <div>
                 <CardTitle>Semaine {changeSession.weekNumber}</CardTitle>
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {changeSession.opensAt.toLocaleString("fr-FR")} →{" "}
                   {changeSession.closesAt.toLocaleString("fr-FR")} · {changeSession.maxChangesPerParticipant}{" "}
                   changements max

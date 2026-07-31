@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -12,23 +12,36 @@ import type { PerformancePoint } from "@/lib/trading/performance-history";
 const chartConfig = {
   totalValue: {
     label: "Valeur du portefeuille",
-    color: "var(--chart-1)",
+    color: "var(--color-line)",
   },
 } satisfies ChartConfig;
 
 export function PerformanceChart({ data }: { data: PerformancePoint[] }) {
   if (data.length < 2) {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         L&apos;historique de performance apparaîtra ici après quelques jours de suivi.
       </p>
     );
   }
 
+  const isPositive = (data.at(-1)?.cumulativeReturnPct ?? 0) >= 0;
+  const lineColor = isPositive ? "var(--color-gain)" : "var(--color-loss)";
+
   return (
-    <ChartContainer config={chartConfig} className="h-64 w-full">
-      <LineChart data={data} margin={{ left: 12, right: 12 }}>
-        <CartesianGrid vertical={false} />
+    <ChartContainer
+      config={chartConfig}
+      className="h-64 w-full"
+      style={{ "--color-line": lineColor } as React.CSSProperties}
+    >
+      <AreaChart data={data} margin={{ left: 12, right: 12, top: 12 }}>
+        <defs>
+          <linearGradient id="portfolioValueGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={lineColor} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke="var(--border)" />
         <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
         <YAxis
           tickLine={false}
@@ -38,14 +51,15 @@ export function PerformanceChart({ data }: { data: PerformancePoint[] }) {
           width={56}
         />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <Line
+        <Area
           type="monotone"
           dataKey="totalValue"
-          stroke="var(--color-totalValue)"
+          stroke={lineColor}
           strokeWidth={2}
+          fill="url(#portfolioValueGradient)"
           dot={false}
         />
-      </LineChart>
+      </AreaChart>
     </ChartContainer>
   );
 }

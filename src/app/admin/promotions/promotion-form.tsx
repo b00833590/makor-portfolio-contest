@@ -13,7 +13,7 @@ export function PromotionForm() {
   const [state, formAction, pending] = useActionState(createPromotion, initialState);
 
   return (
-    <form action={formAction} className="grid grid-cols-2 gap-4 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
+    <form action={formAction} className="grid grid-cols-2 gap-4 rounded-xl border border-border p-6">
       <div className="col-span-2">
         <Label htmlFor="name">Nom de la promotion</Label>
         <Input id="name" name="name" required placeholder="Promotion Été 2026" />

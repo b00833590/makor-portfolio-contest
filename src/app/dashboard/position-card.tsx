@@ -30,9 +30,9 @@ export function PositionCard({ position }: { position: PositionView }) {
       <CardHeader className="flex-row items-center justify-between">
         <div>
           <CardTitle>
-            {position.symbol} <span className="text-sm font-normal text-zinc-500">{position.name}</span>
+            {position.symbol} <span className="text-sm font-normal text-muted-foreground">{position.name}</span>
           </CardTitle>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {position.quantity.toFixed(4)} unités · prix moyen {currencyFormatter.format(position.avgEntryPrice)}
           </p>
         </div>

@@ -55,7 +55,7 @@ export default async function AssetsPage() {
           ))}
           {assets.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-sm text-zinc-500">
+              <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                 Aucun actif dans l&apos;univers d&apos;investissement.
               </TableCell>
             </TableRow>

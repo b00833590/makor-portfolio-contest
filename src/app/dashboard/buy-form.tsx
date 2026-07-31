@@ -26,7 +26,7 @@ export function BuyForm({ assets }: { assets: AssetOption[] }) {
 
   if (assets.length === 0) {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted-foreground">
         Tous les actifs de l&apos;univers d&apos;investissement sont déjà dans votre portefeuille.
       </p>
     );

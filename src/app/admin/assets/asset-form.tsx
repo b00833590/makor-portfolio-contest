@@ -19,7 +19,7 @@ export function AssetForm() {
   const [state, formAction, pending] = useActionState(createAsset, initialState);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
+    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-border p-6">
       <div>
         <Label htmlFor="symbol">Symbole</Label>
         <Input id="symbol" name="symbol" required placeholder="AAPL" className="w-28 uppercase" />

@@ -42,7 +42,7 @@ export default async function PromotionsPage() {
 
       <div className="flex flex-col gap-4">
         {promotions.length === 0 && (
-          <p className="text-sm text-zinc-500">Aucune promotion pour le moment.</p>
+          <p className="text-sm text-muted-foreground">Aucune promotion pour le moment.</p>
         )}
         {promotions.map((promotion) => {
           const upcoming = nextStatus[promotion.status];
@@ -53,7 +53,7 @@ export default async function PromotionsPage() {
                   <Link href={`/admin/promotions/${promotion.id}`} className="hover:underline">
                     <CardTitle>{promotion.name}</CardTitle>
                   </Link>
-                  <p className="mt-1 text-sm text-zinc-500">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {promotion.startDate.toLocaleDateString("fr-FR")} →{" "}
                     {promotion.endDate.toLocaleDateString("fr-FR")} ·{" "}
                     {promotion._count.users} participant(s)

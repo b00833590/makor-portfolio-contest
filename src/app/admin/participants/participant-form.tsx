@@ -24,7 +24,7 @@ export function ParticipantForm({ promotions }: { promotions: PromotionOption[] 
   const [state, formAction, pending] = useActionState(addParticipant, initialState);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 p-6 dark:border-zinc-800">
+    <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-border p-6">
       <div>
         <Label htmlFor="email">Email du stagiaire</Label>
         <Input id="email" name="email" type="email" required placeholder="prenom.nom@makorgroup.com" />

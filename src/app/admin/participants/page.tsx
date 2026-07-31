@@ -60,7 +60,7 @@ export default async function ParticipantsPage() {
           ))}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-sm text-zinc-500">
+              <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
                 Aucun participant pour le moment.
               </TableCell>
             </TableRow>

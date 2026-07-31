@@ -20,7 +20,7 @@ function DevLoginButton({ account }: { account: DemoAccount }) {
       <input type="hidden" name="email" value={account.email} />
       <Button type="submit" variant="outline" className="w-full justify-between" disabled={pending}>
         <span>{account.name ?? account.email}</span>
-        <span className="text-xs text-zinc-500">{account.role}</span>
+        <span className="text-xs text-muted-foreground">{account.role}</span>
       </Button>
       {state.error && <p className="mt-1 text-xs text-destructive">{state.error}</p>}
     </form>
@@ -30,7 +30,7 @@ function DevLoginButton({ account }: { account: DemoAccount }) {
 export function DevLoginSection({ accounts }: { accounts: DemoAccount[] }) {
   if (accounts.length === 0) {
     return (
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground">
         Aucun compte de démonstration — lancez <code>npm run db:seed</code>.
       </p>
     );
