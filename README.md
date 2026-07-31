@@ -4,15 +4,17 @@ Plateforme web interne remplaçant l'ancien Google Sheets / Apps Script pour le 
 gestion de portefeuille des stagiaires Makor. Voir [docs/CONCEPTION.md](docs/CONCEPTION.md)
 pour l'architecture complète, le modèle de données et le règlement.
 
-État actuel : **phases 1 à 5 livrées**.
+État actuel : **phases 1 à 6 livrées** (roadmap initial complet).
 
 - Phase 1 — fondations : auth Google SSO, modèle de données, admin CRUD, ingestion des prix
 - Phase 2 — moteur de règles de trading (achats/ventes/renforcements), sessions de changement
 - Phase 3 — performance snapshots, graphique et historique des transactions
 - Phase 4 — classement en temps réel, système de badges
 - Phase 5 — Hall of Fame, notifications, connexion de démonstration
+- Phase 6 — identité visuelle premium (dark mode, TradingView/Robinhood), vérification de charge
 
-Reste au roadmap : polish UX/visuel (direction "TradingView/Robinhood"), tests de charge.
+Prochaines pistes possibles (non planifiées) : hall of fame étendu (heatmap sectorielle,
+positions les plus populaires), notifications par email, tests E2E automatisés.
 
 ## Stack
 
