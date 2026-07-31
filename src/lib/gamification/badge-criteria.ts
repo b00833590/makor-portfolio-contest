@@ -7,7 +7,8 @@ export interface BadgePositionContext {
 
 export interface BadgeEvaluationContext {
   now: Date;
-  totalValue: number;
+  /** Somme des valeurs de marché des positions ouvertes — n'inclut PAS le cash non investi. */
+  investedValue: number;
   positions: BadgePositionContext[];
   lastTransactionDate: Date | null;
   cumulativeReturnPct: number;
@@ -23,8 +24,10 @@ const COMEBACK_MIN_RANK_GAIN = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function isDiversificateur(ctx: BadgeEvaluationContext): boolean {
-  if (ctx.positions.length === 0 || ctx.totalValue <= 0) return false;
-  return ctx.positions.every((position) => (position.marketValue / ctx.totalValue) * 100 <= MAX_SINGLE_POSITION_SHARE_PCT);
+  if (ctx.positions.length === 0 || ctx.investedValue <= 0) return false;
+  return ctx.positions.every(
+    (position) => (position.marketValue / ctx.investedValue) * 100 <= MAX_SINGLE_POSITION_SHARE_PCT,
+  );
 }
 
 function isSniper(ctx: BadgeEvaluationContext): boolean {

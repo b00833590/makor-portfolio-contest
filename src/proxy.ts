@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-const protectedPrefixes = ["/dashboard", "/leaderboard", "/admin"];
+const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/admin"];
 const adminPrefixes = ["/admin"];
 
 export default auth((req) => {

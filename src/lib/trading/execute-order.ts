@@ -33,7 +33,7 @@ async function loadPositionsContext(portfolioId: string): Promise<PositionContex
   }));
 }
 
-async function findOpenChangeSession(promotionId: string, now: Date) {
+export async function getOpenChangeSession(promotionId: string, now: Date = new Date()) {
   return db.changeSession.findFirst({
     where: {
       promotionId,
@@ -73,7 +73,7 @@ export async function buildTradeContext(
     return { error: "Aucun prix disponible pour cet actif." };
   }
 
-  const changeSession = await findOpenChangeSession(promotion.id, now);
+  const changeSession = await getOpenChangeSession(promotion.id, now);
   const changesUsed = changeSession
     ? (await db.changeUsage.findUnique({
         where: { changeSessionId_userId: { changeSessionId: changeSession.id, userId } },

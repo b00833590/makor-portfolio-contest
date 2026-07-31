@@ -39,7 +39,7 @@ async function buildEvaluationContext(
 
   return {
     now,
-    totalValue: positionContexts.reduce((total, position) => total + position.marketValue, 0),
+    investedValue: positionContexts.reduce((total, position) => total + position.marketValue, 0),
     positions: positionContexts,
     lastTransactionDate: lastTransaction?.createdAt ?? null,
     cumulativeReturnPct: leaderboardRow.cumulativeReturnPct,

@@ -7,7 +7,7 @@ const NOW = new Date("2026-09-15T12:00:00Z");
 function baseContext(overrides: Partial<BadgeEvaluationContext> = {}): BadgeEvaluationContext {
   return {
     now: NOW,
-    totalValue: 1_000_000,
+    investedValue: 1_000_000,
     positions: [],
     lastTransactionDate: null,
     cumulativeReturnPct: 0,
@@ -20,7 +20,7 @@ function baseContext(overrides: Partial<BadgeEvaluationContext> = {}): BadgeEval
 describe("DIVERSIFICATEUR", () => {
   it("est attribué quand aucune position ne dépasse 20% de la valeur totale", () => {
     const ctx = baseContext({
-      totalValue: 500_000,
+      investedValue: 500_000,
       positions: [
         { marketValue: 100_000, costBasis: 100_000 },
         { marketValue: 100_000, costBasis: 100_000 },
@@ -35,7 +35,7 @@ describe("DIVERSIFICATEUR", () => {
 
   it("n'est pas attribué si une position dépasse 20%", () => {
     const ctx = baseContext({
-      totalValue: 500_000,
+      investedValue: 500_000,
       positions: [
         { marketValue: 150_000, costBasis: 150_000 },
         { marketValue: 350_000, costBasis: 350_000 },

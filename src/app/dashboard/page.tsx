@@ -6,6 +6,8 @@ import { getPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { getUserBadges } from "@/lib/gamification/get-user-badges";
+import { getOpenChangeSession } from "@/lib/trading/execute-order";
+import { getClosingSoonNotice } from "@/lib/trading/change-session-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuyForm } from "./buy-form";
@@ -25,7 +27,7 @@ export default async function DashboardPage() {
   const session = await verifySession();
   const portfolioView = await getPortfolioView(session.user.id);
 
-  const [availableAssets, performanceHistory, transactionHistory, badges] = portfolioView
+  const [availableAssets, performanceHistory, transactionHistory, badges, openChangeSession] = portfolioView
     ? await Promise.all([
         db.asset.findMany({
           where: {
@@ -38,8 +40,13 @@ export default async function DashboardPage() {
         getPerformanceHistory(portfolioView.portfolioId),
         getTransactionHistory(portfolioView.portfolioId),
         getUserBadges(session.user.id, portfolioView.promotionId),
+        getOpenChangeSession(portfolioView.promotionId),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], null];
+
+  const closingSoonNotice = openChangeSession
+    ? getClosingSoonNotice(openChangeSession.closesAt, new Date())
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
@@ -63,6 +70,12 @@ export default async function DashboardPage() {
           </form>
         </div>
       </div>
+
+      {closingSoonNotice && (
+        <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          ⏰ {closingSoonNotice.message}
+        </div>
+      )}
 
       {!portfolioView && (
         <p className="mt-8 text-sm text-zinc-500">

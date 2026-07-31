@@ -49,9 +49,14 @@ export default async function LeaderboardPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Classement</h1>
-        <Link href="/dashboard" className="text-sm text-zinc-500 hover:underline">
-          ← Tableau de bord
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/hall-of-fame" className="text-sm text-zinc-500 hover:underline">
+            Hall of Fame
+          </Link>
+          <Link href="/dashboard" className="text-sm text-zinc-500 hover:underline">
+            ← Tableau de bord
+          </Link>
+        </div>
       </div>
 
       {weeklyChallengeLeader && (
