@@ -1,15 +1,18 @@
+import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { signOut } from "@/auth";
 import { getPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
+import { getUserBadges } from "@/lib/gamification/get-user-badges";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuyForm } from "./buy-form";
 import { PositionCard } from "./position-card";
 import { PerformanceChart } from "./performance-chart";
 import { TransactionHistoryTable } from "./transaction-history-table";
+import { BadgesSection } from "./badges-section";
 
 async function handleSignOut() {
   "use server";
@@ -22,7 +25,7 @@ export default async function DashboardPage() {
   const session = await verifySession();
   const portfolioView = await getPortfolioView(session.user.id);
 
-  const [availableAssets, performanceHistory, transactionHistory] = portfolioView
+  const [availableAssets, performanceHistory, transactionHistory, badges] = portfolioView
     ? await Promise.all([
         db.asset.findMany({
           where: {
@@ -34,8 +37,9 @@ export default async function DashboardPage() {
         }),
         getPerformanceHistory(portfolioView.portfolioId),
         getTransactionHistory(portfolioView.portfolioId),
+        getUserBadges(session.user.id, portfolioView.promotionId),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
@@ -48,11 +52,16 @@ export default async function DashboardPage() {
             {session.user.email} · rôle {session.user.role}
           </p>
         </div>
-        <form action={handleSignOut}>
-          <Button variant="outline" type="submit">
-            Se déconnecter
-          </Button>
-        </form>
+        <div className="flex items-center gap-3">
+          <Link href="/leaderboard" className="text-sm text-zinc-500 hover:underline">
+            Classement →
+          </Link>
+          <form action={handleSignOut}>
+            <Button variant="outline" type="submit">
+              Se déconnecter
+            </Button>
+          </form>
+        </div>
       </div>
 
       {!portfolioView && (
@@ -82,6 +91,15 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Badges</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BadgesSection badges={badges} />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma generated client (regenerated via `npx prisma generate`)
 /src/generated/
+
+# harness/session artifacts (not project code)
+/.claude/
