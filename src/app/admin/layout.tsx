@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/dal";
+import { SiteHeader } from "@/components/site-header";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/admin/promotions", label: "Promotions" },
@@ -11,8 +13,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await requireAdmin();
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
-      <div className="flex items-center justify-between border-b border-border pb-4">
+    <>
+      <SiteHeader name={session.user.name} role={session.user.role} />
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Administration
@@ -21,16 +24,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Concours de portefeuille Makor
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground">{session.user.email}</p>
+        <nav className="flex gap-1 border-b border-border pb-4 text-sm font-medium">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        {children}
       </div>
-      <nav className="flex gap-4 text-sm font-medium text-muted-foreground">
-        {navItems.map((item) => (
-          <Link key={item.href} href={item.href} className="hover:text-foreground">
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-      {children}
-    </div>
+    </>
   );
 }

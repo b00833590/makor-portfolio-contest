@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { AssetType, PromotionStatus } from "@/generated/prisma/enums";
+import { AssetType, type PromotionStatus } from "@/generated/prisma/enums";
+import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { computeAvailableCash } from "./execute-order";
 
 export interface PositionView {
@@ -8,13 +9,20 @@ export interface PositionView {
   symbol: string;
   name: string;
   assetType: AssetType;
+  logoUrl: string | null;
   quantity: number;
   avgEntryPrice: number;
   currentPrice: number;
-  marketValue: number;
-  costBasis: number;
+  /** Montant investi à l'achat (Entry Value). */
+  entryValue: number;
+  /** Valeur actuelle de la position (Actual Value). */
+  actualValue: number;
+  /** Poids de la position dans le portefeuille total investi (%). */
+  allocationPct: number;
   pnl: number;
   pnlPct: number;
+  /** Variation du prix sur les dernières 24h (%), `null` si aucun historique n'existe encore. */
+  dailyChangePct: number | null;
 }
 
 export interface PortfolioView {
@@ -22,9 +30,40 @@ export interface PortfolioView {
   promotionName: string;
   promotionStatus: PromotionStatus;
   portfolioId: string;
+  initialCapital: number;
   availableCash: number;
   positions: PositionView[];
   totalMarketValue: number;
+  /** Capital disponible + valeur investie — la valeur totale réelle du compte. */
+  totalValue: number;
+  totalGainEur: number;
+  totalGainPct: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Pour chaque actif, le prix le plus récent à ou avant `cutoff` — une seule
+ * requête groupée (plutôt qu'une par position) grâce à `distinct`.
+ */
+async function getDailyReferencePrices(assetIds: string[], cutoff: Date): Promise<Map<string, number>> {
+  if (assetIds.length === 0) return new Map();
+
+  const rows = await db.price.findMany({
+    where: { assetId: { in: assetIds }, timestamp: { lte: cutoff } },
+    orderBy: { timestamp: "desc" },
+    distinct: ["assetId"],
+  });
+
+  return new Map(rows.map((row) => [row.assetId, Number(row.price)]));
+}
+
+function resolveLogoUrl(asset: { symbol: string; type: AssetType; logoUrl: string | null }): string | null {
+  if (asset.logoUrl) return asset.logoUrl;
+  if (asset.type === AssetType.STOCK || asset.type === AssetType.ETF) {
+    return `https://images.financialmodelingprep.com/symbol/${asset.symbol}.png`;
+  }
+  return null;
 }
 
 export async function getPortfolioView(userId: string): Promise<PortfolioView | null> {
@@ -46,37 +85,70 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
 
   if (!portfolio || !promotion) return null;
 
-  const availableCash = await computeAvailableCash(portfolio.id, Number(promotion.initialCapital));
+  const initialCapital = Number(promotion.initialCapital);
+  const openPositions = portfolio.positions;
 
-  const positions: PositionView[] = portfolio.positions.map((position) => {
+  const [availableCash, referencePrices, refreshedPrices] = await Promise.all([
+    computeAvailableCash(portfolio.id, initialCapital),
+    getDailyReferencePrices(
+      openPositions.map((position) => position.assetId),
+      new Date(Date.now() - DAY_MS),
+    ),
+    refreshAssetPricesIfStale(openPositions.map((position) => position.asset)),
+  ]);
+
+  function resolveCurrentPrice(position: (typeof openPositions)[number]): number {
+    const refreshed = refreshedPrices.get(position.assetId);
+    if (refreshed) return refreshed.price;
+    return Number(position.asset.prices[0]?.price ?? position.avgEntryPrice);
+  }
+
+  const totalMarketValue = openPositions.reduce((total, position) => {
+    const quantity = Number(position.quantity);
+    return total + quantity * resolveCurrentPrice(position);
+  }, 0);
+
+  const positions: PositionView[] = openPositions.map((position) => {
     const quantity = Number(position.quantity);
     const avgEntryPrice = Number(position.avgEntryPrice);
-    const currentPrice = Number(position.asset.prices[0]?.price ?? avgEntryPrice);
-    const marketValue = quantity * currentPrice;
-    const costBasis = quantity * avgEntryPrice;
+    const currentPrice = resolveCurrentPrice(position);
+    const actualValue = quantity * currentPrice;
+    const entryValue = quantity * avgEntryPrice;
+    const referencePrice = referencePrices.get(position.assetId);
 
     return {
       assetId: position.assetId,
       symbol: position.asset.symbol,
       name: position.asset.name,
       assetType: position.asset.type,
+      logoUrl: resolveLogoUrl(position.asset),
       quantity,
       avgEntryPrice,
       currentPrice,
-      marketValue,
-      costBasis,
-      pnl: marketValue - costBasis,
-      pnlPct: costBasis > 0 ? ((marketValue - costBasis) / costBasis) * 100 : 0,
+      entryValue,
+      actualValue,
+      allocationPct: totalMarketValue > 0 ? (actualValue / totalMarketValue) * 100 : 0,
+      pnl: actualValue - entryValue,
+      pnlPct: entryValue > 0 ? ((actualValue - entryValue) / entryValue) * 100 : 0,
+      dailyChangePct:
+        referencePrice && referencePrice > 0 ? ((currentPrice - referencePrice) / referencePrice) * 100 : null,
     };
   });
+
+  const totalValue = availableCash + totalMarketValue;
+  const totalGainEur = totalValue - initialCapital;
 
   return {
     promotionId: promotion.id,
     promotionName: promotion.name,
     promotionStatus: promotion.status,
     portfolioId: portfolio.id,
+    initialCapital,
     availableCash,
     positions,
-    totalMarketValue: positions.reduce((total, position) => total + position.marketValue, 0),
+    totalMarketValue,
+    totalValue,
+    totalGainEur,
+    totalGainPct: initialCapital > 0 ? (totalGainEur / initialCapital) * 100 : 0,
   };
 }

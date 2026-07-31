@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { AssetType } from "@/generated/prisma/enums";
+import { assertCryptoSlotAvailable } from "@/lib/assets/ensure-asset";
 import { createAssetSchema } from "./schema";
 
 export interface AssetFormState {
@@ -30,14 +31,8 @@ export async function createAsset(
   }
 
   if (parsed.data.type === AssetType.CRYPTO) {
-    const existingCrypto = await db.asset.findFirst({
-      where: { type: AssetType.CRYPTO, isActive: true },
-    });
-    if (existingCrypto) {
-      return {
-        error: `Une seule crypto autorisée par règlement — "${existingCrypto.symbol}" est déjà active.`,
-      };
-    }
+    const cryptoError = await assertCryptoSlotAvailable();
+    if (cryptoError) return { error: cryptoError };
   }
 
   const asset = await db.asset.create({ data: parsed.data });

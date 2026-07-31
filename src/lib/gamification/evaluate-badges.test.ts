@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const dbMock = {
   badge: { upsert: vi.fn() },
   position: { findMany: vi.fn() },
-  transaction: { findFirst: vi.fn() },
+  transaction: { findFirst: vi.fn(), findMany: vi.fn() },
   userBadge: { upsert: vi.fn() },
   // utilisé indirectement par getLeaderboard
   promotion: { findUniqueOrThrow: vi.fn() },
@@ -11,7 +11,10 @@ const dbMock = {
   performanceSnapshot: { findFirst: vi.fn() },
 };
 
+const refreshAssetPricesIfStaleMock = vi.fn();
+
 vi.mock("@/lib/db", () => ({ db: dbMock }));
+vi.mock("@/lib/prices/pull-through", () => ({ refreshAssetPricesIfStale: refreshAssetPricesIfStaleMock }));
 
 const { evaluateAndAwardBadges } = await import("./evaluate-badges");
 const { badgeDefinitions } = await import("./badge-definitions");
@@ -20,6 +23,9 @@ const NOW = new Date("2026-09-15T12:00:00Z");
 
 function resetMocks() {
   Object.values(dbMock).forEach((group) => Object.values(group).forEach((fn) => fn.mockReset()));
+  refreshAssetPricesIfStaleMock.mockReset();
+  refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
+  dbMock.transaction.findMany.mockResolvedValue([]);
 }
 
 beforeEach(() => {

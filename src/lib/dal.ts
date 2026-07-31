@@ -1,18 +1,22 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { getCurrentUser, type SessionUser } from "@/lib/auth/session";
 import type { UserRole } from "@/generated/prisma/enums";
 
-export const verifySession = cache(async () => {
-  const session = await auth();
-  if (!session?.user) {
+export interface Session {
+  user: SessionUser;
+}
+
+export const verifySession = cache(async (): Promise<Session> => {
+  const user = await getCurrentUser();
+  if (!user) {
     redirect("/login");
   }
-  return session;
+  return { user };
 });
 
-export const requireAdmin = cache(async () => {
+export const requireAdmin = cache(async (): Promise<Session> => {
   const session = await verifySession();
   if (session.user.role !== ("ADMIN" satisfies UserRole)) {
     redirect("/dashboard");

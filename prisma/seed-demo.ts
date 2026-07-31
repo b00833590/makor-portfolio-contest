@@ -1,6 +1,9 @@
 /**
  * Seed de données de démonstration — rejouable (nettoie puis recrée).
- * Usage: npm run db:seed
+ * Usage: npm run db:seed:demo
+ *
+ * Optionnel, pour le développement local uniquement (ne pas lancer en
+ * production — voir prisma/seed-admin.ts pour le seed essentiel).
  *
  * N'importe volontairement AUCUN module marqué "server-only" (db.ts, les
  * services trading/gamification) : ce script tourne via tsx, hors du
@@ -8,6 +11,7 @@
  * que les fonctions pures (règles, critères de badges, classement).
  */
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { AssetType, ChangeSessionStatus, PromotionStatus, TransactionType, UserRole } from "../src/generated/prisma/enums";
@@ -16,17 +20,14 @@ import { evaluateBadgeCriteria } from "../src/lib/gamification/badge-criteria";
 import { badgeDefinitions } from "../src/lib/gamification/badge-definitions";
 import { rankEntries } from "../src/lib/gamification/ranking";
 
-const DEMO_EMAIL_DOMAIN = "demo.makor.local";
 const PROMOTION_NAME = "Promotion Démo — Été 2026";
 const PAST_PROMOTION_NAME = "Promotion Démo — Printemps 2026";
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DEMO_PASSWORD = "demo1234";
+const DEMO_NAMES = ["Admin Démo", "Alice Dupont", "Bob Martin", "Charlie Bernard"];
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const db = new PrismaClient({ adapter });
-
-function email(handle: string): string {
-  return `${handle}@${DEMO_EMAIL_DOMAIN}`;
-}
 
 async function cleanupPromotion(name: string) {
   const existing = await db.promotion.findFirst({ where: { name } });
@@ -48,7 +49,7 @@ async function cleanupPromotion(name: string) {
 async function cleanup() {
   await cleanupPromotion(PAST_PROMOTION_NAME);
   await cleanupPromotion(PROMOTION_NAME);
-  await db.user.deleteMany({ where: { email: { endsWith: `@${DEMO_EMAIL_DOMAIN}` } } });
+  await db.user.deleteMany({ where: { name: { in: DEMO_NAMES } } });
   await db.asset.deleteMany({
     where: { symbol: { in: ["AAPL-DEMO", "MSFT-DEMO", "LVMH-DEMO", "CW8-DEMO", "BTC-DEMO", "SAN-DEMO"] } },
   });
@@ -128,8 +129,9 @@ async function main() {
     },
   });
 
+  const adminPasswordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const admin = await db.user.create({
-    data: { email: email("demo-admin"), name: "Admin Démo", role: UserRole.ADMIN, promotionId: promotion.id },
+    data: { name: "Admin Démo", passwordHash: adminPasswordHash, role: UserRole.ADMIN, promotionId: promotion.id },
   });
 
   const assetsBySymbol = new Map<string, { id: string; type: AssetType }>();
@@ -163,9 +165,10 @@ async function main() {
 
   const participantStates: ParticipantState[] = [];
 
+  const participantPasswordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   for (const seed of participantSeeds) {
     const user = await db.user.create({
-      data: { email: email(seed.handle), name: seed.name, role: UserRole.PARTICIPANT, promotionId: promotion.id },
+      data: { name: seed.name, passwordHash: participantPasswordHash, role: UserRole.PARTICIPANT, promotionId: promotion.id },
     });
     const portfolio = await db.portfolio.create({ data: { userId: user.id, promotionId: promotion.id } });
 
@@ -320,8 +323,8 @@ async function main() {
   }
 
   console.log("Comptes de démonstration créés :");
-  console.log(`  Admin       : ${admin.email}`);
-  for (const p of participantSeeds) console.log(`  Participant : ${email(p.handle)}`);
+  console.log(`  Admin       : ${admin.name} (mot de passe "${DEMO_PASSWORD}")`);
+  for (const p of participantSeeds) console.log(`  Participant : ${p.name} (mot de passe "${DEMO_PASSWORD}")`);
   console.log(`Promotion : "${PROMOTION_NAME}" (${promotion.id})`);
   console.log(`Saison passée (Hall of Fame) : "${PAST_PROMOTION_NAME}" (${pastPromotion.id})`);
 

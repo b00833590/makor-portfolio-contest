@@ -30,7 +30,16 @@ export function AssetForm() {
       </div>
       <div>
         <Label htmlFor="type">Type</Label>
-        <Select name="type" required defaultValue="STOCK">
+        <Select
+          name="type"
+          required
+          defaultValue="STOCK"
+          items={[
+            { value: "STOCK", label: "Action" },
+            { value: "ETF", label: "ETF" },
+            { value: "CRYPTO", label: "Crypto" },
+          ]}
+        >
           <SelectTrigger id="type" className="w-32">
             <SelectValue />
           </SelectTrigger>

@@ -64,7 +64,7 @@ export default async function PromotionsPage() {
                 </Badge>
               </CardHeader>
               <CardContent className="flex gap-2">
-                <Button variant="ghost" render={<Link href={`/admin/promotions/${promotion.id}`} />}>
+                <Button variant="ghost" nativeButton={false} render={<Link href={`/admin/promotions/${promotion.id}`} />}>
                   Sessions de changement
                 </Button>
                 {upcoming && (

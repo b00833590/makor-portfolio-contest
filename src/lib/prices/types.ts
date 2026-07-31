@@ -14,5 +14,5 @@ export interface FetchedPrice {
 export interface PriceProvider {
   readonly source: string;
   supports(asset: Pick<Asset, "type">): boolean;
-  fetchPrice(asset: Pick<Asset, "symbol" | "currency">): Promise<FetchedPrice | null>;
+  fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null>;
 }

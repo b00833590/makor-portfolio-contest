@@ -5,14 +5,24 @@ const dbMock = {
   promotion: { findMany: vi.fn(), findUniqueOrThrow: vi.fn() },
   portfolio: { findMany: vi.fn() },
   performanceSnapshot: { findFirst: vi.fn() },
+  position: { findMany: vi.fn() },
 };
 
+const computeAvailableCashMock = vi.fn();
+const refreshAssetPricesIfStaleMock = vi.fn();
+
 vi.mock("@/lib/db", () => ({ db: dbMock }));
+vi.mock("@/lib/trading/execute-order", () => ({ computeAvailableCash: computeAvailableCashMock }));
+vi.mock("@/lib/prices/pull-through", () => ({ refreshAssetPricesIfStale: refreshAssetPricesIfStaleMock }));
 
 const { getHallOfFame } = await import("./hall-of-fame");
 
 function resetMocks() {
   Object.values(dbMock).forEach((group) => Object.values(group).forEach((fn) => fn.mockReset()));
+  computeAvailableCashMock.mockReset();
+  refreshAssetPricesIfStaleMock.mockReset();
+  dbMock.position.findMany.mockResolvedValue([]);
+  refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
 }
 
 beforeEach(() => {
@@ -38,12 +48,10 @@ describe("getHallOfFame", () => {
       { id: "portfolio-a", user: { id: "user-a", name: "Alice", email: "alice@makor.com" } },
       { id: "portfolio-b", user: { id: "user-b", name: "Bob", email: "bob@makor.com" } },
     ]);
-    dbMock.performanceSnapshot.findFirst.mockImplementation(({ where }: { where: { portfolioId: string } }) => {
-      if (where.portfolioId === "portfolio-a") {
-        return Promise.resolve({ totalValue: 1_200_000, cumulativeReturnPct: 20 });
-      }
-      return Promise.resolve({ totalValue: 1_050_000, cumulativeReturnPct: 5 });
-    });
+    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+    computeAvailableCashMock.mockImplementation((portfolioId: string) =>
+      Promise.resolve(portfolioId === "portfolio-a" ? 1_200_000 : 1_050_000),
+    );
 
     const results = await getHallOfFame();
 

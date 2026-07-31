@@ -26,7 +26,7 @@ export default function Home() {
           Investissez 1 000 000 € fictifs, affrontez votre promotion, suivez le classement en
           temps réel.
         </p>
-        <Button render={<Link href="/login" />} size="lg" className="mt-8">
+        <Button render={<Link href="/login" />} nativeButton={false} size="lg" className="mt-8">
           Accéder à la plateforme
         </Button>
 

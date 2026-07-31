@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { addParticipant, type ParticipantFormState } from "./actions";
+import { createParticipant, type ParticipantFormState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,17 +21,25 @@ interface PromotionOption {
 }
 
 export function ParticipantForm({ promotions }: { promotions: PromotionOption[] }) {
-  const [state, formAction, pending] = useActionState(addParticipant, initialState);
+  const [state, formAction, pending] = useActionState(createParticipant, initialState);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4 rounded-xl border border-border p-6">
       <div>
-        <Label htmlFor="email">Email du stagiaire</Label>
-        <Input id="email" name="email" type="email" required placeholder="prenom.nom@makorgroup.com" />
+        <Label htmlFor="name">Identifiant (Prénom Nom)</Label>
+        <Input id="name" name="name" required placeholder="Adam Dupont" />
+      </div>
+      <div>
+        <Label htmlFor="password">Mot de passe</Label>
+        <Input id="password" name="password" type="text" required placeholder="Mot de passe initial" />
       </div>
       <div>
         <Label htmlFor="promotionId">Promotion</Label>
-        <Select name="promotionId" required>
+        <Select
+          name="promotionId"
+          required
+          items={promotions.map((promotion) => ({ value: promotion.id, label: promotion.name }))}
+        >
           <SelectTrigger id="promotionId" className="w-56">
             <SelectValue placeholder="Choisir une promotion" />
           </SelectTrigger>

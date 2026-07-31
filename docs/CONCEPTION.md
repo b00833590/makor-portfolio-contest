@@ -1,5 +1,26 @@
 # Concours de Portefeuille Makor — Refonte complète
-## Document de conception (v1 — à valider avant implémentation)
+## Document de conception (v1 — proposition d'origine)
+
+---
+
+> **Document historique.** Ce document a été écrit avant la première ligne de code, comme
+> proposition à valider. Il reste la meilleure référence pour le **raisonnement** derrière le
+> modèle de données, le Rules Engine et le game design (sections 3.3 à 7), mais plusieurs choix
+> d'architecture qu'il propose ont depuis évolué à l'usage. Pour l'état **actuel** de la
+> plateforme, se référer à :
+>
+> - [README.md](../README.md) — stack, démarrage, structure du projet
+> - [DEPLOIEMENT.md](DEPLOIEMENT.md) — hébergement Vercel + Neon
+> - [ADMINISTRATION.md](ADMINISTRATION.md) — usage admin au quotidien
+>
+> Changements notables par rapport à ce document :
+>
+> | Ce document propose | Choix final |
+> |---|---|
+> | Auth Google Workspace SSO (section 3.2, 8) | Identifiant/mot de passe géré par l'admin, sans OAuth — un compte Google expire quand un stagiaire quitte Makor, ce qui aurait cassé la continuité entre promotions ; voir `src/lib/auth/`. |
+> | Hébergement DB : Supabase ou Neon (section 3.2) | Neon — Supabase met en pause un projet inactif après 7 jours (réactivation manuelle), incompatible avec un usage intensif puis dormant entre promotions. |
+> | Ingestion prix toutes les 15-30 min via cron (section 3.2) | Cache "pull-through" à la demande (15 min de fraîcheur) + cron **quotidien** — le plan gratuit Vercel ne permet qu'une exécution de cron par jour ; voir `src/lib/prices/pull-through.ts`. |
+> | Univers d'actifs géré manuellement par l'admin (sections 4, 5.2) | Recherche de ticker en direct (Twelve Data + CoinGecko), actif créé automatiquement au premier achat ; l'admin garde un droit de veto (désactivation) plutôt qu'une liste blanche. |
 
 ---
 

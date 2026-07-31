@@ -1,59 +1,36 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { buyAsset, type TradeFormState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { AssetSearchCombobox } from "./asset-search-combobox";
+import type { AssetSearchResult } from "@/lib/assets/search-providers";
 
 const initialState: TradeFormState = {};
 
-interface AssetOption {
-  id: string;
-  symbol: string;
-  name: string;
-}
-
-export function BuyForm({ assets }: { assets: AssetOption[] }) {
+export function BuyForm() {
   const [state, formAction, pending] = useActionState(buyAsset, initialState);
-
-  if (assets.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Tous les actifs de l&apos;univers d&apos;investissement sont déjà dans votre portefeuille.
-      </p>
-    );
-  }
+  const [selected, setSelected] = useState<AssetSearchResult | null>(null);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4">
-      <div>
-        <Label htmlFor="buy-assetId">Actif</Label>
-        <Select name="assetId" required>
-          <SelectTrigger id="buy-assetId" className="w-56">
-            <SelectValue placeholder="Choisir un actif" />
-          </SelectTrigger>
-          <SelectContent>
-            {assets.map((asset) => (
-              <SelectItem key={asset.id} value={asset.id}>
-                {asset.symbol} — {asset.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="w-64">
+        <Label htmlFor="buy-search">Actif</Label>
+        <AssetSearchCombobox onSelect={setSelected} disabled={pending} />
+        <input type="hidden" name="symbol" value={selected?.symbol ?? ""} />
+        <input type="hidden" name="name" value={selected?.name ?? ""} />
+        <input type="hidden" name="type" value={selected?.type ?? ""} />
+        <input type="hidden" name="externalId" value={selected?.externalId ?? ""} />
+        <input type="hidden" name="currency" value={selected?.currency ?? ""} />
+        <input type="hidden" name="logoUrl" value={selected?.logoUrl ?? ""} />
       </div>
       <div>
         <Label htmlFor="buy-amount">Montant (€)</Label>
         <Input id="buy-amount" name="amount" type="number" required className="w-40" />
       </div>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || !selected}>
         {pending ? "Achat..." : "Acheter"}
       </Button>
       {state.error && <p className="w-full text-sm text-destructive">{state.error}</p>}

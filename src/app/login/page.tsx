@@ -1,14 +1,4 @@
-import { signIn } from "@/auth";
-import { db } from "@/lib/db";
-import { DEMO_EMAIL_DOMAIN, isDevLoginEnabled } from "@/lib/dev-login-constants";
-import { Button } from "@/components/ui/button";
-import { DevLoginSection } from "./dev-login-form";
-
-async function signInWithGoogle(formData: FormData) {
-  "use server";
-  const callbackUrl = (formData.get("callbackUrl") as string) || "/dashboard";
-  await signIn("google", { redirectTo: callbackUrl });
-}
+import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
@@ -16,15 +6,6 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const { callbackUrl } = await searchParams;
-  const devLoginEnabled = isDevLoginEnabled();
-
-  const demoAccounts = devLoginEnabled
-    ? await db.user.findMany({
-        where: { email: { endsWith: `@${DEMO_EMAIL_DOMAIN}` } },
-        select: { email: true, name: true, role: true },
-        orderBy: { role: "desc" },
-      })
-    : [];
 
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-background">
@@ -43,23 +24,9 @@ export default async function LoginPage({
           Concours de portefeuille Makor
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Connectez-vous avec votre compte Google Makor pour accéder à votre portefeuille.
+          Connectez-vous avec l&apos;identifiant et le mot de passe fournis par l&apos;administrateur.
         </p>
-        <form action={signInWithGoogle} className="mt-6">
-          <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/dashboard"} />
-          <Button type="submit" className="w-full">
-            Se connecter avec Google
-          </Button>
-        </form>
-
-        {devLoginEnabled && (
-          <div className="mt-6 border-t border-border pt-6">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-500">
-              Mode démonstration (dev uniquement)
-            </p>
-            <DevLoginSection accounts={demoAccounts} />
-          </div>
-        )}
+        <LoginForm callbackUrl={callbackUrl ?? "/dashboard"} />
       </div>
     </div>
   );

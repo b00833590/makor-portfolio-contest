@@ -1,5 +1,4 @@
 import { verifySession } from "@/lib/dal";
-import { db } from "@/lib/db";
 import { getPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
@@ -20,33 +19,23 @@ export default async function DashboardPage() {
   const session = await verifySession();
   const portfolioView = await getPortfolioView(session.user.id);
 
-  const [availableAssets, performanceHistory, transactionHistory, badges, openChangeSession] = portfolioView
+  const [performanceHistory, transactionHistory, badges, openChangeSession] = portfolioView
     ? await Promise.all([
-        db.asset.findMany({
-          where: {
-            isActive: true,
-            id: { notIn: portfolioView.positions.map((position) => position.assetId) },
-          },
-          select: { id: true, symbol: true, name: true },
-          orderBy: { symbol: "asc" },
-        }),
         getPerformanceHistory(portfolioView.portfolioId),
         getTransactionHistory(portfolioView.portfolioId),
         getUserBadges(session.user.id, portfolioView.promotionId),
         getOpenChangeSession(portfolioView.promotionId),
       ])
-    : [[], [], [], [], null];
+    : [[], [], [], null];
 
   const closingSoonNotice = openChangeSession
     ? getClosingSoonNotice(openChangeSession.closesAt, new Date())
     : null;
-  const cumulativeReturnPct = performanceHistory.at(-1)?.cumulativeReturnPct ?? 0;
 
   return (
     <>
       <SiteHeader
-        name={session.user.name ?? session.user.email ?? "Utilisateur"}
-        email={session.user.email ?? ""}
+        name={session.user.name}
         role={session.user.role}
       />
       <div className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -67,12 +56,18 @@ export default async function DashboardPage() {
 
         {portfolioView && (
           <div className="mt-6 flex flex-col gap-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Capital disponible
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Capital initial</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-semibold tabular-nums">
+                  {currencyFormatter.format(portfolioView.initialCapital)}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Capital disponible</CardTitle>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums">
                   {currencyFormatter.format(portfolioView.availableCash)}
@@ -80,9 +75,7 @@ export default async function DashboardPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Valeur investie
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Valeur investie</CardTitle>
                 </CardHeader>
                 <CardContent className="text-2xl font-semibold tabular-nums">
                   {currencyFormatter.format(portfolioView.totalMarketValue)}
@@ -90,15 +83,25 @@ export default async function DashboardPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Rendement total
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Valeur du portefeuille</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-semibold tabular-nums">
+                  {currencyFormatter.format(portfolioView.totalValue)}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Performance totale</CardTitle>
                 </CardHeader>
                 <CardContent
-                  className={`text-2xl font-semibold tabular-nums ${cumulativeReturnPct >= 0 ? "text-gain" : "text-loss"}`}
+                  className={`text-2xl font-semibold tabular-nums ${portfolioView.totalGainPct >= 0 ? "text-gain" : "text-loss"}`}
                 >
-                  {cumulativeReturnPct >= 0 ? "+" : ""}
-                  {cumulativeReturnPct.toFixed(1)}%
+                  {portfolioView.totalGainPct >= 0 ? "+" : ""}
+                  {portfolioView.totalGainPct.toFixed(1)}%
+                  <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                    ({portfolioView.totalGainEur >= 0 ? "+" : ""}
+                    {currencyFormatter.format(portfolioView.totalGainEur)})
+                  </span>
                 </CardContent>
               </Card>
             </div>
@@ -126,7 +129,7 @@ export default async function DashboardPage() {
                 <CardTitle>Nouvel achat</CardTitle>
               </CardHeader>
               <CardContent>
-                <BuyForm assets={availableAssets} />
+                <BuyForm />
               </CardContent>
             </Card>
 

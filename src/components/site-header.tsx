@@ -40,11 +40,9 @@ function initials(name: string): string {
 
 export function SiteHeader({
   name,
-  email,
   role,
 }: {
   name: string;
-  email: string;
   role: "ADMIN" | "PARTICIPANT";
 }) {
   const pathname = usePathname();
@@ -105,7 +103,7 @@ export function SiteHeader({
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <p className="font-medium">{name}</p>
-                <p className="text-xs font-normal text-muted-foreground">{email}</p>
+                <p className="text-xs font-normal text-muted-foreground">{role === "ADMIN" ? "Administrateur" : "Participant"}</p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

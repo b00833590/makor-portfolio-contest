@@ -25,6 +25,8 @@ function makeAsset(overrides: Partial<Asset> = {}): Asset {
     currency: "USD",
     isActive: true,
     createdAt: new Date(),
+    externalId: null,
+    logoUrl: null,
     ...overrides,
   };
 }

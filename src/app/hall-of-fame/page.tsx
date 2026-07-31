@@ -18,8 +18,7 @@ export default async function HallOfFamePage() {
   return (
     <>
       <SiteHeader
-        name={session.user.name ?? session.user.email ?? "Utilisateur"}
-        email={session.user.email ?? ""}
+        name={session.user.name}
         role={session.user.role}
       />
       <div className="mx-auto w-full max-w-3xl px-6 py-10">

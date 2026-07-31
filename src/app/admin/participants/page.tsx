@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ParticipantForm } from "./participant-form";
-import { removeParticipant } from "./actions";
+import { ParticipantRowActions } from "./participant-row-actions";
 
 export default async function ParticipantsPage() {
   const [promotions, users] = await Promise.all([
@@ -29,17 +28,15 @@ export default async function ParticipantsPage() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead>Nom</TableHead>
+            <TableHead>Identifiant</TableHead>
             <TableHead>Promotion</TableHead>
-            <TableHead className="text-right">Action</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.map((user) => (
             <TableRow key={user.id}>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{user.name ?? "—"}</TableCell>
+              <TableCell className="font-medium">{user.name}</TableCell>
               <TableCell>
                 {user.promotion ? (
                   user.promotion.name
@@ -47,20 +44,18 @@ export default async function ParticipantsPage() {
                   <Badge variant="secondary">Aucune</Badge>
                 )}
               </TableCell>
-              <TableCell className="text-right">
-                {user.promotionId && (
-                  <form action={removeParticipant.bind(null, user.id)}>
-                    <Button type="submit" variant="outline" size="sm">
-                      Retirer
-                    </Button>
-                  </form>
-                )}
+              <TableCell>
+                <ParticipantRowActions
+                  userId={user.id}
+                  currentPromotionId={user.promotionId}
+                  promotions={promotions}
+                />
               </TableCell>
             </TableRow>
           ))}
           {users.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+              <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
                 Aucun participant pour le moment.
               </TableCell>
             </TableRow>

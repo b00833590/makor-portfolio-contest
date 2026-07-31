@@ -1,0 +1,114 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import {
+  reassignParticipantPromotion,
+  removeParticipant,
+  deleteParticipant,
+  resetParticipantPassword,
+  type ParticipantFormState,
+} from "./actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const initialState: ParticipantFormState = {};
+
+interface PromotionOption {
+  id: string;
+  name: string;
+}
+
+export function ParticipantRowActions({
+  userId,
+  currentPromotionId,
+  promotions,
+}: {
+  userId: string;
+  currentPromotionId: string | null;
+  promotions: PromotionOption[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [resetState, resetAction, resetPending] = useActionState(resetParticipantPassword, initialState);
+  const [reassignState, reassignAction, reassignPending] = useActionState(
+    reassignParticipantPromotion,
+    initialState,
+  );
+
+  return (
+    <div className="flex justify-end gap-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger render={<Button variant="outline" size="sm" />}>Modifier</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier le participant</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6">
+            <form action={reassignAction} className="flex flex-col gap-2">
+              <input type="hidden" name="userId" value={userId} />
+              <Label htmlFor={`promotion-${userId}`}>Promotion</Label>
+              <Select
+                name="promotionId"
+                defaultValue={currentPromotionId ?? undefined}
+                items={promotions.map((promotion) => ({ value: promotion.id, label: promotion.name }))}
+              >
+                <SelectTrigger id={`promotion-${userId}`} className="w-full">
+                  <SelectValue placeholder="Choisir une promotion" />
+                </SelectTrigger>
+                <SelectContent>
+                  {promotions.map((promotion) => (
+                    <SelectItem key={promotion.id} value={promotion.id}>
+                      {promotion.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="submit" size="sm" disabled={reassignPending} className="self-start">
+                Changer de promotion
+              </Button>
+              {reassignState.error && <p className="text-sm text-destructive">{reassignState.error}</p>}
+            </form>
+
+            <form action={resetAction} className="flex flex-col gap-2 border-t border-border pt-4">
+              <input type="hidden" name="userId" value={userId} />
+              <Label htmlFor={`password-${userId}`}>Nouveau mot de passe</Label>
+              <Input id={`password-${userId}`} name="password" required placeholder="Nouveau mot de passe" />
+              <Button type="submit" size="sm" disabled={resetPending} className="self-start">
+                Réinitialiser le mot de passe
+              </Button>
+              {resetState.error && <p className="text-sm text-destructive">{resetState.error}</p>}
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {currentPromotionId && (
+        <form action={removeParticipant.bind(null, userId)}>
+          <Button type="submit" variant="outline" size="sm">
+            Retirer
+          </Button>
+        </form>
+      )}
+
+      <form action={deleteParticipant.bind(null, userId)}>
+        <Button type="submit" variant="destructive" size="sm">
+          Supprimer
+        </Button>
+      </form>
+    </div>
+  );
+}
