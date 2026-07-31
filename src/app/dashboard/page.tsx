@@ -2,10 +2,14 @@ import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { signOut } from "@/auth";
 import { getPortfolioView } from "@/lib/trading/portfolio-view";
+import { getPerformanceHistory } from "@/lib/trading/performance-history";
+import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuyForm } from "./buy-form";
 import { PositionCard } from "./position-card";
+import { PerformanceChart } from "./performance-chart";
+import { TransactionHistoryTable } from "./transaction-history-table";
 
 async function handleSignOut() {
   "use server";
@@ -18,16 +22,20 @@ export default async function DashboardPage() {
   const session = await verifySession();
   const portfolioView = await getPortfolioView(session.user.id);
 
-  const availableAssets = portfolioView
-    ? await db.asset.findMany({
-        where: {
-          isActive: true,
-          id: { notIn: portfolioView.positions.map((position) => position.assetId) },
-        },
-        select: { id: true, symbol: true, name: true },
-        orderBy: { symbol: "asc" },
-      })
-    : [];
+  const [availableAssets, performanceHistory, transactionHistory] = portfolioView
+    ? await Promise.all([
+        db.asset.findMany({
+          where: {
+            isActive: true,
+            id: { notIn: portfolioView.positions.map((position) => position.assetId) },
+          },
+          select: { id: true, symbol: true, name: true },
+          orderBy: { symbol: "asc" },
+        }),
+        getPerformanceHistory(portfolioView.portfolioId),
+        getTransactionHistory(portfolioView.portfolioId),
+      ])
+    : [[], [], []];
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
@@ -77,6 +85,15 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Évolution du portefeuille</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PerformanceChart data={performanceHistory} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Nouvel achat</CardTitle>
             </CardHeader>
             <CardContent>
@@ -92,6 +109,15 @@ export default async function DashboardPage() {
               <PositionCard key={position.assetId} position={position} />
             ))}
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Historique des transactions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TransactionHistoryTable transactions={transactionHistory} />
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

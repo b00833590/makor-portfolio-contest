@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/ingest-prices",
       "schedule": "*/30 7-22 * * 1-5"
+    },
+    {
+      "path": "/api/cron/snapshot-portfolios",
+      "schedule": "0 22 * * *"
     }
   ]
 }
