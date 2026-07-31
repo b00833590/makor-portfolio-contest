@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { provisionPortfolios } from "@/lib/portfolio-provisioning";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { createPromotionSchema } from "./schema";
 
@@ -70,12 +71,17 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
     data: { status },
   });
 
+  let provisionedCount: number | undefined;
+  if (status === PromotionStatus.ACTIVE) {
+    provisionedCount = await provisionPortfolios(promotionId);
+  }
+
   await logAudit({
     adminId: session.user.id,
     action: "promotion.status",
     target: promotionId,
     before: { status: before.status },
-    after: { status: promotion.status },
+    after: { status: promotion.status, provisionedPortfolios: provisionedCount },
   });
 
   revalidatePath("/admin/promotions");

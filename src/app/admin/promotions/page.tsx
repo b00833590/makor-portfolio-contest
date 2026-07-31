@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +50,9 @@ export default async function PromotionsPage() {
             <Card key={promotion.id}>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
-                  <CardTitle>{promotion.name}</CardTitle>
+                  <Link href={`/admin/promotions/${promotion.id}`} className="hover:underline">
+                    <CardTitle>{promotion.name}</CardTitle>
+                  </Link>
                   <p className="mt-1 text-sm text-zinc-500">
                     {promotion.startDate.toLocaleDateString("fr-FR")} →{" "}
                     {promotion.endDate.toLocaleDateString("fr-FR")} ·{" "}
@@ -60,15 +63,18 @@ export default async function PromotionsPage() {
                   {statusLabels[promotion.status]}
                 </Badge>
               </CardHeader>
-              {upcoming && (
-                <CardContent>
+              <CardContent className="flex gap-2">
+                <Button variant="ghost" render={<Link href={`/admin/promotions/${promotion.id}`} />}>
+                  Sessions de changement
+                </Button>
+                {upcoming && (
                   <form action={setPromotionStatus.bind(null, promotion.id, upcoming)}>
                     <Button type="submit" variant="outline">
                       {nextStatusLabel[promotion.status]}
                     </Button>
                   </form>
-                </CardContent>
-              )}
+                )}
+              </CardContent>
             </Card>
           );
         })}
