@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseParisDateTimeLocal, toParisDateTimeLocalValue, parisDateTimeLocalSchema } from "./timezone";
+import { parseParisDateTimeLocal, toParisDateTimeLocalValue, formatParisDateTime, parisDateTimeLocalSchema } from "./timezone";
 
 describe("parseParisDateTimeLocal", () => {
   it("interprets a summer (CEST, UTC+2) datetime-local value as Paris time", () => {
@@ -41,6 +41,16 @@ describe("toParisDateTimeLocalValue", () => {
     const original = "2026-07-31T21:38";
     const roundTripped = toParisDateTimeLocalValue(parseParisDateTimeLocal(original));
     expect(roundTripped).toBe(original);
+  });
+});
+
+describe("formatParisDateTime", () => {
+  it("formats a UTC instant as a human-readable Paris datetime (summer)", () => {
+    expect(formatParisDateTime(new Date("2026-07-31T19:38:00.000Z"))).toBe("31/07/2026 21:38");
+  });
+
+  it("formats a UTC instant as a human-readable Paris datetime (winter)", () => {
+    expect(formatParisDateTime(new Date("2026-01-15T09:00:00.000Z"))).toBe("15/01/2026 10:00");
   });
 });
 

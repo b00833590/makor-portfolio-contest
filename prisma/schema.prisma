@@ -34,9 +34,9 @@ enum UserRole {
 /// name sert à la fois d'identifiant de connexion (ex. "Adam Dupont") et
 /// d'affichage — un seul champ, pas de duplication entre "username" et "name".
 model User {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  passwordHash String
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  passwordHash       String
   /// Vrai juste après la création du compte par l'admin (mot de passe
   /// temporaire) — force le changement de mot de passe à la première
   /// connexion, avant tout autre accès (voir src/proxy.ts).
@@ -66,17 +66,23 @@ enum PromotionStatus {
 /// Une saison du concours. Les règles sont versionnées ici pour ne jamais
 /// affecter l'historique des saisons précédentes (cf. section 6 de CONCEPTION.md).
 model Promotion {
-  id             String          @id @default(cuid())
-  name           String
-  status         PromotionStatus @default(DRAFT)
-  startDate      DateTime
-  endDate        DateTime
-  initialCapital Decimal         @db.Decimal(18, 2)
+  id               String          @id @default(cuid())
+  name             String
+  status           PromotionStatus @default(DRAFT)
+  startDate        DateTime
+  endDate          DateTime
+  initialCapital   Decimal         @db.Decimal(18, 2)
   /// PromotionRules: { minPositionSize, maxPositionSize, maxPositions, maxCryptoPositions,
-  ///                    changeSessionsPerWeek, maxChangesPerSession, freezeHoursBeforeEnd }
-  rules          Json
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  ///                    changeSessionsPerWeek, maxChangesPerSession, freezeHoursBeforeEnd,
+  ///                    initializationWindowHours }
+  rules            Json
+  /// Paragraphe d'introduction du règlement — éditable par l'admin, sinon un texte par
+  /// défaut est généré à l'affichage à partir des paramètres de la promotion.
+  rulesIntro       String?         @db.Text
+  /// Notes/règles complémentaires libres, affichées en fin de règlement.
+  rulesCustomNotes String?         @db.Text
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   users          User[]
   portfolios     Portfolio[]
@@ -91,14 +97,14 @@ enum AssetType {
 }
 
 model Asset {
-  id        String    @id @default(cuid())
-  symbol    String    @unique
-  name      String
-  type      AssetType
-  sector    String?
-  currency  String    @default("EUR")
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  symbol     String    @unique
+  name       String
+  type       AssetType
+  sector     String?
+  currency   String    @default("EUR")
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
   /// Identifiant du fournisseur de prix quand il diffère du ticker affiché
   /// (ex. id CoinGecko "bitcoin" pour le ticker "BTC") — voir
   /// src/lib/prices/providers/coingecko-provider.ts.

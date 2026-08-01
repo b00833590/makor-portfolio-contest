@@ -7,6 +7,7 @@ const navItems = [
   { href: "/admin/promotions", label: "Promotions" },
   { href: "/admin/participants", label: "Participants" },
   { href: "/admin/assets", label: "Univers d'actifs" },
+  { href: "/admin/reglement", label: "Règlement" },
   { href: "/admin/audit", label: "Journal d'audit" },
 ];
 

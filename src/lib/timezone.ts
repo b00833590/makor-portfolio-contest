@@ -64,6 +64,23 @@ export function toParisDateTimeLocalValue(date: Date): string {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
+/**
+ * Affiche une date en heure de Paris, quel que soit le fuseau du serveur qui
+ * exécute ce code — `date.toLocaleString("fr-FR")` sans `timeZone` explicite
+ * dépend du fuseau du processus Node (correct en dev local si la machine est
+ * réglée sur Paris, faux en production sur Vercel qui tourne en UTC).
+ */
+export function formatParisDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: PARIS_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 /** Schéma Zod réutilisable pour un champ <input type="datetime-local"> interprété en heure de Paris. */
 export const parisDateTimeLocalSchema = z.string().transform((value, ctx) => {
   const date = parseParisDateTimeLocal(value);

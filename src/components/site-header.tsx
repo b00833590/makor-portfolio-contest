@@ -27,6 +27,7 @@ const participantNavLinks: NavLink[] = [
   { href: "/dashboard", label: "Portefeuille" },
   { href: "/leaderboard", label: "Classement" },
   { href: "/hall-of-fame", label: "Hall of Fame" },
+  { href: "/reglement", label: "Règlement" },
 ];
 
 // L'admin ne joue pas — pas de portefeuille, mais garde un œil sur le classement et le Hall of Fame.

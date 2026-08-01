@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { ChangeSessionStatus } from "@/generated/prisma/enums";
 import { recalculateAllPortfolioSnapshots } from "@/lib/trading/recalculate-snapshot";
-import { createChangeSessionSchema } from "./schema";
+import { createChangeSessionSchema, updateRulesTextSchema } from "./schema";
 
 export interface ChangeSessionFormState {
   error?: string;
@@ -125,6 +125,51 @@ export async function setChangeSessionStatus(
   });
 
   revalidatePath(`/admin/promotions/${promotionId}`);
+}
+
+export interface RulesTextFormState {
+  error?: string;
+}
+
+export async function updatePromotionRulesText(
+  promotionId: string,
+  _prevState: RulesTextFormState,
+  formData: FormData,
+): Promise<RulesTextFormState> {
+  const session = await requireAdmin();
+
+  const parsed = updateRulesTextSchema.safeParse({
+    rulesIntro: formData.get("rulesIntro"),
+    rulesCustomNotes: formData.get("rulesCustomNotes"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
+  }
+
+  const rulesIntro = parsed.data.rulesIntro || null;
+  const rulesCustomNotes = parsed.data.rulesCustomNotes || null;
+
+  const before = await db.promotion.findUniqueOrThrow({
+    where: { id: promotionId },
+    select: { rulesIntro: true, rulesCustomNotes: true },
+  });
+  await db.promotion.update({
+    where: { id: promotionId },
+    data: { rulesIntro, rulesCustomNotes },
+  });
+
+  await logAudit({
+    adminId: session.user.id,
+    action: "promotion.rules_update",
+    target: promotionId,
+    before,
+    after: { rulesIntro, rulesCustomNotes },
+  });
+
+  revalidatePath(`/admin/promotions/${promotionId}/reglement`);
+  revalidatePath("/reglement");
+  return {};
 }
 
 export async function recalculateAllSnapshots(promotionId: string) {

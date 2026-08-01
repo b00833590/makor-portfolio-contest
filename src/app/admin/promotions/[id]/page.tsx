@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
-import { toParisDateTimeLocalValue } from "@/lib/timezone";
+import { toParisDateTimeLocalValue, formatParisDateTime } from "@/lib/timezone";
 import { ChangeSessionForm } from "./change-session-form";
 import { ChangeSessionRowActions } from "./change-session-row-actions";
 import { BulkParticipantsForm } from "./bulk-participants-form";
@@ -47,11 +47,16 @@ export default async function PromotionDetailPage({
         </Link>
         <div className="mt-1 flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">{promotion.name}</h2>
-          <form action={recalculateAllSnapshots.bind(null, promotion.id)}>
-            <Button type="submit" variant="outline" size="sm">
-              Recalculer tous les portefeuilles
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/promotions/${promotion.id}/reglement`} />}>
+              Règlement
             </Button>
-          </form>
+            <form action={recalculateAllSnapshots.bind(null, promotion.id)}>
+              <Button type="submit" variant="outline" size="sm">
+                Recalculer tous les portefeuilles
+              </Button>
+            </form>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
           {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
@@ -102,8 +107,8 @@ export default async function PromotionDetailPage({
                   {isInitializationWindow ? "Fenêtre de constitution du portefeuille" : `Semaine ${changeSession.weekNumber}`}
                 </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {changeSession.opensAt.toLocaleString("fr-FR")} →{" "}
-                  {changeSession.closesAt.toLocaleString("fr-FR")} ·{" "}
+                  {formatParisDateTime(changeSession.opensAt)} →{" "}
+                  {formatParisDateTime(changeSession.closesAt)} ·{" "}
                   {isInitializationWindow ? "changements illimités" : `${changeSession.maxChangesPerParticipant} changements max`}
                 </p>
               </div>

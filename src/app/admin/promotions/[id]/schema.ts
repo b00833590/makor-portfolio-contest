@@ -13,3 +13,10 @@ export const createChangeSessionSchema = z
     error: "La fermeture doit être après l'ouverture",
     path: ["closesAt"],
   });
+
+const MAX_RULES_TEXT_LENGTH = 10_000;
+
+export const updateRulesTextSchema = z.object({
+  rulesIntro: z.string().trim().max(MAX_RULES_TEXT_LENGTH).optional(),
+  rulesCustomNotes: z.string().trim().max(MAX_RULES_TEXT_LENGTH).optional(),
+});
