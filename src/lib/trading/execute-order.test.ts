@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AssetType, ChangeSessionStatus, PromotionStatus, TransactionType } from "@/generated/prisma/enums";
+import { AssetType, ChangeSessionKind, ChangeSessionStatus, PromotionStatus, TransactionType } from "@/generated/prisma/enums";
 import { defaultPromotionRules } from "@/lib/promotion-rules";
 
 const dbMock = {
@@ -49,6 +49,7 @@ function mockHappyPath() {
   });
   dbMock.changeSession.findFirst.mockResolvedValue({
     id: "session-1",
+    kind: ChangeSessionKind.WEEKLY,
     status: ChangeSessionStatus.OPEN,
     opensAt: new Date("2026-09-15T00:00:00Z"),
     closesAt: new Date("2026-09-16T00:00:00Z"),

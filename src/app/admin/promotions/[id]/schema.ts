@@ -3,7 +3,8 @@ import { parisDateTimeLocalSchema } from "@/lib/timezone";
 
 export const createChangeSessionSchema = z
   .object({
-    weekNumber: z.coerce.number().int().positive(),
+    // 0 est réservé à la fenêtre de constitution du portefeuille (voir ChangeSessionKind.INITIALIZATION).
+    weekNumber: z.coerce.number().int().min(0),
     opensAt: parisDateTimeLocalSchema,
     closesAt: parisDateTimeLocalSchema,
     maxChangesPerParticipant: z.coerce.number().int().positive(),

@@ -1,4 +1,4 @@
-import { ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
 import type { PositionContext, TradeContext, TradeOrderInput, TradeValidationResult } from "./types";
 
 function ok(): TradeValidationResult {
@@ -136,7 +136,8 @@ export function validateOrder(order: TradeOrderInput, ctx: TradeContext): TradeV
   if (!isChangeSessionOpen(ctx)) {
     return fail("Aucune session de changement n'est ouverte actuellement.");
   }
-  if (ctx.changesUsed >= ctx.changeSession!.maxChangesPerParticipant) {
+  const isInitializationWindow = ctx.changeSession!.kind === ChangeSessionKind.INITIALIZATION;
+  if (!isInitializationWindow && ctx.changesUsed >= ctx.changeSession!.maxChangesPerParticipant) {
     return fail("Le quota de changements de cette session est atteint.");
   }
 

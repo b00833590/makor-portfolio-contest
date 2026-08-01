@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AssetType, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
+import { AssetType, ChangeSessionKind, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
 import { defaultPromotionRules } from "@/lib/promotion-rules";
 import { validateOrder } from "./rules-engine";
 import type { TradeContext } from "./types";
@@ -15,6 +15,7 @@ function baseContext(overrides: Partial<TradeContext> = {}): TradeContext {
       rules: defaultPromotionRules,
     },
     changeSession: {
+      kind: ChangeSessionKind.WEEKLY,
       status: ChangeSessionStatus.OPEN,
       opensAt: new Date("2026-09-15T00:00:00Z"),
       closesAt: new Date("2026-09-16T00:00:00Z"),
@@ -51,6 +52,7 @@ describe("validateOrder — garde-fous globaux", () => {
     const ctx = baseContext({
       now: new Date("2026-09-27T23:59:00Z"), // un peu plus de 48h avant la fin
       changeSession: {
+        kind: ChangeSessionKind.WEEKLY,
         status: ChangeSessionStatus.OPEN,
         opensAt: new Date("2026-09-27T00:00:00Z"),
         closesAt: new Date("2026-09-28T00:00:00Z"),
@@ -99,6 +101,17 @@ describe("validateOrder — garde-fous globaux", () => {
 
   it("accepte quand le quota n'est pas encore atteint", () => {
     const ctx = baseContext({ changesUsed: 3 });
+
+    const result = validateOrder({ type: "BUY", assetId: "asset-aapl", amount: 50_000 }, ctx);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("n'applique aucun quota de changements pendant la fenêtre de constitution du portefeuille", () => {
+    const ctx = baseContext({
+      changeSession: { ...baseContext().changeSession!, kind: ChangeSessionKind.INITIALIZATION },
+      changesUsed: 999,
+    });
 
     const result = validateOrder({ type: "BUY", assetId: "asset-aapl", amount: 50_000 }, ctx);
 

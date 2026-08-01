@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { provisionPortfolios } from "@/lib/portfolio-provisioning";
+import { ensureInitializationWindow } from "@/lib/initialization-window";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { createPromotionSchema, updatePromotionSchema } from "./schema";
 
@@ -31,6 +32,7 @@ export async function createPromotion(
     changeSessionsPerWeek: formData.get("changeSessionsPerWeek"),
     maxChangesPerSession: formData.get("maxChangesPerSession"),
     freezeHoursBeforeEnd: formData.get("freezeHoursBeforeEnd"),
+    initializationWindowHours: formData.get("initializationWindowHours"),
   });
 
   if (!parsed.success) {
@@ -81,6 +83,7 @@ export async function updatePromotion(
     changeSessionsPerWeek: formData.get("changeSessionsPerWeek"),
     maxChangesPerSession: formData.get("maxChangesPerSession"),
     freezeHoursBeforeEnd: formData.get("freezeHoursBeforeEnd"),
+    initializationWindowHours: formData.get("initializationWindowHours"),
   });
 
   if (!parsed.success) {
@@ -143,8 +146,10 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
   });
 
   let provisionedCount: number | undefined;
+  let initializationWindowOpened = false;
   if (status === PromotionStatus.ACTIVE) {
     provisionedCount = await provisionPortfolios(promotionId);
+    initializationWindowOpened = (await ensureInitializationWindow(promotionId)) !== null;
   }
 
   await logAudit({
@@ -152,7 +157,7 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
     action: "promotion.status",
     target: promotionId,
     before: { status: before.status },
-    after: { status: promotion.status, provisionedPortfolios: provisionedCount },
+    after: { status: promotion.status, provisionedPortfolios: provisionedCount, initializationWindowOpened },
   });
 
   revalidatePath("/admin/promotions");

@@ -187,9 +187,18 @@ enum ChangeSessionStatus {
   CLOSED
 }
 
+/// INITIALIZATION : fenêtre de constitution du portefeuille initial, ouverte
+/// automatiquement au lancement de la promotion — changements illimités (voir
+/// rules-engine.ts). WEEKLY : session de changement hebdomadaire classique.
+enum ChangeSessionKind {
+  INITIALIZATION
+  WEEKLY
+}
+
 model ChangeSession {
   id                       String              @id @default(cuid())
   promotionId              String
+  kind                     ChangeSessionKind   @default(WEEKLY)
   weekNumber               Int
   opensAt                  DateTime
   closesAt                 DateTime

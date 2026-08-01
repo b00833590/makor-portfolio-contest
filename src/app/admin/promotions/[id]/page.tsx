@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { ChangeSessionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,20 +92,27 @@ export default async function PromotionDetailPage({
         {promotion.changeSessions.length === 0 && (
           <p className="text-sm text-muted-foreground">Aucune session de changement pour le moment.</p>
         )}
-        {promotion.changeSessions.map((changeSession) => (
-          <Card key={changeSession.id}>
+        {promotion.changeSessions.map((changeSession) => {
+          const isInitializationWindow = changeSession.kind === ChangeSessionKind.INITIALIZATION;
+          return (
+          <Card key={changeSession.id} className={isInitializationWindow ? "border-primary/50" : undefined}>
             <CardHeader className="flex-row items-center justify-between">
               <div>
-                <CardTitle>Semaine {changeSession.weekNumber}</CardTitle>
+                <CardTitle>
+                  {isInitializationWindow ? "Fenêtre de constitution du portefeuille" : `Semaine ${changeSession.weekNumber}`}
+                </CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {changeSession.opensAt.toLocaleString("fr-FR")} →{" "}
-                  {changeSession.closesAt.toLocaleString("fr-FR")} · {changeSession.maxChangesPerParticipant}{" "}
-                  changements max
+                  {changeSession.closesAt.toLocaleString("fr-FR")} ·{" "}
+                  {isInitializationWindow ? "changements illimités" : `${changeSession.maxChangesPerParticipant} changements max`}
                 </p>
               </div>
-              <Badge variant={changeSession.status === "OPEN" ? "default" : "secondary"}>
-                {statusLabels[changeSession.status]}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {isInitializationWindow && <Badge variant="outline">Initialisation</Badge>}
+                <Badge variant={changeSession.status === "OPEN" ? "default" : "secondary"}>
+                  {statusLabels[changeSession.status]}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-2">
               {changeSession.status === ChangeSessionStatus.SCHEDULED && (
@@ -129,6 +136,7 @@ export default async function PromotionDetailPage({
               <ChangeSessionRowActions
                 promotionId={promotion.id}
                 changeSessionId={changeSession.id}
+                kind={changeSession.kind}
                 weekNumber={changeSession.weekNumber}
                 opensAt={toParisDateTimeLocalValue(changeSession.opensAt)}
                 closesAt={toParisDateTimeLocalValue(changeSession.closesAt)}
@@ -136,7 +144,8 @@ export default async function PromotionDetailPage({
               />
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

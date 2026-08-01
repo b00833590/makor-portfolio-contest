@@ -14,6 +14,7 @@ function validInput(overrides: Record<string, unknown> = {}) {
     changeSessionsPerWeek: "2",
     maxChangesPerSession: "4",
     freezeHoursBeforeEnd: "48",
+    initializationWindowHours: "4",
     ...overrides,
   };
 }

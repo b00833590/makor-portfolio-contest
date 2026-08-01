@@ -6,6 +6,7 @@ import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { getUserBadges } from "@/lib/gamification/get-user-badges";
 import { getOpenChangeSession } from "@/lib/trading/execute-order";
 import { getClosingSoonNotice } from "@/lib/trading/change-session-notice";
+import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuyForm } from "./buy-form";
@@ -13,6 +14,7 @@ import { PositionCard } from "./position-card";
 import { PerformanceChart } from "./performance-chart";
 import { TransactionHistoryTable } from "./transaction-history-table";
 import { BadgesSection } from "./badges-section";
+import { InitializationWindowBanner } from "./initialization-window-banner";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
@@ -33,9 +35,9 @@ export default async function DashboardPage() {
       ])
     : [[], [], [], null];
 
-  const closingSoonNotice = openChangeSession
-    ? getClosingSoonNotice(openChangeSession.closesAt, new Date())
-    : null;
+  const isInitializationWindow = openChangeSession?.kind === ChangeSessionKind.INITIALIZATION;
+  const closingSoonNotice =
+    openChangeSession && !isInitializationWindow ? getClosingSoonNotice(openChangeSession.closesAt, new Date()) : null;
 
   return (
     <>
@@ -45,6 +47,14 @@ export default async function DashboardPage() {
       />
       <div className="mx-auto w-full max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Mon portefeuille</h1>
+
+        {isInitializationWindow && portfolioView && (
+          <InitializationWindowBanner
+            closesAt={openChangeSession.closesAt.toISOString()}
+            investedAmount={portfolioView.initialCapital - portfolioView.availableCash}
+            initialCapital={portfolioView.initialCapital}
+          />
+        )}
 
         {closingSoonNotice && (
           <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">

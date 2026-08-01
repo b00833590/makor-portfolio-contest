@@ -12,6 +12,7 @@ const promotionFieldsSchema = z.object({
   changeSessionsPerWeek: z.coerce.number().int().positive(),
   maxChangesPerSession: z.coerce.number().int().positive(),
   freezeHoursBeforeEnd: z.coerce.number().int().min(0),
+  initializationWindowHours: z.coerce.number().positive(),
 });
 
 function withPromotionRefinements<T extends typeof promotionFieldsSchema>(schema: T) {

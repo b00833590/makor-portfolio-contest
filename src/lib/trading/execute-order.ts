@@ -94,6 +94,7 @@ export async function buildTradeContext(
     },
     changeSession: changeSession
       ? {
+          kind: changeSession.kind,
           status: changeSession.status,
           opensAt: changeSession.opensAt,
           closesAt: changeSession.closesAt,

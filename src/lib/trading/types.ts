@@ -1,4 +1,4 @@
-import type { AssetType, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
+import type { AssetType, ChangeSessionKind, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
 import type { PromotionRules } from "@/lib/promotion-rules";
 
 export type TradeOrderInput =
@@ -24,6 +24,7 @@ export interface TradeContext {
   };
   /** La session de changement actuellement ouverte pour cette date, ou null s'il n'y en a aucune. */
   changeSession: {
+    kind: ChangeSessionKind;
     status: ChangeSessionStatus;
     opensAt: Date;
     closesAt: Date;

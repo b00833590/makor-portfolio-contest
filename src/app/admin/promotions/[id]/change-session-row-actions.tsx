@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateChangeSession, deleteChangeSession, type ChangeSessionFormState } from "./actions";
+import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +17,7 @@ const initialState: ChangeSessionFormState = {};
 export function ChangeSessionRowActions({
   promotionId,
   changeSessionId,
+  kind,
   weekNumber,
   opensAt,
   closesAt,
@@ -23,6 +25,7 @@ export function ChangeSessionRowActions({
 }: {
   promotionId: string;
   changeSessionId: string;
+  kind: ChangeSessionKind;
   weekNumber: number;
   opensAt: string;
   closesAt: string;
@@ -33,6 +36,8 @@ export function ChangeSessionRowActions({
   const updateAction = updateChangeSession.bind(null, promotionId, changeSessionId);
   const [state, formAction, pending] = useActionState(updateAction, initialState);
   const [deletePending, setDeletePending] = useState(false);
+  const isInitializationWindow = kind === ChangeSessionKind.INITIALIZATION;
+  const label = isInitializationWindow ? "la fenêtre de constitution" : `la semaine ${weekNumber}`;
 
   async function handleDelete() {
     setDeletePending(true);
@@ -49,12 +54,13 @@ export function ChangeSessionRowActions({
         </Button>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Modifier la semaine {weekNumber}</DialogTitle>
+            <DialogTitle>Modifier {label}</DialogTitle>
           </DialogHeader>
           <form action={formAction} className="flex flex-wrap items-end gap-4">
             <ChangeSessionFormFields
               idPrefix="edit-"
               defaults={{ weekNumber, opensAt, closesAt, maxChangesPerParticipant }}
+              isInitializationWindow={isInitializationWindow}
             />
             {state.error && <p className="w-full text-sm text-destructive">{state.error}</p>}
             <Button type="submit" disabled={pending}>
@@ -70,7 +76,7 @@ export function ChangeSessionRowActions({
         </Button>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer la semaine {weekNumber} ?</DialogTitle>
+            <DialogTitle>Supprimer {label} ?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Les transactions déjà passées pendant cette session sont conservées (juste détachées de la session).

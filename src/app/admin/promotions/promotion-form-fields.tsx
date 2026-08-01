@@ -13,6 +13,7 @@ export interface PromotionFieldValues {
   changeSessionsPerWeek: number;
   maxChangesPerSession: number;
   freezeHoursBeforeEnd: number;
+  initializationWindowHours: number;
 }
 
 /** Champs partagés entre création et modification d'une promotion. */
@@ -89,6 +90,18 @@ export function PromotionFormFields({ idPrefix = "", defaults }: { idPrefix?: st
           type="number"
           required
           defaultValue={defaults.freezeHoursBeforeEnd}
+        />
+      </div>
+      <div>
+        <Label htmlFor={id("initializationWindowHours")}>Fenêtre de constitution (heures)</Label>
+        <Input
+          id={id("initializationWindowHours")}
+          name="initializationWindowHours"
+          type="number"
+          min={0}
+          step="any"
+          required
+          defaultValue={defaults.initializationWindowHours}
         />
       </div>
     </>

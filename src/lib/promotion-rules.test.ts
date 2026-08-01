@@ -50,4 +50,22 @@ describe("promotionRulesSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("rejects a zero or negative initialization window duration", () => {
+    const result = promotionRulesSchema.safeParse({
+      ...defaultPromotionRules,
+      initializationWindowHours: 0,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a fractional initialization window duration (e.g. 1.5h)", () => {
+    const result = promotionRulesSchema.safeParse({
+      ...defaultPromotionRules,
+      initializationWindowHours: 1.5,
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

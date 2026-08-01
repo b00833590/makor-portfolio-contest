@@ -12,6 +12,9 @@ export const promotionRulesSchema = z.object({
   changeSessionsPerWeek: z.number().int().positive(),
   maxChangesPerSession: z.number().int().positive(),
   freezeHoursBeforeEnd: z.number().int().min(0),
+  /** Durée (en heures) de la fenêtre de constitution du portefeuille initial,
+   *  ouverte automatiquement dès le passage de la promotion au statut ACTIVE. */
+  initializationWindowHours: z.number().positive(),
 });
 
 export type PromotionRules = z.infer<typeof promotionRulesSchema>;
@@ -24,4 +27,5 @@ export const defaultPromotionRules: PromotionRules = {
   changeSessionsPerWeek: 2,
   maxChangesPerSession: 4,
   freezeHoursBeforeEnd: 48,
+  initializationWindowHours: 4,
 };
