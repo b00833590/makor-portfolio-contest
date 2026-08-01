@@ -24,7 +24,8 @@ a une nouvelle. Depuis `/admin/promotions` :
    - **Nombre max de positions** — nombre de lignes distinctes qu'un portefeuille peut détenir
    - **Taille min / max position (€)** — force une vraie diversification (empêche le saupoudrage
      extrême comme la concentration excessive)
-   - **Plafond crypto (%)** — part maximale du portefeuille investie en cryptomonnaie
+   - **Cryptomonnaies max / participant** — nombre de cryptomonnaies distinctes qu'un
+     participant peut détenir simultanément (défaut : 1 ; mettre 0 pour interdire la crypto)
    - **Sessions de changement / semaine** et **Changements max / session** — cadence à laquelle
      les participants peuvent modifier leurs positions
    - **Gel avant la fin (heures)** — période avant la clôture pendant laquelle plus aucun

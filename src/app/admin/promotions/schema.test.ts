@@ -10,7 +10,7 @@ function validInput(overrides: Record<string, unknown> = {}) {
     minPositionSize: "25000",
     maxPositionSize: "100000",
     maxPositions: "20",
-    maxCryptoAllocationPct: "20",
+    maxCryptoPositions: "1",
     changeSessionsPerWeek: "2",
     maxChangesPerSession: "4",
     freezeHoursBeforeEnd: "48",

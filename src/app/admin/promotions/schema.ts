@@ -8,7 +8,7 @@ const promotionFieldsSchema = z.object({
   minPositionSize: z.coerce.number().positive(),
   maxPositionSize: z.coerce.number().positive(),
   maxPositions: z.coerce.number().int().positive(),
-  maxCryptoAllocationPct: z.coerce.number().min(0).max(100),
+  maxCryptoPositions: z.coerce.number().int().min(0),
   changeSessionsPerWeek: z.coerce.number().int().positive(),
   maxChangesPerSession: z.coerce.number().int().positive(),
   freezeHoursBeforeEnd: z.coerce.number().int().min(0),

@@ -174,31 +174,57 @@ describe("validateOrder — BUY (nouvelle position)", () => {
     expect(result).toEqual({ ok: false, reason: expect.stringContaining("disponible") });
   });
 
-  it("refuse un achat crypto qui dépasserait le plafond d'allocation", () => {
+  it("refuse un achat crypto qui dépasserait le nombre maximal de cryptomonnaies autorisées", () => {
     const ctx = baseContext({
-      asset: { id: "asset-btc", type: AssetType.CRYPTO, isActive: true, currentPrice: 50_000 },
+      asset: { id: "asset-eth", type: AssetType.CRYPTO, isActive: true, currentPrice: 3_000 },
       positions: [
-        { assetId: "asset-other", assetType: AssetType.STOCK, quantity: 1, avgEntryPrice: 80_000, currentPrice: 80_000 },
+        { assetId: "asset-btc", assetType: AssetType.CRYPTO, quantity: 1, avgEntryPrice: 50_000, currentPrice: 50_000 },
       ],
-      // total avant = 80 000, plafond crypto 20% -> un achat crypto de 50 000 ferait
-      // 50 000 / 130 000 = 38% > 20%
+      // maxCryptoPositions par défaut = 1, une position crypto (BTC) déjà ouverte
     });
 
-    const result = validateOrder({ type: "BUY", assetId: "asset-btc", amount: 50_000 }, ctx);
+    const result = validateOrder({ type: "BUY", assetId: "asset-eth", amount: 30_000 }, ctx);
 
-    expect(result).toEqual({ ok: false, reason: expect.stringContaining("crypto") });
+    expect(result).toEqual({ ok: false, reason: expect.stringContaining("cryptomonnaies") });
   });
 
-  it("accepte un achat crypto qui reste sous le plafond d'allocation", () => {
+  it("accepte un achat crypto qui reste sous le nombre maximal autorisé", () => {
     const ctx = baseContext({
       asset: { id: "asset-btc", type: AssetType.CRYPTO, isActive: true, currentPrice: 50_000 },
       positions: [
         { assetId: "asset-other", assetType: AssetType.STOCK, quantity: 1, avgEntryPrice: 380_000, currentPrice: 380_000 },
       ],
-      // total avant = 380 000, achat crypto 30 000 -> 30 000 / 410 000 = 7.3% < 20%
+      // maxCryptoPositions par défaut = 1, aucune position crypto encore ouverte
     });
 
     const result = validateOrder({ type: "BUY", assetId: "asset-btc", amount: 30_000 }, ctx);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuse tout achat crypto quand le nombre maximal autorisé est fixé à zéro", () => {
+    const ctx = baseContext({
+      asset: { id: "asset-btc", type: AssetType.CRYPTO, isActive: true, currentPrice: 50_000 },
+      promotion: {
+        ...baseContext().promotion,
+        rules: { ...defaultPromotionRules, maxCryptoPositions: 0 },
+      },
+    });
+
+    const result = validateOrder({ type: "BUY", assetId: "asset-btc", amount: 30_000 }, ctx);
+
+    expect(result).toEqual({ ok: false, reason: expect.stringContaining("cryptomonnaies") });
+  });
+
+  it("n'applique pas la limite crypto à un achat non-crypto", () => {
+    const ctx = baseContext({
+      positions: [
+        { assetId: "asset-btc", assetType: AssetType.CRYPTO, quantity: 1, avgEntryPrice: 50_000, currentPrice: 50_000 },
+      ],
+      // maxCryptoPositions par défaut = 1, déjà atteint, mais l'achat porte sur une action
+    });
+
+    const result = validateOrder({ type: "BUY", assetId: "asset-aapl", amount: 50_000 }, ctx);
 
     expect(result.ok).toBe(true);
   });
@@ -243,6 +269,26 @@ describe("validateOrder — INCREASE (renforcer une position)", () => {
     const result = validateOrder({ type: "INCREASE", assetId: "asset-aapl", amount: 20_000 }, ctx);
 
     expect(result).toEqual({ ok: false, reason: expect.stringContaining("aucune position") });
+  });
+
+  it("accepte de renforcer une position crypto déjà ouverte même si le maximum est atteint", () => {
+    const cryptoPosition = {
+      assetId: "asset-btc",
+      assetType: AssetType.CRYPTO,
+      quantity: 1,
+      avgEntryPrice: 50_000,
+      currentPrice: 50_000,
+    };
+    const ctx = baseContext({
+      asset: { id: "asset-btc", type: AssetType.CRYPTO, isActive: true, currentPrice: 50_000 },
+      positions: [cryptoPosition],
+      // maxCryptoPositions par défaut = 1, déjà atteint par cette même position — le
+      // renforcement n'ouvre pas de nouvelle cryptomonnaie, donc il reste autorisé
+    });
+
+    const result = validateOrder({ type: "INCREASE", assetId: "asset-btc", amount: 20_000 }, ctx);
+
+    expect(result.ok).toBe(true);
   });
 });
 

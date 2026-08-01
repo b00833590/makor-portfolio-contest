@@ -72,7 +72,7 @@ model Promotion {
   startDate      DateTime
   endDate        DateTime
   initialCapital Decimal         @db.Decimal(18, 2)
-  /// PromotionRules: { minPositionSize, maxPositionSize, maxPositions, maxCryptoAllocationPct,
+  /// PromotionRules: { minPositionSize, maxPositionSize, maxPositions, maxCryptoPositions,
   ///                    changeSessionsPerWeek, maxChangesPerSession, freezeHoursBeforeEnd }
   rules          Json
   createdAt      DateTime        @default(now())

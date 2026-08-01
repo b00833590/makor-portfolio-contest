@@ -15,13 +15,22 @@ describe("promotionRulesSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a crypto allocation cap above 100%", () => {
+  it("rejects a negative max crypto positions count", () => {
     const result = promotionRulesSchema.safeParse({
       ...defaultPromotionRules,
-      maxCryptoAllocationPct: 150,
+      maxCryptoPositions: -1,
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts a zero max crypto positions count (crypto disabled)", () => {
+    const result = promotionRulesSchema.safeParse({
+      ...defaultPromotionRules,
+      maxCryptoPositions: 0,
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("rejects a non-integer max positions count", () => {

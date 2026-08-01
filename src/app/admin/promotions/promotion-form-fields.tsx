@@ -9,7 +9,7 @@ export interface PromotionFieldValues {
   maxPositions: number;
   minPositionSize: number;
   maxPositionSize: number;
-  maxCryptoAllocationPct: number;
+  maxCryptoPositions: number;
   changeSessionsPerWeek: number;
   maxChangesPerSession: number;
   freezeHoursBeforeEnd: number;
@@ -50,13 +50,15 @@ export function PromotionFormFields({ idPrefix = "", defaults }: { idPrefix?: st
         <Input id={id("maxPositionSize")} name="maxPositionSize" type="number" required defaultValue={defaults.maxPositionSize} />
       </div>
       <div>
-        <Label htmlFor={id("maxCryptoAllocationPct")}>Plafond crypto (%)</Label>
+        <Label htmlFor={id("maxCryptoPositions")}>Cryptomonnaies max / participant</Label>
         <Input
-          id={id("maxCryptoAllocationPct")}
-          name="maxCryptoAllocationPct"
+          id={id("maxCryptoPositions")}
+          name="maxCryptoPositions"
           type="number"
+          min={0}
+          step={1}
           required
-          defaultValue={defaults.maxCryptoAllocationPct}
+          defaultValue={defaults.maxCryptoPositions}
         />
       </div>
       <div>

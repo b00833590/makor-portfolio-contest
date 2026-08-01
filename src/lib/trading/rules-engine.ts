@@ -26,27 +26,19 @@ function isFrozen(ctx: TradeContext): boolean {
   return ctx.now >= freezeStart;
 }
 
-function portfolioValue(positions: PositionContext[]): number {
-  return positions.reduce((total, position) => total + position.quantity * position.currentPrice, 0);
-}
+/** Vérifie qu'ouvrir cette nouvelle position ne dépasse pas le nombre de cryptomonnaies distinctes autorisées. */
+function checkCryptoPositionLimit(ctx: TradeContext): TradeValidationResult {
+  if (ctx.asset.type !== "CRYPTO") {
+    return ok();
+  }
 
-function cryptoValue(positions: PositionContext[]): number {
-  return positions.reduce(
-    (total, position) => total + (position.assetType === "CRYPTO" ? position.quantity * position.currentPrice : 0),
-    0,
-  );
-}
+  const activeCryptoCount = ctx.positions.filter(
+    (position) => position.quantity > 0 && position.assetType === "CRYPTO",
+  ).length;
 
-/** Vérifie qu'un achat/renforcement ne fait pas dépasser le plafond d'allocation crypto. */
-function checkCryptoAllocation(ctx: TradeContext, amount: number): TradeValidationResult {
-  const totalBefore = portfolioValue(ctx.positions);
-  const cryptoBefore = cryptoValue(ctx.positions);
-  const totalAfter = totalBefore + amount;
-  const cryptoAfter = cryptoBefore + (ctx.asset.type === "CRYPTO" ? amount : 0);
-
-  if (totalAfter > 0 && (cryptoAfter / totalAfter) * 100 > ctx.promotion.rules.maxCryptoAllocationPct) {
+  if (activeCryptoCount + 1 > ctx.promotion.rules.maxCryptoPositions) {
     return fail(
-      `Cet achat ferait dépasser le plafond d'allocation crypto (${ctx.promotion.rules.maxCryptoAllocationPct}% max).`,
+      `Le nombre maximal de cryptomonnaies autorisées (${ctx.promotion.rules.maxCryptoPositions}) est déjà atteint.`,
     );
   }
   return ok();
@@ -75,7 +67,7 @@ function validateBuy(order: Extract<TradeOrderInput, { type: "BUY" }>, ctx: Trad
     return fail("Le capital disponible est insuffisant pour cet achat.");
   }
 
-  return checkCryptoAllocation(ctx, order.amount);
+  return checkCryptoPositionLimit(ctx);
 }
 
 function validateIncrease(
@@ -95,7 +87,7 @@ function validateIncrease(
     return fail("Le capital disponible est insuffisant pour ce renforcement.");
   }
 
-  return checkCryptoAllocation(ctx, order.amount);
+  return ok();
 }
 
 function validateSellPartial(
