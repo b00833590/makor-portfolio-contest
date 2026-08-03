@@ -12,6 +12,8 @@ export interface PositionView {
   logoUrl: string | null;
   quantity: number;
   avgEntryPrice: number;
+  /** Date d'ouverture de la position (ISO), pour l'historique de cours "depuis l'achat". */
+  openedAt: string;
   currentPrice: number;
   /** Montant investi à l'achat (Entry Value). */
   entryValue: number;
@@ -124,6 +126,7 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
       logoUrl: resolveLogoUrl(position.asset),
       quantity,
       avgEntryPrice,
+      openedAt: position.openedAt.toISOString(),
       currentPrice,
       entryValue,
       actualValue,

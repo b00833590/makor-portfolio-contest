@@ -51,6 +51,7 @@ describe("getPortfolioView", () => {
           assetId: "asset-aapl",
           quantity: 100,
           avgEntryPrice: 150,
+          openedAt: new Date("2026-01-01T00:00:00Z"),
           asset: {
             symbol: "AAPL",
             name: "Apple Inc.",
@@ -99,6 +100,7 @@ describe("getPortfolioView", () => {
           assetId: "asset-btc",
           quantity: 1,
           avgEntryPrice: 20_000,
+          openedAt: new Date("2026-01-01T00:00:00Z"),
           asset: {
             symbol: "BTC",
             name: "Bitcoin",
@@ -133,6 +135,7 @@ describe("getPortfolioView", () => {
           assetId: "asset-aapl",
           quantity: 10,
           avgEntryPrice: 150,
+          openedAt: new Date("2026-01-01T00:00:00Z"),
           asset: { symbol: "AAPL", name: "Apple Inc.", type: AssetType.STOCK, logoUrl: null, prices: [{ price: 180 }] },
         },
       ],

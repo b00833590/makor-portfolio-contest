@@ -1,13 +1,16 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { LineChart } from "lucide-react";
 import { increasePosition, sellPartial, sellFull, type TradeFormState } from "./actions";
 import type { PositionView } from "@/lib/trading/portfolio-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { AssetLogo } from "./asset-logo";
+import { PositionPriceChart } from "./position-price-chart";
 
 const initialState: TradeFormState = {};
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
@@ -38,6 +41,7 @@ function Stat({ label, value, className }: { label: string; value: string; class
 
 export function PositionCard({ position }: { position: PositionView }) {
   const [mode, setMode] = useState<"idle" | "increase" | "sell">("idle");
+  const [isChartOpen, setIsChartOpen] = useState(false);
 
   const [increaseState, increaseFormAction, increasePending] = useActionState(increasePosition, initialState);
   const [sellState, sellFormAction, sellPending] = useActionState(sellPartial, initialState);
@@ -60,18 +64,28 @@ export function PositionCard({ position }: { position: PositionView }) {
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <p className={`text-lg font-semibold tabular-nums ${isPositive ? "text-gain" : "text-loss"}`}>
-            {currencyFormatter.format(position.actualValue)}
-          </p>
-          <div className="mt-1 flex items-center justify-end gap-2">
-            {position.dailyChangePct !== null && (
-              <span className={`text-xs tabular-nums ${position.dailyChangePct >= 0 ? "text-gain" : "text-loss"}`}>
-                {signed(position.dailyChangePct)} 24h
-              </span>
-            )}
-            <PerformanceBadge pct={position.pnlPct} />
+        <div className="flex items-start gap-1">
+          <div className="text-right">
+            <p className={`text-lg font-semibold tabular-nums ${isPositive ? "text-gain" : "text-loss"}`}>
+              {currencyFormatter.format(position.actualValue)}
+            </p>
+            <div className="mt-1 flex items-center justify-end gap-2">
+              {position.dailyChangePct !== null && (
+                <span className={`text-xs tabular-nums ${position.dailyChangePct >= 0 ? "text-gain" : "text-loss"}`}>
+                  {signed(position.dailyChangePct)} 24h
+                </span>
+              )}
+              <PerformanceBadge pct={position.pnlPct} />
+            </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Voir le graphique de cours de ${position.symbol}`}
+            onClick={() => setIsChartOpen(true)}
+          >
+            <LineChart />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -125,6 +139,30 @@ export function PositionCard({ position }: { position: PositionView }) {
           </p>
         )}
       </CardContent>
+
+      <Sheet open={isChartOpen} onOpenChange={setIsChartOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <div className="flex items-center gap-2">
+              <AssetLogo symbol={position.symbol} logoUrl={position.logoUrl} className="size-8" />
+              <div>
+                <SheetTitle>
+                  {position.symbol} <span className="font-normal text-muted-foreground">{position.name}</span>
+                </SheetTitle>
+                <SheetDescription>Évolution du cours et performance depuis l&apos;achat</SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+          <PositionPriceChart
+            assetId={position.assetId}
+            symbol={position.symbol}
+            avgEntryPrice={position.avgEntryPrice}
+            currentPrice={position.currentPrice}
+            openedAt={position.openedAt}
+            isOpen={isChartOpen}
+          />
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }

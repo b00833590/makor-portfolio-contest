@@ -42,6 +42,10 @@ model User {
   /// connexion, avant tout autre accès (voir src/proxy.ts).
   mustChangePassword Boolean  @default(false)
   role               UserRole @default(PARTICIPANT)
+  /// Photo de profil encodée en data URL (base64) — pas de stockage objet
+  /// externe pour rester sur l'hébergement gratuit Vercel+Neon existant.
+  /// Redimensionnée/compressée côté client avant envoi (voir avatar-upload.ts).
+  avatarUrl          String?  @db.Text
   createdAt          DateTime @default(now())
 
   sessions Session[]

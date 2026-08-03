@@ -1,5 +1,5 @@
 import type { Asset } from "@/generated/prisma/client";
-import type { FetchedPrice, PriceProvider } from "@/lib/prices/types";
+import type { FetchedPrice, HistoryPoint, HistoryRequest, PriceProvider } from "@/lib/prices/types";
 
 function hashToUnitInterval(input: string): number {
   let hash = 0;
@@ -27,5 +27,20 @@ export class MockPriceProvider implements PriceProvider {
     const price = Number((basePrice * (1 + jitterPct)).toFixed(4));
 
     return { price, timestamp: new Date(), source: this.source };
+  }
+
+  /** Historique synthétique mais déterministe (même marche aléatoire que fetchPrice) — utile en dev sans clé API. */
+  async fetchHistory(asset: Pick<Asset, "symbol">, request: HistoryRequest): Promise<HistoryPoint[]> {
+    const basePrice = 10 + hashToUnitInterval(asset.symbol) * 990;
+    const pointCount = 60;
+    const stepMs = (request.days * 24 * 60 * 60 * 1000) / pointCount;
+    const now = Date.now();
+
+    return Array.from({ length: pointCount + 1 }, (_, index) => {
+      const timestamp = new Date(now - (pointCount - index) * stepMs);
+      const jitterPct = (hashToUnitInterval(`${asset.symbol}-${index}`) - 0.5) * 0.03;
+      const drift = 1 + (index / pointCount) * (hashToUnitInterval(asset.symbol + "drift") - 0.5) * 0.1;
+      return { timestamp, price: Number((basePrice * drift * (1 + jitterPct)).toFixed(4)) };
+    });
   }
 }

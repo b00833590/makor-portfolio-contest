@@ -1,6 +1,6 @@
 import { AssetType } from "@/generated/prisma/enums";
 import type { Asset } from "@/generated/prisma/client";
-import type { FetchedPrice, PriceProvider } from "@/lib/prices/types";
+import type { FetchedPrice, HistoryPoint, HistoryRequest, PriceProvider } from "@/lib/prices/types";
 
 /**
  * CoinGecko's public "simple price" endpoint needs no API key. Used for the
@@ -29,5 +29,33 @@ export class CoinGeckoProvider implements PriceProvider {
     if (typeof price !== "number") return null;
 
     return { price, timestamp: new Date(), source: this.source };
+  }
+
+  /** https://docs.coingecko.com/reference/coins-id-market-chart — granularité auto selon `days` côté API publique. */
+  async fetchHistory(
+    asset: Pick<Asset, "symbol" | "currency" | "externalId">,
+    request: HistoryRequest,
+  ): Promise<HistoryPoint[] | null> {
+    const coinId = asset.externalId ?? asset.symbol.toLowerCase();
+    const vsCurrency = asset.currency.toLowerCase();
+    const days = Math.max(1, Math.ceil(request.days));
+    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}/market_chart?vs_currency=${encodeURIComponent(vsCurrency)}&days=${days}`;
+
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+
+    const body = (await response.json()) as { prices?: [number, number][]; total_volumes?: [number, number][] };
+    if (!body.prices) return null;
+
+    const volumeByTimestamp = new Map((body.total_volumes ?? []).map(([ms, volume]) => [ms, volume]));
+
+    return body.prices
+      .map(([ms, price]) => ({
+        timestamp: new Date(ms),
+        price,
+        volume: volumeByTimestamp.get(ms),
+      }))
+      .filter((point) => Number.isFinite(point.price))
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
 }
