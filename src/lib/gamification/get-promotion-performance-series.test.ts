@@ -18,13 +18,15 @@ describe("getPromotionPerformanceSeries", () => {
       {
         user: { name: "Alice" },
         snapshots: [
-          { timestamp: new Date("2026-09-14T18:00:00Z"), cumulativeReturnPct: 2 },
-          { timestamp: new Date("2026-09-15T18:00:00Z"), cumulativeReturnPct: 5 },
+          { timestamp: new Date("2026-09-14T18:00:00Z"), totalValue: 1_020_000, cumulativeReturnPct: 2, dailyReturnPct: 1 },
+          { timestamp: new Date("2026-09-15T18:00:00Z"), totalValue: 1_050_000, cumulativeReturnPct: 5, dailyReturnPct: 3 },
         ],
       },
       {
         user: { name: "Bob" },
-        snapshots: [{ timestamp: new Date("2026-09-15T18:00:00Z"), cumulativeReturnPct: 3 }],
+        snapshots: [
+          { timestamp: new Date("2026-09-15T18:00:00Z"), totalValue: 1_030_000, cumulativeReturnPct: 3, dailyReturnPct: 3 },
+        ],
       },
     ]);
 
@@ -32,8 +34,19 @@ describe("getPromotionPerformanceSeries", () => {
 
     expect(series.participantNames).toEqual(["Alice", "Bob"]);
     expect(series.points).toEqual([
-      { date: "2026-09-14", label: expect.any(String), Alice: 2 },
-      { date: "2026-09-15", label: expect.any(String), Alice: 5, Bob: 3 },
+      {
+        date: "2026-09-14",
+        label: expect.any(String),
+        values: { Alice: { totalValue: 1_020_000, cumulativeReturnPct: 2, dailyReturnPct: 1 } },
+      },
+      {
+        date: "2026-09-15",
+        label: expect.any(String),
+        values: {
+          Alice: { totalValue: 1_050_000, cumulativeReturnPct: 5, dailyReturnPct: 3 },
+          Bob: { totalValue: 1_030_000, cumulativeReturnPct: 3, dailyReturnPct: 3 },
+        },
+      },
     ]);
   });
 
@@ -51,8 +64,8 @@ describe("getPromotionPerformanceSeries", () => {
       {
         user: { name: "Alice" },
         snapshots: [
-          { timestamp: new Date("2026-09-16T18:00:00Z"), cumulativeReturnPct: 6 },
-          { timestamp: new Date("2026-09-14T18:00:00Z"), cumulativeReturnPct: 2 },
+          { timestamp: new Date("2026-09-16T18:00:00Z"), totalValue: 1_060_000, cumulativeReturnPct: 6, dailyReturnPct: 1 },
+          { timestamp: new Date("2026-09-14T18:00:00Z"), totalValue: 1_020_000, cumulativeReturnPct: 2, dailyReturnPct: 2 },
         ],
       },
     ]);

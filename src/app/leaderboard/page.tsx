@@ -94,9 +94,10 @@ export default async function LeaderboardPage() {
     );
   }
 
-  const [leaderboard, performanceSeries] = await Promise.all([
+  const [leaderboard, performanceSeries, promotion] = await Promise.all([
     getLeaderboard(user.promotionId),
     getPromotionPerformanceSeries(user.promotionId),
+    db.promotion.findUniqueOrThrow({ where: { id: user.promotionId }, select: { initialCapital: true } }),
   ]);
   const podium = leaderboard.slice(0, 3);
   const weeklyChallengeLeader = leaderboard
@@ -143,6 +144,7 @@ export default async function LeaderboardPage() {
             <PromotionPerformanceChart
               points={performanceSeries.points}
               participantNames={performanceSeries.participantNames}
+              initialCapital={Number(promotion.initialCapital)}
             />
           </CardContent>
         </Card>

@@ -1,13 +1,19 @@
 import "server-only";
 import { db } from "@/lib/db";
 
+export interface ParticipantSnapshotMetrics {
+  totalValue: number;
+  cumulativeReturnPct: number;
+  dailyReturnPct: number;
+}
+
 export interface PromotionPerformancePoint {
   /** Clé de fusion triable (YYYY-MM-DD), pas affichée telle quelle. */
   date: string;
   /** Libellé affiché sur le graphique. */
   label: string;
-  /** Rendement cumulé (%) par nom de participant à cette date, `undefined` si absent ce jour-là. */
-  [participantName: string]: string | number | undefined;
+  /** Métriques par nom de participant à cette date — absent si le participant n'a pas d'instantané ce jour-là. */
+  values: Record<string, ParticipantSnapshotMetrics>;
 }
 
 export interface PromotionPerformanceSeries {
@@ -15,7 +21,12 @@ export interface PromotionPerformanceSeries {
   participantNames: string[];
 }
 
-/** Évolution du rendement cumulé de tous les participants, pour le graphique comparatif du classement. */
+/**
+ * Évolution de tous les participants (valeur, rendement cumulé, rendement
+ * journalier) pour le graphique comparatif du classement — le rang au fil du
+ * temps est dérivé côté client à partir de cumulativeReturnPct, puisqu'il
+ * dépend de la sélection complète des participants à chaque date.
+ */
 export async function getPromotionPerformanceSeries(promotionId: string): Promise<PromotionPerformanceSeries> {
   const portfolios = await db.portfolio.findMany({
     where: { promotionId },
@@ -33,8 +44,13 @@ export async function getPromotionPerformanceSeries(promotionId: string): Promis
       const point = pointsByDate.get(dateKey) ?? {
         date: dateKey,
         label: snapshot.timestamp.toLocaleDateString("fr-FR"),
+        values: {},
       };
-      point[portfolio.user.name] = Number(snapshot.cumulativeReturnPct);
+      point.values[portfolio.user.name] = {
+        totalValue: Number(snapshot.totalValue),
+        cumulativeReturnPct: Number(snapshot.cumulativeReturnPct),
+        dailyReturnPct: Number(snapshot.dailyReturnPct),
+      };
       pointsByDate.set(dateKey, point);
     }
   }
