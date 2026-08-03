@@ -26,13 +26,15 @@ interface NavLink {
 const participantNavLinks: NavLink[] = [
   { href: "/dashboard", label: "Portefeuille" },
   { href: "/leaderboard", label: "Classement" },
+  { href: "/statistiques", label: "Statistiques" },
   { href: "/hall-of-fame", label: "Hall of Fame" },
   { href: "/reglement", label: "Règlement" },
 ];
 
-// L'admin ne joue pas — pas de portefeuille, mais garde un œil sur le classement et le Hall of Fame.
+// L'admin ne joue pas — pas de portefeuille, mais garde un œil sur le classement, les statistiques et le Hall of Fame.
 const adminNavLinks: NavLink[] = [
   { href: "/leaderboard", label: "Classement" },
+  { href: "/statistiques", label: "Statistiques" },
   { href: "/hall-of-fame", label: "Hall of Fame" },
 ];
 
