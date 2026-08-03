@@ -16,6 +16,7 @@ function makeRow(overrides: Partial<LeaderboardRow>): LeaderboardRow {
   return {
     userId: "user",
     name: "User",
+    avatarUrl: null,
     portfolioId: "portfolio",
     totalValue: 1_000_000,
     cumulativeReturnPct: 0,

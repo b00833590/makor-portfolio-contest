@@ -4,10 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { handleSignOut } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
-import {
-  Avatar,
-  AvatarFallback,
-} from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,21 +35,14 @@ const adminNavLinks: NavLink[] = [
   { href: "/hall-of-fame", label: "Hall of Fame" },
 ];
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 export function SiteHeader({
   name,
   role,
+  avatarUrl = null,
 }: {
   name: string;
   role: "ADMIN" | "PARTICIPANT";
+  avatarUrl?: string | null;
 }) {
   const pathname = usePathname();
   const homeHref = role === "ADMIN" ? "/admin" : "/dashboard";
@@ -104,11 +94,7 @@ export function SiteHeader({
 
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Avatar className="size-8">
-              <AvatarFallback className="bg-secondary text-xs font-medium">
-                {initials(name)}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar name={name} avatarUrl={avatarUrl} className="size-8 text-xs" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuGroup>
@@ -118,6 +104,7 @@ export function SiteHeader({
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/profil" />}>Mon profil</DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/change-password" />}>
               Changer mon mot de passe
             </DropdownMenuItem>

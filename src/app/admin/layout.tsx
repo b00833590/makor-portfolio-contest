@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      <SiteHeader name={session.user.name} role={session.user.role} />
+      <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

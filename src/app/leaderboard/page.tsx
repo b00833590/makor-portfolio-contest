@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getLeaderboard, type BestWorstPosition, type LeaderboardRow } from "@/lib/gamification/get-leaderboard";
 import { getPromotionPerformanceSeries } from "@/lib/gamification/get-promotion-performance-series";
 import { SiteHeader } from "@/components/site-header";
+import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -53,6 +54,7 @@ function PodiumCard({ row, place, isSelf }: { row: LeaderboardRow; place: number
       )}
     >
       <span className="text-3xl">{medals[place - 1]}</span>
+      <UserAvatar name={row.name} avatarUrl={row.avatarUrl} className="mt-1 size-12 text-base" />
       <p className="mt-1 font-medium">
         {row.name}
         {isSelf && (
@@ -78,6 +80,7 @@ export default async function LeaderboardPage() {
     <SiteHeader
       name={session.user.name}
       role={session.user.role}
+      avatarUrl={session.user.avatarUrl}
     />
   );
 
@@ -103,6 +106,7 @@ export default async function LeaderboardPage() {
   const weeklyChallengeLeader = leaderboard
     .filter((row) => row.weeklyReturnPct !== null)
     .sort((a, b) => (b.weeklyReturnPct ?? 0) - (a.weeklyReturnPct ?? 0))[0];
+  const participantAvatars = Object.fromEntries(leaderboard.map((row) => [row.name, row.avatarUrl]));
 
   return (
     <>
@@ -145,6 +149,7 @@ export default async function LeaderboardPage() {
               points={performanceSeries.points}
               participantNames={performanceSeries.participantNames}
               initialCapital={Number(promotion.initialCapital)}
+              participantAvatars={participantAvatars}
             />
           </CardContent>
         </Card>
@@ -170,12 +175,13 @@ export default async function LeaderboardPage() {
                 >
                   <TableCell>{row.rank}</TableCell>
                   <TableCell>
-                    {row.name}
-                    {row.userId === session.user.id && (
-                      <Badge variant="secondary" className="ml-2">
-                        Vous
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" />
+                      {row.name}
+                      {row.userId === session.user.id && (
+                        <Badge variant="secondary">Vous</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="tabular-nums">{currencyFormatter.format(row.totalValue)}</TableCell>
                   <TableCell className={cn("tabular-nums", row.cumulativeReturnPct >= 0 ? "text-gain" : "text-loss")}>

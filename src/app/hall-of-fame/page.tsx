@@ -20,6 +20,7 @@ export default async function HallOfFamePage() {
       <SiteHeader
         name={session.user.name}
         role={session.user.role}
+        avatarUrl={session.user.avatarUrl}
       />
       <div className="mx-auto w-full max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Hall of Fame</h1>

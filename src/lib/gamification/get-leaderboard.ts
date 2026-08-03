@@ -13,6 +13,7 @@ export interface BestWorstPosition {
 export interface LeaderboardRow {
   userId: string;
   name: string;
+  avatarUrl: string | null;
   portfolioId: string;
   totalValue: number;
   cumulativeReturnPct: number;
@@ -85,7 +86,7 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
 
   const portfolios = await db.portfolio.findMany({
     where: { promotionId },
-    include: { user: { select: { id: true, name: true } } },
+    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
   });
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
@@ -150,6 +151,7 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
       return {
         userId: portfolio.user.id,
         name: portfolio.user.name,
+        avatarUrl: portfolio.user.avatarUrl,
         portfolioId: portfolio.id,
         totalValue: entry.totalValue,
         cumulativeReturnPct: entry.cumulativeReturnPct,

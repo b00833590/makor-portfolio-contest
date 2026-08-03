@@ -5,6 +5,7 @@ import { Brush, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import { deriveMetricSeries, PERFORMANCE_METRIC_LABELS, type PerformanceMetric } from "@/lib/gamification/derive-metric-series";
 import type { PromotionPerformancePoint } from "@/lib/gamification/get-promotion-performance-series";
 
@@ -31,10 +32,12 @@ export function PromotionPerformanceChart({
   points,
   participantNames,
   initialCapital,
+  participantAvatars = {},
 }: {
   points: PromotionPerformancePoint[];
   participantNames: string[];
   initialCapital: number;
+  participantAvatars?: Record<string, string | null>;
 }) {
   const [metric, setMetric] = useState<PerformanceMetric>("cumulativeReturnPct");
   const [hiddenNames, setHiddenNames] = useState<Set<string>>(new Set());
@@ -92,13 +95,15 @@ export function PromotionPerformanceChart({
               key={name}
               type="button"
               onClick={() => toggleName(name)}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${
                 isHidden ? "border-border text-muted-foreground opacity-50" : "border-border text-foreground"
               }`}
             >
-              <span
-                className="size-2 rounded-full"
-                style={{ backgroundColor: isHidden ? "var(--muted-foreground)" : CHART_COLORS[index % CHART_COLORS.length] }}
+              <UserAvatar
+                name={name}
+                avatarUrl={participantAvatars[name] ?? null}
+                size="sm"
+                style={{ boxShadow: `0 0 0 2px ${isHidden ? "var(--muted-foreground)" : CHART_COLORS[index % CHART_COLORS.length]}` }}
               />
               {name}
             </button>

@@ -12,6 +12,7 @@ export interface SessionUser {
   name: string;
   role: UserRole;
   mustChangePassword: boolean;
+  avatarUrl: string | null;
 }
 
 export async function createSession(userId: string): Promise<void> {
@@ -38,7 +39,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   const session = await db.session.findUnique({
     where: { sessionToken },
-    include: { user: { select: { id: true, name: true, role: true, mustChangePassword: true } } },
+    include: { user: { select: { id: true, name: true, role: true, mustChangePassword: true, avatarUrl: true } } },
   });
 
   if (!session) return null;

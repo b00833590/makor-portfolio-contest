@@ -11,7 +11,7 @@ import { ContestStatsSection } from "./contest-stats-section";
 export default async function StatistiquesPage() {
   const session = await verifySession();
   const user = await db.user.findUnique({ where: { id: session.user.id } });
-  const header = <SiteHeader name={session.user.name} role={session.user.role} />;
+  const header = <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />;
 
   if (!user?.promotionId) {
     return (
