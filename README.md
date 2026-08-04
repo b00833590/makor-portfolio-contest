@@ -2,7 +2,7 @@
 
 Plateforme web interne pour le concours de gestion de portefeuille des stagiaires Makor —
 identifiant/mot de passe géré par l'administrateur (pas d'OAuth, pas d'email requis),
-recherche de tickers en direct (actions, ETF, crypto), rafraîchissement automatique des prix,
+recherche de tickers en direct (actions, crypto), rafraîchissement automatique des prix,
 classement et badges. Conçue pour être **reprise sans effort par un futur stagiaire** à chaque
 nouvelle promotion : voir la section [Transmission du projet](#transmission-du-projet) ci-dessous.
 
@@ -20,7 +20,7 @@ Next.js 16 (App Router, Turbopack) · TypeScript · Tailwind CSS v4 · shadcn/ui
 Recharts · PostgreSQL + Prisma 7 (driver adapter `@prisma/adapter-pg`) · Vitest.
 
 Authentification maison (identifiant/mot de passe, sessions en base) — pas de dépendance à un
-fournisseur d'identité externe. Données de marché : Twelve Data (actions/ETF) + CoinGecko
+fournisseur d'identité externe. Données de marché : Twelve Data (actions) + CoinGecko
 (crypto), toutes deux gratuites.
 
 ## Prérequis
@@ -62,7 +62,7 @@ Voir `.env.example` pour la liste complète.
 | Variable | Obligatoire | Description |
 |---|---|---|
 | `DATABASE_URL` | Oui | Connexion Postgres. Déjà configurée pour le `docker-compose.yml` local. En production, pointer vers Neon (voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)). |
-| `TWELVE_DATA_API_KEY` | Non | Sans clé, les prix et la recherche actions/ETF utilisent un provider mock déterministe (`src/lib/prices/providers/mock-provider.ts`) et Twelve Data en mode non-authentifié (limité). Avec une clé gratuite ([twelvedata.com](https://twelvedata.com)), l'ingestion et la recherche sont fiables. La crypto (CoinGecko) ne nécessite jamais de clé. |
+| `TWELVE_DATA_API_KEY` | Non | Sans clé, les prix et la recherche d'actions utilisent un provider mock déterministe (`src/lib/prices/providers/mock-provider.ts`) et Twelve Data en mode non-authentifié (limité). Avec une clé gratuite ([twelvedata.com](https://twelvedata.com)), l'ingestion et la recherche sont fiables. La crypto (CoinGecko) ne nécessite jamais de clé. |
 | `CRON_SECRET` | Non (recommandé en prod) | Protège les routes `/api/cron/*` — Vercel l'envoie automatiquement en `Authorization: Bearer <valeur>` si défini dans les deux endroits. Laisser vide en local. |
 
 Aucune autre variable n'est nécessaire : il n'y a plus de fournisseur OAuth, plus de secret de
@@ -109,20 +109,54 @@ Postgres pour s'exécuter.
 
 ## Recherche de tickers et rafraîchissement des prix
 
-Les participants recherchent n'importe quel ticker action/ETF (Twelve Data) ou crypto
+Les participants recherchent n'importe quel ticker action (Twelve Data) ou crypto
 (CoinGecko) directement dans le formulaire d'achat — aucune liste d'actifs pré-créée par
 l'admin n'est nécessaire. L'actif est créé automatiquement en base au premier achat
-(`src/lib/assets/ensure-asset.ts`).
+(`src/lib/assets/ensure-asset.ts`). Seules les actions et les cryptomonnaies sont
+investissables : les ETF sont exclus de la recherche par construction (voir
+`src/lib/assets/search-providers.ts`).
+
+### Fraîcheur des prix
 
 Les prix se rafraîchissent en "pull-through" : à chaque affichage d'une page qui montre un prix
-(dashboard, classement), les actifs dont le dernier prix connu a plus de 15 minutes sont
-rafraîchis à la demande, en parallèle, avant l'affichage (`src/lib/prices/pull-through.ts`).
-Un prix consulté récemment n'est jamais redemandé à l'API — c'est ce qui garde l'expérience
-"vivante" sans jamais dépasser les quotas gratuits des fournisseurs, et sans dépendre d'un cron
-fréquent (le plan gratuit de Vercel ne permet qu'une exécution de cron par jour). Le cron
-quotidien (`/api/cron/ingest-prices`, voir `vercel.json`) ne sert qu'à garantir qu'un prix existe
-pour tous les actifs actifs, même ceux que personne n'a consultés récemment, avant que le second
-cron (`/api/cron/snapshot-portfolios`) calcule l'historique de performance du jour.
+(dashboard, classement, statistiques), les actifs dont le dernier prix connu est périmé sont
+rafraîchis à la demande, en parallèle, avant l'affichage (`src/lib/prices/pull-through.ts`). Un
+prix encore frais n'est jamais redemandé au fournisseur. Le seuil de péremption dépend du type
+d'actif (`src/lib/prices/staleness.ts`) :
+
+- **Crypto** : 10 secondes — via **Binance** (marché public, sans clé, sans quota
+  significatif). Le règlement n'autorisant qu'une seule cryptomonnaie active à la fois
+  (`docs/CONCEPTION.md` section 6), la fraîcheur est quasi temps réel sans aucun risque de
+  quota. CoinGecko reste utilisé uniquement pour la *recherche* de tickers crypto (nom, logo,
+  rang par capitalisation), pas pour le prix.
+- **Actions** : 10 minutes — via **Twelve Data** (gratuit : 8 requêtes/min, 800/jour). Ce seuil
+  suppose environ 5 actions suivies en continu sur toute une journée ; au-delà, remonter la
+  constante `STOCK_PRICE_STALE_MS` ou passer sur une clé Twelve Data payante.
+
+Le cron `/api/cron/ingest-prices` sert de filet de sécurité pour les actifs que personne ne
+consulte : il applique le même seuil de péremption (voir `src/lib/prices/ingest.ts`), donc la
+plupart de ses exécutions ne coûtent aucun appel fournisseur (actif déjà frais → ignoré). C'est
+ce qui permet de le déclencher bien plus souvent qu'une fois par jour sans jamais dépasser les
+quotas gratuits. Le plan Vercel Hobby ne permet qu'une exécution de cron par jour
+(`vercel.json`, conservé comme filet de secours) : la fréquence réelle vient d'un workflow
+**GitHub Actions** qui l'appelle toutes les 5 minutes
+(`.github/workflows/ingest-prices.yml`) — gratuit, ne nécessite aucun hébergement
+supplémentaire. Secrets requis sur le dépôt GitHub (Settings → Secrets and variables →
+Actions) : `APP_URL` (URL de déploiement) et `CRON_SECRET` (identique à la variable
+d'environnement Vercel du même nom).
+
+Côté navigateur, le dashboard, le classement et les statistiques se rafraîchissent eux-mêmes
+toutes les 10 secondes (`src/components/auto-refresh.tsx`, en pause quand l'onglet n'est pas
+visible) — prix, valeur des positions, P&L, classement et graphiques se mettent donc à jour
+automatiquement à l'écran dès qu'un prix plus récent existe en base, sans que le participant
+ait besoin de recharger la page.
+
+**Ce qui n'est donc *pas* du vrai temps réel seconde par seconde :** les actions, par
+construction du quota gratuit Twelve Data (voir ci-dessus). Un vrai flux temps réel pour les
+actions existe gratuitement (WebSocket Finnhub, jusqu'à 50 symboles) mais nécessiterait une
+connexion persistante que l'hébergement serverless Vercel Hobby ne peut pas maintenir — hors
+scope volontairement pour ne pas complexifier la transmission du projet (voir section
+suivante).
 
 L'administrateur garde la main sur l'univers investissable : désactiver un actif depuis
 `/admin/assets` empêche tout nouvel achat dessus (les positions déjà ouvertes ne sont pas

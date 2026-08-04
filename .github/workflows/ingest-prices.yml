@@ -1,0 +1,29 @@
+name: Ingestion des prix (floor refresh)
+
+# Remplace la fréquence du cron Vercel (limité à 1 exécution/jour sur le plan
+# Hobby, voir vercel.json) par un déclenchement toutes les 5 minutes. Sans
+# risque de dépasser les quotas gratuits des fournisseurs : l'ingestion
+# (src/lib/prices/ingest.ts) ne rappelle un fournisseur que pour les actifs
+# dont le prix a réellement expiré (src/lib/prices/staleness.ts) — la
+# plupart des exécutions ne font donc rien de coûteux. Voir la section
+# "Rafraîchissement des prix" du README pour le détail de l'architecture.
+#
+# Secrets requis (Settings > Secrets and variables > Actions du dépôt) :
+#   APP_URL      URL de déploiement, ex. https://mon-concours.vercel.app
+#   CRON_SECRET  Doit correspondre exactement à la variable d'environnement
+#                CRON_SECRET du déploiement Vercel.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler /api/cron/ingest-prices
+        run: |
+          curl --fail --show-error --silent \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/ingest-prices"

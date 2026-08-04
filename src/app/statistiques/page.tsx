@@ -7,11 +7,17 @@ import { SiteHeader } from "@/components/site-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ParticipantStatsSection } from "./participant-stats-section";
 import { ContestStatsSection } from "./contest-stats-section";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function StatistiquesPage() {
   const session = await verifySession();
   const user = await db.user.findUnique({ where: { id: session.user.id } });
-  const header = <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />;
+  const header = (
+    <>
+      <AutoRefresh />
+      <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
+    </>
+  );
 
   if (!user?.promotionId) {
     return (

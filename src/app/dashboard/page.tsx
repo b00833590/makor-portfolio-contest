@@ -15,6 +15,7 @@ import { PerformanceChart } from "./performance-chart";
 import { TransactionHistoryTable } from "./transaction-history-table";
 import { BadgesSection } from "./badges-section";
 import { InitializationWindowBanner } from "./initialization-window-banner";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
@@ -41,6 +42,7 @@ export default async function DashboardPage() {
 
   return (
     <>
+      <AutoRefresh />
       <SiteHeader
         name={session.user.name}
         role={session.user.role}

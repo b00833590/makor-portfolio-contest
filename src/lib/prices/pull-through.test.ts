@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AssetType } from "@/generated/prisma/enums";
 import type { Asset } from "@/generated/prisma/client";
 import type { PriceProvider } from "@/lib/prices/types";
+import { STOCK_PRICE_STALE_MS, CRYPTO_PRICE_STALE_MS } from "@/lib/prices/staleness";
 
 const priceFindManyMock = vi.fn();
 const priceCreateMock = vi.fn();
@@ -17,7 +18,7 @@ vi.mock("@/lib/prices", () => ({
   getPriceProviders: getPriceProvidersMock,
 }));
 
-const { refreshAssetPricesIfStale, refreshAssetPriceIfStale, PRICE_STALE_MS } = await import("./pull-through");
+const { refreshAssetPricesIfStale, refreshAssetPriceIfStale } = await import("./pull-through");
 
 function makeAsset(overrides: Partial<Asset> = {}): Asset {
   return {
@@ -72,7 +73,7 @@ describe("refreshAssetPricesIfStale", () => {
   it("fetches and stores a fresh quote when the latest price is stale", async () => {
     const now = new Date("2026-01-01T12:00:00Z");
     priceFindManyMock.mockResolvedValue([
-      { assetId: "asset-1", price: 100, timestamp: new Date(now.getTime() - PRICE_STALE_MS - 1000) },
+      { assetId: "asset-1", price: 100, timestamp: new Date(now.getTime() - STOCK_PRICE_STALE_MS - 1000) },
     ]);
     const quote = { price: 180, timestamp: now, source: "test-provider" };
     getPriceProvidersMock.mockReturnValue([makeProvider({ fetchPrice: async () => quote })]);
@@ -103,7 +104,7 @@ describe("refreshAssetPricesIfStale", () => {
 
   it("falls back to the stale price marked isStale when no provider supports the asset", async () => {
     const now = new Date("2026-01-01T12:00:00Z");
-    const timestamp = new Date(now.getTime() - PRICE_STALE_MS - 1000);
+    const timestamp = new Date(now.getTime() - STOCK_PRICE_STALE_MS - 1000);
     priceFindManyMock.mockResolvedValue([{ assetId: "asset-1", price: 100, timestamp }]);
     getPriceProvidersMock.mockReturnValue([makeProvider({ supports: () => false })]);
 
@@ -120,6 +121,20 @@ describe("refreshAssetPricesIfStale", () => {
     const result = await refreshAssetPricesIfStale([makeAsset()]);
 
     expect(result.has("asset-1")).toBe(false);
+  });
+
+  it("applies the shorter crypto staleness threshold instead of the stock one", async () => {
+    const now = new Date("2026-01-01T12:00:00Z");
+    const timestamp = new Date(now.getTime() - CRYPTO_PRICE_STALE_MS - 1000);
+    priceFindManyMock.mockResolvedValue([{ assetId: "asset-1", price: 100, timestamp }]);
+    const quote = { price: 105, timestamp: now, source: "test-provider" };
+    getPriceProvidersMock.mockReturnValue([makeProvider({ fetchPrice: async () => quote })]);
+
+    // This timestamp is well within STOCK_PRICE_STALE_MS but past CRYPTO_PRICE_STALE_MS —
+    // a refresh happening here proves the shorter crypto threshold was applied.
+    const result = await refreshAssetPricesIfStale([makeAsset({ type: AssetType.CRYPTO })], now);
+
+    expect(result.get("asset-1")).toEqual({ price: 105, timestamp: now, isStale: false });
   });
 });
 

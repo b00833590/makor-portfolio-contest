@@ -58,8 +58,10 @@ réaffectés) par l'admin. Aucune auto-inscription n'est possible.
 
 ## Restreindre l'univers d'actifs
 
-Par défaut, tout ticker action/ETF/crypto trouvé par la recherche (`/api/assets/search`, Twelve
+Par défaut, tout ticker action/crypto trouvé par la recherche (`/api/assets/search`, Twelve
 Data + CoinGecko) est achetable — l'actif est créé automatiquement en base au premier achat.
+Les ETF sont exclus par construction : la recherche ne retourne que des actions (listings
+« Common Stock ») et des cryptomonnaies.
 Pour retirer un actif de l'univers investissable :
 
 1. Aller sur `/admin/assets`.
@@ -83,15 +85,41 @@ les règles souhaitées.
 
 ## Mettre à jour les fournisseurs de données de marché
 
-- **Twelve Data** (actions/ETF) : créer une clé gratuite sur
+- **Twelve Data** (actions) : créer une clé gratuite sur
   [twelvedata.com](https://twelvedata.com), la renseigner dans `TWELVE_DATA_API_KEY` (voir
   [DEPLOIEMENT.md](DEPLOIEMENT.md)). Sans clé, la plateforme reste fonctionnelle mais bascule sur
   un provider de prix simulé (`src/lib/prices/providers/mock-provider.ts`).
-- **CoinGecko** (crypto) : aucune clé nécessaire, l'API publique gratuite suffit à cette échelle.
+- **Binance** (prix crypto) : aucune clé nécessaire, API publique sans quota significatif pour
+  cet usage. **CoinGecko** reste utilisé séparément pour la *recherche* de tickers crypto
+  (nom, logo, rang par capitalisation) — aucune clé non plus.
 - Pour ajouter un nouveau fournisseur (ex. remplacer Twelve Data par Financial Modeling Prep) :
   implémenter l'interface `PriceProvider` (`src/lib/prices/types.ts`) et l'ajouter à la liste
   dans `src/lib/prices/index.ts` — aucun autre fichier à modifier, le reste de la plateforme
   (cache pull-through, cron d'ingestion) est agnostique du fournisseur.
+
+## Fraîcheur des prix et rafraîchissement automatique
+
+Voir la section "Fraîcheur des prix" du [README](../README.md) pour le détail de
+l'architecture (seuils de péremption par type d'actif, rafraîchissement pull-through, workflow
+GitHub Actions, auto-refresh côté navigateur).
+
+Pour que le rafraîchissement toutes les 5 minutes fonctionne (au lieu d'une fois par jour sur le
+cron Vercel gratuit), configurer sur le dépôt GitHub (Settings → Secrets and variables →
+Actions → New repository secret) :
+
+| Secret | Valeur |
+|---|---|
+| `APP_URL` | URL du déploiement, ex. `https://mon-concours.vercel.app` |
+| `CRON_SECRET` | Identique à la variable d'environnement `CRON_SECRET` du déploiement Vercel |
+
+Sans ces secrets, le workflow (`.github/workflows/ingest-prices.yml`) échoue silencieusement
+(visible dans l'onglet "Actions" du dépôt) et la plateforme retombe sur le seul cron quotidien
+Vercel — dégradé, mais toujours fonctionnel.
+
+Si le nombre d'actions distinctes suivies par le concours grandit significativement, le seuil
+`STOCK_PRICE_STALE_MS` (`src/lib/prices/staleness.ts`) peut nécessiter un ajustement à la hausse
+pour rester sous le quota gratuit Twelve Data (8 requêtes/min, 800/jour) — le calcul est
+documenté dans le commentaire du fichier.
 
 ## Maintenance long terme
 

@@ -5,11 +5,12 @@ import type { PriceProvider, FetchedPrice } from "@/lib/prices/types";
 
 const findManyMock = vi.fn();
 const createMock = vi.fn();
+const priceFindManyMock = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     asset: { findMany: findManyMock },
-    price: { create: createMock },
+    price: { create: createMock, findMany: priceFindManyMock },
   },
 }));
 
@@ -43,6 +44,8 @@ function makeProvider(overrides: Partial<PriceProvider> = {}): PriceProvider {
 beforeEach(() => {
   findManyMock.mockReset();
   createMock.mockReset();
+  priceFindManyMock.mockReset();
+  priceFindManyMock.mockResolvedValue([]);
 });
 
 describe("ingestAssetPrices", () => {
@@ -109,5 +112,18 @@ describe("ingestAssetPrices", () => {
     await ingestAssetPrices([makeProvider()]);
 
     expect(findManyMock).toHaveBeenCalledWith({ where: { isActive: true } });
+  });
+
+  it("skips calling the provider when the latest price is still fresh", async () => {
+    const asset = makeAsset();
+    const now = new Date("2026-01-01T12:00:00Z");
+    findManyMock.mockResolvedValue([asset]);
+    priceFindManyMock.mockResolvedValue([{ assetId: asset.id, price: 150, timestamp: new Date(now.getTime() - 1000) }]);
+    const provider = makeProvider();
+
+    const results = await ingestAssetPrices([provider], now);
+
+    expect(results).toEqual([{ assetId: asset.id, symbol: asset.symbol, status: "skipped", price: 150 }]);
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getPriceProviders } from "@/lib/prices";
+import { isPriceStale } from "@/lib/prices/staleness";
 import type { Asset } from "@/generated/prisma/client";
-
-/** Au-delà de ce délai, un prix est jugé périmé et redemandé au fournisseur. */
-export const PRICE_STALE_MS = 15 * 60 * 1000;
 
 type AssetForRefresh = Pick<Asset, "id" | "symbol" | "type" | "currency" | "externalId">;
 
@@ -39,16 +37,13 @@ export async function refreshAssetPricesIfStale(
     distinct: ["assetId"],
   });
   const latestByAsset = new Map(latestRows.map((row) => [row.assetId, row]));
-  const staleAssets = assets.filter((asset) => {
-    const latest = latestByAsset.get(asset.id);
-    return !latest || now.getTime() - latest.timestamp.getTime() > PRICE_STALE_MS;
-  });
+  const staleAssets = assets.filter((asset) => isPriceStale(latestByAsset.get(asset.id)?.timestamp, asset.type, now));
   const providers = staleAssets.length > 0 ? getPriceProviders() : [];
 
   await Promise.all(
     assets.map(async (asset) => {
       const latest = latestByAsset.get(asset.id);
-      const isStale = !latest || now.getTime() - latest.timestamp.getTime() > PRICE_STALE_MS;
+      const isStale = isPriceStale(latest?.timestamp, asset.type, now);
 
       if (!isStale) {
         result.set(asset.id, { price: Number(latest!.price), timestamp: latest!.timestamp, isStale: false });

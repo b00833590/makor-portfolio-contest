@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { PromotionPerformanceChart } from "./promotion-performance-chart";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 const medals = ["🥇", "🥈", "🥉"];
@@ -77,11 +78,14 @@ export default async function LeaderboardPage() {
   const user = await db.user.findUnique({ where: { id: session.user.id } });
 
   const header = (
-    <SiteHeader
-      name={session.user.name}
-      role={session.user.role}
-      avatarUrl={session.user.avatarUrl}
-    />
+    <>
+      <AutoRefresh />
+      <SiteHeader
+        name={session.user.name}
+        role={session.user.role}
+        avatarUrl={session.user.avatarUrl}
+      />
+    </>
   );
 
   if (!user?.promotionId) {
