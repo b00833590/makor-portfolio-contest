@@ -16,9 +16,9 @@ export interface TwelveDataSymbolSearchItem {
   currency: string;
 }
 
-/** "Common Stock" / "ETF" are genuine tradable listings; other types (Depositary Receipt, etc.) are secondary. */
+/** "Common Stock" is the only genuine tradable listing on this platform; other types (Depositary Receipt, etc.) are secondary fallbacks. */
 function isPrimaryListing(item: TwelveDataSymbolSearchItem): boolean {
-  return item.instrument_type === "Common Stock" || item.instrument_type === "ETF";
+  return item.instrument_type === "Common Stock";
 }
 
 /**
@@ -27,9 +27,11 @@ function isPrimaryListing(item: TwelveDataSymbolSearchItem): boolean {
  * Twelve Data returns every exchange listing for a ticker, in no reliable
  * relevance order (e.g. "MSFT" can list an Argentine depositary receipt
  * before the NASDAQ common stock) — dedupe by symbol, but let a later
- * primary listing (Common Stock/ETF) replace an earlier secondary one.
+ * primary listing (Common Stock) replace an earlier secondary one.
  * Symbols containing "/" (e.g. "ETH/USD") are forex/pair listings, not
- * equities or ETFs, so they're excluded outright.
+ * equities, so they're excluded outright. ETF listings are excluded
+ * outright too — only individual stocks and crypto (via CoinGecko) are
+ * investable on this platform.
  */
 export function mapTwelveDataResults(items: TwelveDataSymbolSearchItem[], limit = 6): AssetSearchResult[] {
   const bySymbol = new Map<string, TwelveDataSymbolSearchItem>();
@@ -37,7 +39,7 @@ export function mapTwelveDataResults(items: TwelveDataSymbolSearchItem[], limit 
 
   for (const item of items) {
     const symbol = item.symbol?.trim().toUpperCase();
-    if (!symbol || symbol.includes("/")) continue;
+    if (!symbol || symbol.includes("/") || item.instrument_type === "ETF") continue;
 
     const existing = bySymbol.get(symbol);
     if (!existing) {
@@ -53,7 +55,7 @@ export function mapTwelveDataResults(items: TwelveDataSymbolSearchItem[], limit 
     return {
       symbol,
       name: item.instrument_name,
-      type: item.instrument_type === "ETF" ? AssetType.ETF : AssetType.STOCK,
+      type: AssetType.STOCK,
       currency: item.currency,
       logoUrl: `https://images.financialmodelingprep.com/symbol/${symbol}.png`,
     };

@@ -15,7 +15,7 @@ function resolveInterval(request: HistoryRequest): { interval: string; outputsiz
 }
 
 /**
- * Twelve Data real-time price endpoint, for actions and ETF.
+ * Twelve Data real-time price endpoint, for stocks.
  * https://twelvedata.com/docs#price — 1 API credit per symbol per call.
  */
 export class TwelveDataProvider implements PriceProvider {
@@ -24,7 +24,7 @@ export class TwelveDataProvider implements PriceProvider {
   constructor(private readonly apiKey: string) {}
 
   supports(asset: Pick<Asset, "type">): boolean {
-    return asset.type === AssetType.STOCK || asset.type === AssetType.ETF;
+    return asset.type === AssetType.STOCK;
   }
 
   async fetchPrice(asset: Pick<Asset, "symbol" | "currency">): Promise<FetchedPrice | null> {

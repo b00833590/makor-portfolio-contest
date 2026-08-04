@@ -36,7 +36,6 @@ export function AssetForm() {
           defaultValue="STOCK"
           items={[
             { value: "STOCK", label: "Action" },
-            { value: "ETF", label: "ETF" },
             { value: "CRYPTO", label: "Crypto" },
           ]}
         >
@@ -45,7 +44,6 @@ export function AssetForm() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="STOCK">Action</SelectItem>
-            <SelectItem value="ETF">ETF</SelectItem>
             <SelectItem value="CRYPTO">Crypto</SelectItem>
           </SelectContent>
         </Select>

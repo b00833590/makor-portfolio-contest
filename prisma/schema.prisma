@@ -96,7 +96,6 @@ model Promotion {
 
 enum AssetType {
   STOCK
-  ETF
   CRYPTO
 }
 
@@ -113,7 +112,7 @@ model Asset {
   /// (ex. id CoinGecko "bitcoin" pour le ticker "BTC") — voir
   /// src/lib/prices/providers/coingecko-provider.ts.
   externalId String?
-  /// Logo capturé au moment de la recherche de ticker (FMP pour actions/ETF,
+  /// Logo capturé au moment de la recherche de ticker (FMP pour les actions,
   /// CoinGecko pour la crypto) — non recalculable après coup pour la crypto.
   logoUrl    String?
 

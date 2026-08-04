@@ -29,11 +29,22 @@ describe("createAssetSchema", () => {
   it("allows the sector to be omitted", () => {
     const result = createAssetSchema.safeParse({
       symbol: "SPY",
-      name: "SPDR S&P 500",
-      type: "ETF",
+      name: "SPDR S&P 500 ETF Trust",
+      type: "STOCK",
       currency: "USD",
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("rejects the removed ETF asset type", () => {
+    const result = createAssetSchema.safeParse({
+      symbol: "SPY",
+      name: "SPDR S&P 500 ETF Trust",
+      type: "ETF",
+      currency: "USD",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

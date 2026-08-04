@@ -2,7 +2,6 @@ export const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "curren
 
 export const ASSET_TYPE_LABELS: Record<string, string> = {
   STOCK: "Actions",
-  ETF: "ETF",
   CRYPTO: "Crypto",
 };
 

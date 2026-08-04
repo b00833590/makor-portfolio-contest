@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 const proofPoints = [
   { label: "Capital de départ", value: "1 000 000 €" },
   { label: "Classement", value: "Temps réel" },
-  { label: "Univers", value: "Actions · ETF · Crypto" },
+  { label: "Univers", value: "Actions · Crypto" },
 ];
 
 export default function Home() {

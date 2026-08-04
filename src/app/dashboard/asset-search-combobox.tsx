@@ -16,10 +16,10 @@ import { AssetLogo } from "./asset-logo";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-const typeLabels = { STOCK: "Action", ETF: "ETF", CRYPTO: "Crypto" } as const;
+const typeLabels = { STOCK: "Action", CRYPTO: "Crypto" } as const;
 
 /**
- * Recherche de tickers en direct (Twelve Data pour actions/ETF, CoinGecko
+ * Recherche de tickers en direct (Twelve Data pour les actions, CoinGecko
  * pour la crypto) avec autocomplétion — remplace la liste figée d'actifs
  * pré-créés par l'admin (voir /api/assets/search).
  */

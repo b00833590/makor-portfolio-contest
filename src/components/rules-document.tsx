@@ -156,7 +156,6 @@ export function RulesDocument({
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Actions cotées</li>
-          <li>ETF (trackers)</li>
           <li>
             Cryptomonnaies —{" "}
             {cryptoAllowed

@@ -19,12 +19,12 @@ describe("mapTwelveDataResults", () => {
     ]);
   });
 
-  it("maps an ETF listing to type ETF", () => {
+  it("excludes ETF listings entirely", () => {
     const results = mapTwelveDataResults([
       { symbol: "IWDA", instrument_name: "iShares Core MSCI World UCITS ETF", instrument_type: "ETF", currency: "EUR" },
     ]);
 
-    expect(results[0].type).toBe(AssetType.ETF);
+    expect(results).toHaveLength(0);
   });
 
   it("dedupes repeated symbols across exchanges, keeping the first when both are primary listings", () => {
@@ -37,7 +37,7 @@ describe("mapTwelveDataResults", () => {
     expect(results[0].currency).toBe("USD");
   });
 
-  it("upgrades to a later primary listing (Common Stock/ETF) over an earlier secondary one", () => {
+  it("upgrades to a later primary listing (Common Stock) over an earlier secondary one", () => {
     const results = mapTwelveDataResults([
       { symbol: "MSFT", instrument_name: "Microsoft Corp. CEDEAR", instrument_type: "Depositary Receipt", currency: "ARS" },
       { symbol: "MSFT", instrument_name: "Microsoft Corporation", instrument_type: "Common Stock", currency: "USD" },

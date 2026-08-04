@@ -51,7 +51,7 @@ async function cleanup() {
   await cleanupPromotion(PROMOTION_NAME);
   await db.user.deleteMany({ where: { name: { in: DEMO_NAMES } } });
   await db.asset.deleteMany({
-    where: { symbol: { in: ["AAPL-DEMO", "MSFT-DEMO", "LVMH-DEMO", "CW8-DEMO", "BTC-DEMO", "SAN-DEMO"] } },
+    where: { symbol: { in: ["AAPL-DEMO", "MSFT-DEMO", "LVMH-DEMO", "OR-DEMO", "BTC-DEMO", "SAN-DEMO"] } },
   });
 }
 
@@ -67,7 +67,7 @@ const assetSeeds: AssetSeed[] = [
   { symbol: "AAPL-DEMO", name: "Apple Inc.", type: AssetType.STOCK, sector: "Technologie", currentPrice: 195 },
   { symbol: "MSFT-DEMO", name: "Microsoft Corp.", type: AssetType.STOCK, sector: "Technologie", currentPrice: 420 },
   { symbol: "LVMH-DEMO", name: "LVMH", type: AssetType.STOCK, sector: "Luxe", currentPrice: 650 },
-  { symbol: "CW8-DEMO", name: "Amundi MSCI World ETF", type: AssetType.ETF, sector: null, currentPrice: 450 },
+  { symbol: "OR-DEMO", name: "L'Oréal", type: AssetType.STOCK, sector: "Consommation", currentPrice: 380 },
   { symbol: "BTC-DEMO", name: "Bitcoin", type: AssetType.CRYPTO, sector: null, currentPrice: 55_000 },
   { symbol: "SAN-DEMO", name: "Sanofi", type: AssetType.STOCK, sector: "Santé", currentPrice: 95 },
 ];
@@ -100,7 +100,7 @@ const participantSeeds: ParticipantSeed[] = [
       { symbol: "AAPL-DEMO", quantity: 338.5, avgEntryPrice: 195 },
       { symbol: "MSFT-DEMO", quantity: 157.1, avgEntryPrice: 420 },
       { symbol: "LVMH-DEMO", quantity: 101.5, avgEntryPrice: 650 },
-      { symbol: "CW8-DEMO", quantity: 146.7, avgEntryPrice: 450 },
+      { symbol: "OR-DEMO", quantity: 146.7, avgEntryPrice: 380 },
       { symbol: "BTC-DEMO", quantity: 1.2, avgEntryPrice: 55_000 },
       { symbol: "SAN-DEMO", quantity: 694.7, avgEntryPrice: 95 },
     ],

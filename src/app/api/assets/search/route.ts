@@ -8,7 +8,7 @@ import {
   type TwelveDataSymbolSearchItem,
 } from "@/lib/assets/search-providers";
 
-async function searchStocksAndEtfs(query: string): Promise<AssetSearchResult[]> {
+async function searchStocks(query: string): Promise<AssetSearchResult[]> {
   try {
     const url = new URL("https://api.twelvedata.com/symbol_search");
     url.searchParams.set("symbol", query);
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] satisfies AssetSearchResult[] });
   }
 
-  const [stocksAndEtfs, cryptos] = await Promise.all([searchStocksAndEtfs(query), searchCryptos(query)]);
+  const [stocks, cryptos] = await Promise.all([searchStocks(query), searchCryptos(query)]);
 
-  return NextResponse.json({ results: [...stocksAndEtfs, ...cryptos] satisfies AssetSearchResult[] });
+  return NextResponse.json({ results: [...stocks, ...cryptos] satisfies AssetSearchResult[] });
 }

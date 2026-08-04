@@ -63,7 +63,7 @@ export function ContestStatsSection({ stats }: { stats: ContestStats }) {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Répartition Actions / ETF / Crypto</CardTitle>
+            <CardTitle className="text-base">Répartition Actions / Crypto</CardTitle>
           </CardHeader>
           <CardContent>
             <AllocationList

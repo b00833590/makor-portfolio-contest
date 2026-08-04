@@ -62,7 +62,7 @@ async function getDailyReferencePrices(assetIds: string[], cutoff: Date): Promis
 
 function resolveLogoUrl(asset: { symbol: string; type: AssetType; logoUrl: string | null }): string | null {
   if (asset.logoUrl) return asset.logoUrl;
-  if (asset.type === AssetType.STOCK || asset.type === AssetType.ETF) {
+  if (asset.type === AssetType.STOCK) {
     return `https://images.financialmodelingprep.com/symbol/${asset.symbol}.png`;
   }
   return null;

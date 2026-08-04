@@ -12,7 +12,7 @@ import {
 import { AssetForm } from "./asset-form";
 import { toggleAssetActive } from "./actions";
 
-const typeLabels = { STOCK: "Action", ETF: "ETF", CRYPTO: "Crypto" } as const;
+const typeLabels = { STOCK: "Action", CRYPTO: "Crypto" } as const;
 
 export default async function AssetsPage() {
   const assets = await db.asset.findMany({ orderBy: { symbol: "asc" } });
