@@ -24,7 +24,14 @@ réveil sur la première requête après une pause), sans jamais nécessiter d'i
 2. Sur [vercel.com](https://vercel.com), **Add New → Project**, importer le dépôt.
 3. Vercel détecte automatiquement Next.js — ne rien changer aux réglages de build.
 4. Dans **Environment Variables**, ajouter :
-   - `DATABASE_URL` = la chaîne de connexion Neon copiée à l'étape précédente
+   - `DATABASE_URL` = la chaîne de connexion **pooled** Neon (celle avec `-pooler` dans le nom
+     d'hôte) copiée à l'étape précédente — utilisée par l'application en runtime
+   - `DIRECT_DATABASE_URL` = la même chaîne de connexion, mais **sans** `-pooler` dans le nom
+     d'hôte (ex. `ep-xxx-pooler.c-4...` → `ep-xxx.c-4...`) — utilisée uniquement par `prisma
+     migrate deploy` au build (voir `prisma.config.ts`). Nécessaire car le verrou Postgres pris
+     par une migration ne survit pas au recyclage d'une connexion par le pooler PgBouncer de
+     Neon, ce qui bloque les déploiements suivants avec une erreur `P1002` (timeout
+     d'acquisition de verrou) tant qu'une connexion pooled reste utilisée pour migrer.
    - `TWELVE_DATA_API_KEY` = votre clé gratuite [twelvedata.com](https://twelvedata.com) (optionnel,
      mais recommandé pour une recherche de tickers et des prix fiables en production)
    - `CRON_SECRET` = une valeur aléatoire de votre choix (ex. générée avec
@@ -35,10 +42,13 @@ réveil sur la première requête après une pause), sans jamais nécessiter d'i
 
 ## 3. Appliquer le schéma et créer le compte admin
 
-Depuis votre machine locale, avec `DATABASE_URL` pointée temporairement vers Neon :
+`prisma migrate deploy` lit `DIRECT_DATABASE_URL` en priorité (voir `prisma.config.ts`) — pour un
+lancement manuel depuis votre machine, pointez-la temporairement vers la chaîne de connexion
+**directe** Neon (sans `-pooler`, même raison qu'à l'étape précédente). `db:seed` n'utilise pas le
+moteur de migration : la chaîne pooled habituelle (`DATABASE_URL`) suffit.
 
 ```bash
-DATABASE_URL="<chaîne de connexion Neon>" npx prisma migrate deploy
+DIRECT_DATABASE_URL="<chaîne de connexion directe Neon>" npx prisma migrate deploy
 DATABASE_URL="<chaîne de connexion Neon>" npm run db:seed
 ```
 

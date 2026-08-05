@@ -9,6 +9,14 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // `migrate deploy` (and other CLI commands using this config) needs a
+    // direct, non-pooled connection: the Postgres advisory lock it takes
+    // out is session-scoped, and Neon's PgBouncer pooler can hand a later
+    // client the same backend connection an earlier `migrate deploy` used
+    // without that lock ever being released — every following deploy then
+    // times out acquiring it (Prisma error P1002). The app's runtime
+    // queries (src/lib/db.ts) are unaffected — they keep using the pooled
+    // DATABASE_URL directly, not this config file.
+    url: process.env["DIRECT_DATABASE_URL"] ?? process.env["DATABASE_URL"],
   },
 });
