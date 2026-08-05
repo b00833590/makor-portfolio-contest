@@ -1,5 +1,4 @@
 import { AssetType } from "@/generated/prisma/enums";
-import { marketSuffixFor } from "./market-suffix";
 
 export interface AssetSearchResult {
   symbol: string;
@@ -10,49 +9,45 @@ export interface AssetSearchResult {
   logoUrl: string | null;
 }
 
-export interface TwelveDataSymbolSearchItem {
+export interface YahooSymbolSearchItem {
   symbol: string;
-  instrument_name: string;
-  instrument_type: string;
-  currency: string;
-  mic_code: string;
-  country: string;
+  shortname?: string;
+  longname?: string;
+  quoteType: string;
 }
 
 /**
  * Pure mapping so the merge/dedupe logic is testable without mocking `fetch`.
  *
- * Twelve Data returns every exchange listing for a ticker — only "Common
- * Stock" listings are genuine tradable shares on this platform (Depositary
- * Receipts, forex pairs, and ETFs are excluded outright). The same raw
- * ticker can belong to two unrelated companies on different exchanges (e.g.
- * "MC" is both LVMH on Euronext Paris and Moelis & Company on the NYSE), so
- * non-US listings get a market suffix (see market-suffix.ts) to stay
- * unambiguous — that also means results are deduped per (symbol, market)
- * instead of per raw symbol, so distinct companies never collide.
+ * Search and price both come from Yahoo Finance (see yahoo-provider.ts for
+ * why) so the symbol a search result returns is guaranteed to be exactly
+ * the symbol Yahoo's price endpoint expects — no cross-provider ticker
+ * format mismatch is possible (this used to source search from Twelve Data
+ * instead, which formats share classes with a dot — "SECT.B" — while
+ * Yahoo's own convention uses a dash — "SECT-B" — so a search result could
+ * silently fail to ever price). Non-US listings already carry Yahoo's own
+ * market suffix (".PA", ".ST"...); US ones never do, which is also how
+ * price-provider routing decides between Twelve Data (US, see
+ * twelve-data-provider.ts) and Yahoo (everything else).
  */
-export function mapTwelveDataResults(items: TwelveDataSymbolSearchItem[], limit = 6): AssetSearchResult[] {
+export function mapYahooStockResults(items: YahooSymbolSearchItem[], limit = 6): AssetSearchResult[] {
   const seen = new Set<string>();
   const results: AssetSearchResult[] = [];
 
   for (const item of items) {
-    const rawSymbol = item.symbol?.trim().toUpperCase();
-    if (!rawSymbol || rawSymbol.includes("/") || item.instrument_type !== "Common Stock") continue;
+    if (item.quoteType !== "EQUITY") continue;
 
-    const isUnitedStates = item.country === "United States";
-    const micCode = isUnitedStates ? undefined : item.mic_code;
-    const displaySymbol = `${rawSymbol}${marketSuffixFor(micCode)}`;
-
-    if (seen.has(displaySymbol)) continue;
-    seen.add(displaySymbol);
+    const symbol = item.symbol?.trim().toUpperCase();
+    const name = (item.longname ?? item.shortname ?? "").replace(/\s+/g, " ").trim();
+    if (!symbol || !name || seen.has(symbol)) continue;
+    seen.add(symbol);
 
     results.push({
-      symbol: displaySymbol,
-      name: item.instrument_name,
+      symbol,
+      name,
       type: AssetType.STOCK,
-      currency: item.currency,
-      externalId: micCode,
-      logoUrl: `https://images.financialmodelingprep.com/symbol/${rawSymbol}.png`,
+      currency: "EUR",
+      logoUrl: `https://images.financialmodelingprep.com/symbol/${symbol.split(/[.-]/)[0]}.png`,
     });
 
     if (results.length >= limit) break;

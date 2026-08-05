@@ -23,9 +23,14 @@ export class TwelveDataProvider implements PriceProvider {
 
   constructor(private readonly apiKey: string) {}
 
-  /** US stocks only — non-US listings (externalId = mic_code) are covered by YahooProvider instead, see index.ts. */
-  supports(asset: Pick<Asset, "type" | "externalId">): boolean {
-    return asset.type === AssetType.STOCK && !asset.externalId;
+  /**
+   * US stocks only. Yahoo's own symbol convention (used for search — see
+   * search-providers.ts) never suffixes US listings but always suffixes
+   * non-US ones (".PA", ".ST"...) — YahooProvider covers those instead, see
+   * index.ts.
+   */
+  supports(asset: Pick<Asset, "type" | "symbol">): boolean {
+    return asset.type === AssetType.STOCK && !asset.symbol.includes(".");
   }
 
   async fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null> {

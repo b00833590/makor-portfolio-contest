@@ -1,18 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { AssetType } from "@/generated/prisma/enums";
-import { mapCoinGeckoResults, mapTwelveDataResults } from "./search-providers";
+import { mapCoinGeckoResults, mapYahooStockResults } from "./search-providers";
 
-describe("mapTwelveDataResults", () => {
-  it("maps a US common stock listing to type STOCK with no market suffix", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "aapl",
-        instrument_name: "Apple Inc.",
-        instrument_type: "Common Stock",
-        currency: "USD",
-        mic_code: "XNAS",
-        country: "United States",
-      },
+describe("mapYahooStockResults", () => {
+  it("maps a US equity to type STOCK with no market suffix, using Yahoo's own symbol verbatim", () => {
+    const results = mapYahooStockResults([
+      { symbol: "AAPL", shortname: "Apple Inc.", quoteType: "EQUITY" },
     ]);
 
     expect(results).toEqual([
@@ -20,23 +13,15 @@ describe("mapTwelveDataResults", () => {
         symbol: "AAPL",
         name: "Apple Inc.",
         type: AssetType.STOCK,
-        currency: "USD",
-        externalId: undefined,
+        currency: "EUR",
         logoUrl: "https://images.financialmodelingprep.com/symbol/AAPL.png",
       },
     ]);
   });
 
-  it("maps a European common stock listing with a market suffix and its mic_code as externalId", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "mc",
-        instrument_name: "LVMH Moët Hennessy Louis Vuitton SE",
-        instrument_type: "Common Stock",
-        currency: "EUR",
-        mic_code: "XPAR",
-        country: "France",
-      },
+  it("keeps Yahoo's own market suffix for a European listing", () => {
+    const results = mapYahooStockResults([
+      { symbol: "MC.PA", longname: "LVMH Moët Hennessy Louis Vuitton SE", quoteType: "EQUITY" },
     ]);
 
     expect(results).toEqual([
@@ -45,30 +30,24 @@ describe("mapTwelveDataResults", () => {
         name: "LVMH Moët Hennessy Louis Vuitton SE",
         type: AssetType.STOCK,
         currency: "EUR",
-        externalId: "XPAR",
         logoUrl: "https://images.financialmodelingprep.com/symbol/MC.png",
       },
     ]);
   });
 
+  it("keeps Yahoo's dash for a US share class (not a market suffix)", () => {
+    const results = mapYahooStockResults([
+      { symbol: "BRK-B", shortname: "Berkshire Hathaway Inc. New", quoteType: "EQUITY" },
+    ]);
+
+    expect(results[0].symbol).toBe("BRK-B");
+    expect(results[0].logoUrl).toBe("https://images.financialmodelingprep.com/symbol/BRK.png");
+  });
+
   it("keeps two unrelated companies that share the same raw ticker on different exchanges as separate results", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "MC",
-        instrument_name: "LVMH Moët Hennessy Louis Vuitton SE",
-        instrument_type: "Common Stock",
-        currency: "EUR",
-        mic_code: "XPAR",
-        country: "France",
-      },
-      {
-        symbol: "MC",
-        instrument_name: "Moelis & Company",
-        instrument_type: "Common Stock",
-        currency: "USD",
-        mic_code: "XNYS",
-        country: "United States",
-      },
+    const results = mapYahooStockResults([
+      { symbol: "MC.PA", longname: "LVMH Moët Hennessy Louis Vuitton SE", quoteType: "EQUITY" },
+      { symbol: "MC", shortname: "Moelis & Company", quoteType: "EQUITY" },
     ]);
 
     expect(results).toEqual([
@@ -77,90 +56,45 @@ describe("mapTwelveDataResults", () => {
     ]);
   });
 
-  it("excludes ETF listings entirely", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "IWDA",
-        instrument_name: "iShares Core MSCI World UCITS ETF",
-        instrument_type: "ETF",
-        currency: "EUR",
-        mic_code: "XLON",
-        country: "United Kingdom",
-      },
+  it("excludes non-equity quote types (ETFs, indices, currencies...)", () => {
+    const results = mapYahooStockResults([
+      { symbol: "IWDA.AS", longname: "iShares Core MSCI World UCITS ETF", quoteType: "ETF" },
     ]);
 
     expect(results).toHaveLength(0);
   });
 
-  it("excludes non-common-stock listings (depositary receipts, etc.)", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "MSFT",
-        instrument_name: "Microsoft Corp. CEDEAR",
-        instrument_type: "Depositary Receipt",
-        currency: "ARS",
-        mic_code: "XBUE",
-        country: "Argentina",
-      },
+  it("prefers longname over shortname, and trims/collapses whitespace padding", () => {
+    const results = mapYahooStockResults([
+      { symbol: "SECT-B.ST", shortname: "Sectra AB                     N", longname: "Sectra AB (publ)", quoteType: "EQUITY" },
     ]);
 
-    expect(results).toHaveLength(0);
+    expect(results[0].name).toBe("Sectra AB (publ)");
   });
 
-  it("dedupes an identical (symbol, exchange) pair appearing twice", () => {
-    const item = {
-      symbol: "MSFT",
-      instrument_name: "Microsoft Corporation",
-      instrument_type: "Common Stock",
-      currency: "USD",
-      mic_code: "XNAS",
-      country: "United States",
-    };
-    const results = mapTwelveDataResults([item, item]);
+  it("dedupes an identical symbol appearing twice", () => {
+    const item = { symbol: "MSFT", shortname: "Microsoft Corporation", quoteType: "EQUITY" };
+    const results = mapYahooStockResults([item, item]);
 
     expect(results).toHaveLength(1);
-  });
-
-  it("excludes forex/pair-style symbols containing a slash", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "ETH/USD",
-        instrument_name: "Ethereum US Dollar",
-        instrument_type: "Common Stock",
-        currency: "USD",
-        mic_code: "XNAS",
-        country: "United States",
-      },
-    ]);
-
-    expect(results).toHaveLength(0);
   });
 
   it("caps results at the given limit", () => {
     const items = Array.from({ length: 10 }, (_, i) => ({
       symbol: `SYM${i}`,
-      instrument_name: `Company ${i}`,
-      instrument_type: "Common Stock",
-      currency: "USD",
-      mic_code: "XNAS",
-      country: "United States",
+      shortname: `Company ${i}`,
+      quoteType: "EQUITY",
     }));
 
-    const results = mapTwelveDataResults(items, 3);
+    const results = mapYahooStockResults(items, 3);
 
     expect(results).toHaveLength(3);
   });
 
-  it("skips items with an empty symbol", () => {
-    const results = mapTwelveDataResults([
-      {
-        symbol: "",
-        instrument_name: "Unknown",
-        instrument_type: "Common Stock",
-        currency: "USD",
-        mic_code: "XNAS",
-        country: "United States",
-      },
+  it("skips items with an empty symbol or no usable name", () => {
+    const results = mapYahooStockResults([
+      { symbol: "", shortname: "Unknown", quoteType: "EQUITY" },
+      { symbol: "NONAME", quoteType: "EQUITY" },
     ]);
 
     expect(results).toHaveLength(0);

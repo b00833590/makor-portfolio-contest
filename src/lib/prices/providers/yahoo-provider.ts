@@ -45,22 +45,26 @@ interface YahooChartResponse {
 }
 
 /**
- * Twelve Data's free plan only covers US exchanges (see market-suffix.ts and
- * the "externalId as mic_code" convention in search-providers.ts) — Yahoo
- * Finance's undocumented chart endpoint is used as a free, keyless
- * complement specifically for non-US listings, so European (and any other
- * international) stocks stay purchasable without a paid data plan. This is
- * the same endpoint the widely-used `yfinance` Python library relies on:
- * unofficial and unsupported by Yahoo, so it may change or get rate-limited
- * without notice — if that happens, only non-US stocks are affected
- * (getPriceProviders keeps Twelve Data as the sole US provider).
+ * Twelve Data's free plan only covers US exchanges — Yahoo Finance's
+ * undocumented chart endpoint is used as a free, keyless complement
+ * specifically for non-US listings, so European (and any other
+ * international) stocks stay purchasable without a paid data plan. Search
+ * also sources from Yahoo for stocks (see search-providers.ts) so the
+ * symbol stored in the catalog is always exactly what this endpoint
+ * expects — no cross-provider ticker format mismatch (Yahoo uses a dash for
+ * share classes, e.g. "BRK-B"; other providers may use a dot instead, which
+ * Yahoo doesn't recognize). This is the same endpoint the widely-used
+ * `yfinance` Python library relies on: unofficial and unsupported by
+ * Yahoo, so it may change or get rate-limited without notice — if that
+ * happens, only non-US stocks are affected (getPriceProviders keeps Twelve
+ * Data as the sole US provider).
  */
 export class YahooProvider implements PriceProvider {
   readonly source = "yahoo";
 
-  /** Only claims non-US stocks (externalId = mic_code, stamped by search-providers.ts) — Twelve Data keeps US stocks. */
-  supports(asset: Pick<Asset, "type" | "externalId">): boolean {
-    return asset.type === AssetType.STOCK && Boolean(asset.externalId);
+  /** Non-US stocks — Yahoo always suffixes these (".PA", ".ST"...), never US ones. Twelve Data keeps US stocks. */
+  supports(asset: Pick<Asset, "type" | "symbol">): boolean {
+    return asset.type === AssetType.STOCK && asset.symbol.includes(".");
   }
 
   private async fetchChart(symbol: string, params?: Record<string, string>): Promise<YahooChartResponse["chart"]["result"] extends infer R ? R : never> {

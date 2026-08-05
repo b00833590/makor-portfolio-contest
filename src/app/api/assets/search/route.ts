@@ -2,29 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   mapCoinGeckoResults,
-  mapTwelveDataResults,
+  mapYahooStockResults,
   type AssetSearchResult,
   type CoinGeckoSearchCoin,
-  type TwelveDataSymbolSearchItem,
+  type YahooSymbolSearchItem,
 } from "@/lib/assets/search-providers";
 
+/** Same undocumented endpoint as yahoo-provider.ts (fetchPrice/fetchHistory) — see there for why. */
 async function searchStocks(query: string): Promise<AssetSearchResult[]> {
   try {
-    const url = new URL("https://api.twelvedata.com/symbol_search");
-    url.searchParams.set("symbol", query);
-    url.searchParams.set("outputsize", "8");
+    const url = new URL("https://query2.finance.yahoo.com/v1/finance/search");
+    url.searchParams.set("q", query);
 
-    const apiKey = process.env.TWELVE_DATA_API_KEY;
     const response = await fetch(url, {
       cache: "no-store",
-      headers: apiKey ? { Authorization: `apikey ${apiKey}` } : undefined,
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
     if (!response.ok) return [];
 
-    const body = (await response.json()) as { data?: TwelveDataSymbolSearchItem[] };
-    if (!Array.isArray(body.data)) return [];
+    const body = (await response.json()) as { quotes?: YahooSymbolSearchItem[] };
+    if (!Array.isArray(body.quotes)) return [];
 
-    return mapTwelveDataResults(body.data);
+    return mapYahooStockResults(body.quotes);
   } catch {
     return [];
   }
