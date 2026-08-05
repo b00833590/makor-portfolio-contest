@@ -1,7 +1,6 @@
 import { AssetType } from "@/generated/prisma/enums";
 import type { Asset } from "@/generated/prisma/client";
 import type { FetchedPrice, HistoryPoint, HistoryRequest, PriceProvider } from "@/lib/prices/types";
-import { stripMarketSuffix } from "@/lib/assets/market-suffix";
 
 /** interval Twelve Data le plus fin capable de couvrir `days` en <= 5000 points (limite de l'API gratuite). */
 function resolveInterval(request: HistoryRequest): { interval: string; outputsize: number } {
@@ -24,14 +23,14 @@ export class TwelveDataProvider implements PriceProvider {
 
   constructor(private readonly apiKey: string) {}
 
-  supports(asset: Pick<Asset, "type">): boolean {
-    return asset.type === AssetType.STOCK;
+  /** US stocks only — non-US listings (externalId = mic_code) are covered by YahooProvider instead, see index.ts. */
+  supports(asset: Pick<Asset, "type" | "externalId">): boolean {
+    return asset.type === AssetType.STOCK && !asset.externalId;
   }
 
   async fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null> {
     const url = new URL("https://api.twelvedata.com/price");
-    url.searchParams.set("symbol", stripMarketSuffix(asset.symbol, asset.externalId));
-    if (asset.externalId) url.searchParams.set("mic_code", asset.externalId);
+    url.searchParams.set("symbol", asset.symbol);
 
     const response = await fetch(url, {
       cache: "no-store",
@@ -55,13 +54,12 @@ export class TwelveDataProvider implements PriceProvider {
   }
 
   /** https://twelvedata.com/docs#time-series */
-  async fetchHistory(asset: Pick<Asset, "symbol" | "externalId">, request: HistoryRequest): Promise<HistoryPoint[] | null> {
+  async fetchHistory(asset: Pick<Asset, "symbol">, request: HistoryRequest): Promise<HistoryPoint[] | null> {
     const { interval, outputsize } = resolveInterval(request);
     const url = new URL("https://api.twelvedata.com/time_series");
-    url.searchParams.set("symbol", stripMarketSuffix(asset.symbol, asset.externalId));
+    url.searchParams.set("symbol", asset.symbol);
     url.searchParams.set("interval", interval);
     url.searchParams.set("outputsize", String(outputsize));
-    if (asset.externalId) url.searchParams.set("mic_code", asset.externalId);
 
     const response = await fetch(url, {
       cache: "no-store",

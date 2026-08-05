@@ -28,7 +28,7 @@ export interface HistoryRequest {
  */
 export interface PriceProvider {
   readonly source: string;
-  supports(asset: Pick<Asset, "type">): boolean;
+  supports(asset: Pick<Asset, "type" | "externalId">): boolean;
   fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null>;
   /** Historique de cours (optionnel — absent tant qu'un fournisseur ne l'implémente pas). */
   fetchHistory?(
