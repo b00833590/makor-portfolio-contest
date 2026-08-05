@@ -2,6 +2,7 @@ import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { getLeaderboard, type BestWorstPosition, type LeaderboardRow } from "@/lib/gamification/get-leaderboard";
 import { getPromotionPerformanceSeries } from "@/lib/gamification/get-promotion-performance-series";
+import { computeLeaderboardGaps, type Gap } from "@/lib/gamification/leaderboard-gaps";
 import { SiteHeader } from "@/components/site-header";
 import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,34 @@ function RankChangeIndicator({ change }: { change: number }) {
   return (
     <span className={isPositive ? "text-gain" : "text-loss"}>
       {isPositive ? "▲" : "▼"} {Math.abs(change)}
+    </span>
+  );
+}
+
+/** Écart avec le leader — la comparaison la plus universellement lisible ("combien pour la 1ère place"), en points de rendement avec le montant en euros en repère. */
+function LeaderGapCell({ gap }: { gap: Gap | null }) {
+  if (!gap) {
+    return (
+      <span className="whitespace-nowrap font-medium text-primary">
+        🏆 En tête
+      </span>
+    );
+  }
+  return (
+    <span className="whitespace-nowrap tabular-nums text-loss">
+      −{gap.pts.toFixed(1)} pts
+      <span className="ml-1 text-xs text-muted-foreground">(−{currencyFormatter.format(gap.eur)})</span>
+    </span>
+  );
+}
+
+/** Écart avec les voisins immédiats du classement (celui juste devant / juste derrière), en euros — plus concret que des points pour une comparaison de rang à rang. */
+function NeighborGapCell({ toAhead, toBehind }: { toAhead: Gap | null; toBehind: Gap | null }) {
+  if (!toAhead && !toBehind) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="flex flex-col text-xs tabular-nums text-muted-foreground">
+      {toAhead && <span>▲ −{currencyFormatter.format(toAhead.eur)}</span>}
+      {toBehind && <span>▼ +{currencyFormatter.format(toBehind.eur)}</span>}
     </span>
   );
 }
@@ -107,6 +136,7 @@ export default async function LeaderboardPage() {
     db.promotion.findUniqueOrThrow({ where: { id: user.promotionId }, select: { initialCapital: true } }),
   ]);
   const podium = leaderboard.slice(0, 3);
+  const gaps = computeLeaderboardGaps(leaderboard);
   const weeklyChallengeLeader = leaderboard
     .filter((row) => row.weeklyReturnPct !== null)
     .sort((a, b) => (b.weeklyReturnPct ?? 0) - (a.weeklyReturnPct ?? 0))[0];
@@ -166,13 +196,15 @@ export default async function LeaderboardPage() {
                 <TableHead>Participant</TableHead>
                 <TableHead>Valeur du portefeuille</TableHead>
                 <TableHead>Rendement</TableHead>
+                <TableHead>Écart leader</TableHead>
+                <TableHead>Voisins</TableHead>
                 <TableHead>Évolution (24h)</TableHead>
                 <TableHead>Meilleure position</TableHead>
                 <TableHead>Pire position</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leaderboard.map((row) => (
+              {leaderboard.map((row, index) => (
                 <TableRow
                   key={row.userId}
                   className={cn(row.userId === session.user.id && "bg-muted/50 font-medium")}
@@ -191,6 +223,12 @@ export default async function LeaderboardPage() {
                   <TableCell className={cn("tabular-nums", row.cumulativeReturnPct >= 0 ? "text-gain" : "text-loss")}>
                     {row.cumulativeReturnPct >= 0 ? "+" : ""}
                     {row.cumulativeReturnPct.toFixed(1)}%
+                  </TableCell>
+                  <TableCell>
+                    <LeaderGapCell gap={gaps[index].toLeader} />
+                  </TableCell>
+                  <TableCell>
+                    <NeighborGapCell toAhead={gaps[index].toAhead} toBehind={gaps[index].toBehind} />
                   </TableCell>
                   <TableCell>
                     <RankChangeIndicator change={row.rankChange} />
