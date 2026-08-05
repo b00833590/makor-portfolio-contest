@@ -3,9 +3,16 @@ import { AssetType } from "@/generated/prisma/enums";
 import { mapCoinGeckoResults, mapTwelveDataResults } from "./search-providers";
 
 describe("mapTwelveDataResults", () => {
-  it("maps a common stock listing to type STOCK", () => {
+  it("maps a US common stock listing to type STOCK with no market suffix", () => {
     const results = mapTwelveDataResults([
-      { symbol: "aapl", instrument_name: "Apple Inc.", instrument_type: "Common Stock", currency: "USD" },
+      {
+        symbol: "aapl",
+        instrument_name: "Apple Inc.",
+        instrument_type: "Common Stock",
+        currency: "USD",
+        mic_code: "XNAS",
+        country: "United States",
+      },
     ]);
 
     expect(results).toEqual([
@@ -14,49 +21,116 @@ describe("mapTwelveDataResults", () => {
         name: "Apple Inc.",
         type: AssetType.STOCK,
         currency: "USD",
+        externalId: undefined,
         logoUrl: "https://images.financialmodelingprep.com/symbol/AAPL.png",
       },
     ]);
   });
 
+  it("maps a European common stock listing with a market suffix and its mic_code as externalId", () => {
+    const results = mapTwelveDataResults([
+      {
+        symbol: "mc",
+        instrument_name: "LVMH Moët Hennessy Louis Vuitton SE",
+        instrument_type: "Common Stock",
+        currency: "EUR",
+        mic_code: "XPAR",
+        country: "France",
+      },
+    ]);
+
+    expect(results).toEqual([
+      {
+        symbol: "MC.PA",
+        name: "LVMH Moët Hennessy Louis Vuitton SE",
+        type: AssetType.STOCK,
+        currency: "EUR",
+        externalId: "XPAR",
+        logoUrl: "https://images.financialmodelingprep.com/symbol/MC.png",
+      },
+    ]);
+  });
+
+  it("keeps two unrelated companies that share the same raw ticker on different exchanges as separate results", () => {
+    const results = mapTwelveDataResults([
+      {
+        symbol: "MC",
+        instrument_name: "LVMH Moët Hennessy Louis Vuitton SE",
+        instrument_type: "Common Stock",
+        currency: "EUR",
+        mic_code: "XPAR",
+        country: "France",
+      },
+      {
+        symbol: "MC",
+        instrument_name: "Moelis & Company",
+        instrument_type: "Common Stock",
+        currency: "USD",
+        mic_code: "XNYS",
+        country: "United States",
+      },
+    ]);
+
+    expect(results).toEqual([
+      expect.objectContaining({ symbol: "MC.PA", name: "LVMH Moët Hennessy Louis Vuitton SE" }),
+      expect.objectContaining({ symbol: "MC", name: "Moelis & Company" }),
+    ]);
+  });
+
   it("excludes ETF listings entirely", () => {
     const results = mapTwelveDataResults([
-      { symbol: "IWDA", instrument_name: "iShares Core MSCI World UCITS ETF", instrument_type: "ETF", currency: "EUR" },
+      {
+        symbol: "IWDA",
+        instrument_name: "iShares Core MSCI World UCITS ETF",
+        instrument_type: "ETF",
+        currency: "EUR",
+        mic_code: "XLON",
+        country: "United Kingdom",
+      },
     ]);
 
     expect(results).toHaveLength(0);
   });
 
-  it("dedupes repeated symbols across exchanges, keeping the first when both are primary listings", () => {
+  it("excludes non-common-stock listings (depositary receipts, etc.)", () => {
     const results = mapTwelveDataResults([
-      { symbol: "MSFT", instrument_name: "Microsoft Corporation", instrument_type: "Common Stock", currency: "USD" },
-      { symbol: "msft", instrument_name: "Microsoft Corp. (dup)", instrument_type: "Common Stock", currency: "MXN" },
-    ]);
-
-    expect(results).toHaveLength(1);
-    expect(results[0].currency).toBe("USD");
-  });
-
-  it("upgrades to a later primary listing (Common Stock) over an earlier secondary one", () => {
-    const results = mapTwelveDataResults([
-      { symbol: "MSFT", instrument_name: "Microsoft Corp. CEDEAR", instrument_type: "Depositary Receipt", currency: "ARS" },
-      { symbol: "MSFT", instrument_name: "Microsoft Corporation", instrument_type: "Common Stock", currency: "USD" },
-    ]);
-
-    expect(results).toEqual([
       {
         symbol: "MSFT",
-        name: "Microsoft Corporation",
-        type: AssetType.STOCK,
-        currency: "USD",
-        logoUrl: "https://images.financialmodelingprep.com/symbol/MSFT.png",
+        instrument_name: "Microsoft Corp. CEDEAR",
+        instrument_type: "Depositary Receipt",
+        currency: "ARS",
+        mic_code: "XBUE",
+        country: "Argentina",
       },
     ]);
+
+    expect(results).toHaveLength(0);
+  });
+
+  it("dedupes an identical (symbol, exchange) pair appearing twice", () => {
+    const item = {
+      symbol: "MSFT",
+      instrument_name: "Microsoft Corporation",
+      instrument_type: "Common Stock",
+      currency: "USD",
+      mic_code: "XNAS",
+      country: "United States",
+    };
+    const results = mapTwelveDataResults([item, item]);
+
+    expect(results).toHaveLength(1);
   });
 
   it("excludes forex/pair-style symbols containing a slash", () => {
     const results = mapTwelveDataResults([
-      { symbol: "ETH/USD", instrument_name: "Ethereum US Dollar", instrument_type: "Common Stock", currency: "USD" },
+      {
+        symbol: "ETH/USD",
+        instrument_name: "Ethereum US Dollar",
+        instrument_type: "Common Stock",
+        currency: "USD",
+        mic_code: "XNAS",
+        country: "United States",
+      },
     ]);
 
     expect(results).toHaveLength(0);
@@ -68,6 +142,8 @@ describe("mapTwelveDataResults", () => {
       instrument_name: `Company ${i}`,
       instrument_type: "Common Stock",
       currency: "USD",
+      mic_code: "XNAS",
+      country: "United States",
     }));
 
     const results = mapTwelveDataResults(items, 3);
@@ -77,7 +153,14 @@ describe("mapTwelveDataResults", () => {
 
   it("skips items with an empty symbol", () => {
     const results = mapTwelveDataResults([
-      { symbol: "", instrument_name: "Unknown", instrument_type: "Common Stock", currency: "USD" },
+      {
+        symbol: "",
+        instrument_name: "Unknown",
+        instrument_type: "Common Stock",
+        currency: "USD",
+        mic_code: "XNAS",
+        country: "United States",
+      },
     ]);
 
     expect(results).toHaveLength(0);

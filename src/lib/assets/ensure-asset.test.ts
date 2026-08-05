@@ -19,7 +19,7 @@ vi.mock("@/lib/prices/pull-through", () => ({
   refreshAssetPriceIfStale: refreshAssetPriceIfStaleMock,
 }));
 
-const { ensureAssetForPurchase, assertCryptoSlotAvailable } = await import("./ensure-asset");
+const { ensureAssetForPurchase } = await import("./ensure-asset");
 
 function makeAsset(overrides: Partial<Asset> = {}): Asset {
   return {
@@ -43,20 +43,6 @@ beforeEach(() => {
   createMock.mockReset();
   priceFindFirstMock.mockReset();
   refreshAssetPriceIfStaleMock.mockReset();
-});
-
-describe("assertCryptoSlotAvailable", () => {
-  it("returns null when no crypto is active", async () => {
-    findFirstMock.mockResolvedValue(null);
-
-    expect(await assertCryptoSlotAvailable()).toBeNull();
-  });
-
-  it("returns an error when a crypto is already active", async () => {
-    findFirstMock.mockResolvedValue(makeAsset({ type: AssetType.CRYPTO, symbol: "BTC" }));
-
-    expect(await assertCryptoSlotAvailable()).toContain("BTC");
-  });
 });
 
 describe("ensureAssetForPurchase", () => {
@@ -92,9 +78,11 @@ describe("ensureAssetForPurchase", () => {
     expect(result).toEqual({ ok: true, asset: created });
   });
 
-  it("rejects creating a second crypto when one is already active", async () => {
+  it("creates a new crypto asset even when another crypto is already active in the catalog", async () => {
     findUniqueMock.mockResolvedValue(null);
-    findFirstMock.mockResolvedValue(makeAsset({ type: AssetType.CRYPTO, symbol: "BTC" }));
+    const created = makeAsset({ type: AssetType.CRYPTO, symbol: "ETH", externalId: "ethereum" });
+    createMock.mockResolvedValue(created);
+    priceFindFirstMock.mockResolvedValue({ id: "price-1" });
 
     const result = await ensureAssetForPurchase({
       symbol: "eth",
@@ -103,8 +91,9 @@ describe("ensureAssetForPurchase", () => {
       externalId: "ethereum",
     });
 
-    expect(createMock).not.toHaveBeenCalled();
-    expect(result).toEqual({ ok: false, error: expect.stringContaining("BTC") });
+    expect(findFirstMock).not.toHaveBeenCalled();
+    expect(createMock).toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, asset: created });
   });
 
   it("rejects an asset that has been deactivated by the admin", async () => {

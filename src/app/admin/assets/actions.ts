@@ -5,8 +5,6 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { AssetType } from "@/generated/prisma/enums";
-import { assertCryptoSlotAvailable } from "@/lib/assets/ensure-asset";
 import { createAssetSchema, updateAssetSchema } from "./schema";
 
 export interface AssetFormState {
@@ -33,11 +31,6 @@ export async function createAsset(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
-  }
-
-  if (parsed.data.type === AssetType.CRYPTO) {
-    const cryptoError = await assertCryptoSlotAvailable();
-    if (cryptoError) return { error: cryptoError };
   }
 
   let asset;
@@ -81,11 +74,6 @@ export async function updateAsset(
   }
 
   const before = await db.asset.findUniqueOrThrow({ where: { id: assetId } });
-
-  if (parsed.data.type === AssetType.CRYPTO && before.type !== AssetType.CRYPTO) {
-    const cryptoError = await assertCryptoSlotAvailable(assetId);
-    if (cryptoError) return { error: cryptoError };
-  }
 
   try {
     await db.asset.update({ where: { id: assetId }, data: parsed.data });

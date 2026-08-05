@@ -1,4 +1,5 @@
 import { AssetType } from "@/generated/prisma/enums";
+import { marketSuffixFor } from "./market-suffix";
 
 export interface AssetSearchResult {
   symbol: string;
@@ -14,52 +15,50 @@ export interface TwelveDataSymbolSearchItem {
   instrument_name: string;
   instrument_type: string;
   currency: string;
-}
-
-/** "Common Stock" is the only genuine tradable listing on this platform; other types (Depositary Receipt, etc.) are secondary fallbacks. */
-function isPrimaryListing(item: TwelveDataSymbolSearchItem): boolean {
-  return item.instrument_type === "Common Stock";
+  mic_code: string;
+  country: string;
 }
 
 /**
  * Pure mapping so the merge/dedupe logic is testable without mocking `fetch`.
  *
- * Twelve Data returns every exchange listing for a ticker, in no reliable
- * relevance order (e.g. "MSFT" can list an Argentine depositary receipt
- * before the NASDAQ common stock) — dedupe by symbol, but let a later
- * primary listing (Common Stock) replace an earlier secondary one.
- * Symbols containing "/" (e.g. "ETH/USD") are forex/pair listings, not
- * equities, so they're excluded outright. ETF listings are excluded
- * outright too — only individual stocks and crypto (via CoinGecko) are
- * investable on this platform.
+ * Twelve Data returns every exchange listing for a ticker — only "Common
+ * Stock" listings are genuine tradable shares on this platform (Depositary
+ * Receipts, forex pairs, and ETFs are excluded outright). The same raw
+ * ticker can belong to two unrelated companies on different exchanges (e.g.
+ * "MC" is both LVMH on Euronext Paris and Moelis & Company on the NYSE), so
+ * non-US listings get a market suffix (see market-suffix.ts) to stay
+ * unambiguous — that also means results are deduped per (symbol, market)
+ * instead of per raw symbol, so distinct companies never collide.
  */
 export function mapTwelveDataResults(items: TwelveDataSymbolSearchItem[], limit = 6): AssetSearchResult[] {
-  const bySymbol = new Map<string, TwelveDataSymbolSearchItem>();
-  const order: string[] = [];
+  const seen = new Set<string>();
+  const results: AssetSearchResult[] = [];
 
   for (const item of items) {
-    const symbol = item.symbol?.trim().toUpperCase();
-    if (!symbol || symbol.includes("/") || item.instrument_type === "ETF") continue;
+    const rawSymbol = item.symbol?.trim().toUpperCase();
+    if (!rawSymbol || rawSymbol.includes("/") || item.instrument_type !== "Common Stock") continue;
 
-    const existing = bySymbol.get(symbol);
-    if (!existing) {
-      bySymbol.set(symbol, item);
-      order.push(symbol);
-    } else if (isPrimaryListing(item) && !isPrimaryListing(existing)) {
-      bySymbol.set(symbol, item);
-    }
-  }
+    const isUnitedStates = item.country === "United States";
+    const micCode = isUnitedStates ? undefined : item.mic_code;
+    const displaySymbol = `${rawSymbol}${marketSuffixFor(micCode)}`;
 
-  return order.slice(0, limit).map((symbol) => {
-    const item = bySymbol.get(symbol)!;
-    return {
-      symbol,
+    if (seen.has(displaySymbol)) continue;
+    seen.add(displaySymbol);
+
+    results.push({
+      symbol: displaySymbol,
       name: item.instrument_name,
       type: AssetType.STOCK,
       currency: item.currency,
-      logoUrl: `https://images.financialmodelingprep.com/symbol/${symbol}.png`,
-    };
-  });
+      externalId: micCode,
+      logoUrl: `https://images.financialmodelingprep.com/symbol/${rawSymbol}.png`,
+    });
+
+    if (results.length >= limit) break;
+  }
+
+  return results;
 }
 
 export interface CoinGeckoSearchCoin {
