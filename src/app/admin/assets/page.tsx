@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AssetForm } from "./asset-form";
-import { toggleAssetActive } from "./actions";
+import { AssetRowActions } from "./asset-row-actions";
 
 const typeLabels = { STOCK: "Action", CRYPTO: "Crypto" } as const;
 
@@ -45,11 +44,15 @@ export default async function AssetsPage() {
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <form action={toggleAssetActive.bind(null, asset.id, !asset.isActive)}>
-                  <Button type="submit" variant="outline" size="sm">
-                    {asset.isActive ? "Désactiver" : "Activer"}
-                  </Button>
-                </form>
+                <AssetRowActions
+                  assetId={asset.id}
+                  symbol={asset.symbol}
+                  name={asset.name}
+                  type={asset.type}
+                  sector={asset.sector}
+                  currency={asset.currency}
+                  isActive={asset.isActive}
+                />
               </TableCell>
             </TableRow>
           ))}

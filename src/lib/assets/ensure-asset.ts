@@ -20,9 +20,9 @@ export type EnsureAssetResult = { ok: true; asset: Asset } | { ok: false; error:
  * règlement (docs/CONCEPTION.md §6). Utilisé aussi bien par la création
  * manuelle admin que par l'achat dynamique via recherche de ticker.
  */
-export async function assertCryptoSlotAvailable(): Promise<string | null> {
+export async function assertCryptoSlotAvailable(excludeAssetId?: string): Promise<string | null> {
   const existingCrypto = await db.asset.findFirst({
-    where: { type: AssetType.CRYPTO, isActive: true },
+    where: { type: AssetType.CRYPTO, isActive: true, id: { not: excludeAssetId } },
   });
   if (existingCrypto) {
     return `Une seule crypto autorisée par règlement — "${existingCrypto.symbol}" est déjà active.`;
