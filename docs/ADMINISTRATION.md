@@ -40,18 +40,20 @@ reste figé pour le Hall of Fame.
 ## Modifier les règles d'un concours en cours
 
 Aucune règle n'est figée après la création d'une promotion. Depuis la page d'une promotion
-(`/admin/promotions/[id]`), bouton **Paramètres** : capital initial, nombre max de positions,
-tailles min/max, cryptomonnaies max, changements par session, gel avant la fin, fenêtre de
-constitution — tout est modifiable à tout moment, effet immédiat pour tous les participants dès
-leur prochain ordre.
+(`/admin/promotions/[id]`), bouton **Paramètres** : dates de début/fin, capital initial, nombre
+max de positions, tailles min/max, cryptomonnaies max, changements par session, gel avant la fin,
+fenêtre de constitution — tout est modifiable à tout moment, effet immédiat pour tous les
+participants dès leur prochain ordre (le nom de la promotion reste sur le bouton **Modifier** de
+la liste `/admin/promotions`).
 
 Avant d'enregistrer, la page vérifie si le changement crée une incohérence avec l'état réel des
-portefeuilles (ex. baisser le nombre max de cryptomonnaies alors que des participants en
-détiennent déjà plus) et affiche un avertissement détaillé si c'est le cas — rien n'est jamais
-modifié de force chez les participants, un second clic confirme explicitement le changement malgré
-l'avertissement. Le **capital initial** est le seul champ verrouillé dès qu'une transaction existe
-dans la promotion (le concours a réellement commencé — le changer rétroactivement à ce stade
-fausserait le capital disponible de tout le monde).
+portefeuilles ou des sessions déjà planifiées (ex. baisser le nombre max de cryptomonnaies alors
+que des participants en détiennent déjà plus, ou avancer la date de fin après la fermeture d'une
+session de changement déjà programmée) et affiche un avertissement détaillé si c'est le cas —
+rien n'est jamais modifié de force chez les participants ou les sessions, un second clic confirme
+explicitement le changement malgré l'avertissement. Le **capital initial** est le seul champ
+verrouillé dès qu'une transaction existe dans la promotion (le concours a réellement commencé —
+le changer rétroactivement à ce stade fausserait le capital disponible de tout le monde).
 
 Toute modification est journalisée dans `/admin/audit` (qui, quand, ancienne valeur, nouvelle
 valeur).

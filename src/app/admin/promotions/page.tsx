@@ -8,10 +8,6 @@ import { PromotionForm } from "./promotion-form";
 import { setPromotionStatus } from "./actions";
 import { PromotionRowActions } from "./promotion-row-actions";
 
-function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 const statusLabels: Record<PromotionStatus, string> = {
   DRAFT: "Brouillon",
   ACTIVE: "En cours",
@@ -82,8 +78,6 @@ export default async function PromotionsPage() {
                 <PromotionRowActions
                   promotionId={promotion.id}
                   name={promotion.name}
-                  startDate={toDateInputValue(promotion.startDate)}
-                  endDate={toDateInputValue(promotion.endDate)}
                   participantCount={promotion._count.users}
                   portfolioCount={promotion._count.portfolios}
                 />

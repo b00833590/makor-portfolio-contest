@@ -4,21 +4,20 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updatePromotion, deletePromotion, type PromotionFormState } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PromotionBasicsFormFields } from "./promotion-basics-form-fields";
 
 const initialState: PromotionFormState = {};
 
 export interface PromotionRowActionsProps {
   promotionId: string;
   name: string;
-  startDate: string;
-  endDate: string;
   participantCount: number;
   portfolioCount: number;
 }
@@ -26,8 +25,6 @@ export interface PromotionRowActionsProps {
 export function PromotionRowActions({
   promotionId,
   name,
-  startDate,
-  endDate,
   participantCount,
   portfolioCount,
 }: PromotionRowActionsProps) {
@@ -58,10 +55,13 @@ export function PromotionRowActions({
           <DialogHeader>
             <DialogTitle>Modifier {name}</DialogTitle>
           </DialogHeader>
-          <form action={formAction} className="grid grid-cols-2 gap-4">
-            <PromotionBasicsFormFields idPrefix="edit-" defaults={{ name, startDate, endDate }} />
-            {state.error && <p className="col-span-2 text-sm text-destructive">{state.error}</p>}
-            <div className="col-span-2">
+          <form action={formAction} className="flex flex-col gap-4">
+            <div>
+              <Label htmlFor="edit-name">Nom de la promotion</Label>
+              <Input id="edit-name" name="name" required placeholder="Promotion Été 2026" defaultValue={name} />
+            </div>
+            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            <div>
               <Button type="submit" disabled={pending}>
                 {pending ? "Enregistrement..." : "Enregistrer les modifications"}
               </Button>

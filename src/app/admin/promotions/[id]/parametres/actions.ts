@@ -5,7 +5,12 @@ import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema, type PromotionRules } from "@/lib/promotion-rules";
-import { analyzeRulesImpact, type RuleImpactWarning, type PortfolioImpactSnapshot } from "@/lib/trading/rules-impact";
+import {
+  analyzeRulesImpact,
+  analyzeEndDateImpact,
+  type RuleImpactWarning,
+  type PortfolioImpactSnapshot,
+} from "@/lib/trading/rules-impact";
 import { promotionSettingsSchema } from "./schema";
 
 export interface PromotionSettingsFormState {
@@ -43,6 +48,8 @@ async function loadPortfolioSnapshots(promotionId: string): Promise<PortfolioImp
 
 function parseSettingsForm(formData: FormData) {
   return promotionSettingsSchema.safeParse({
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
     initialCapital: formData.get("initialCapital"),
     minPositionSize: formData.get("minPositionSize"),
     maxPositionSize: formData.get("maxPositionSize"),
@@ -56,15 +63,17 @@ function parseSettingsForm(formData: FormData) {
 }
 
 /**
- * Contrairement à `updatePromotion` (nom + dates, admin/promotions/actions.ts),
- * ceci gère toutes les règles du jeu — capital, positions, cryptos, sessions.
- * Toujours appliqué immédiatement (aucune règle n'est figée après le
- * lancement), mais en deux temps si le changement crée une incohérence avec
- * l'état réel des portefeuilles : la première soumission renvoie les
- * avertissements sans rien enregistrer, la seconde (avec confirmation)
- * applique le changement. `initialCapital` est le seul champ bloqué (pas
- * juste averti) dès qu'une transaction existe — au-delà de ce point, le
- * capital de départ n'a plus de sens réconciliable rétroactivement.
+ * Toutes les règles du jeu — dates, capital, positions, cryptos, sessions —
+ * dans un seul endroit (contrairement à l'ancien `updatePromotion`,
+ * admin/promotions/actions.ts, qui ne gère plus que le nom). Toujours
+ * appliqué immédiatement (aucune règle n'est figée après le lancement),
+ * mais en deux temps si le changement crée une incohérence avec l'état réel
+ * des portefeuilles ou des sessions déjà planifiées : la première
+ * soumission renvoie les avertissements sans rien enregistrer, la seconde
+ * (avec confirmation) applique le changement. `initialCapital` est le seul
+ * champ bloqué (pas juste averti) dès qu'une transaction existe — au-delà
+ * de ce point, le capital de départ n'a plus de sens réconciliable
+ * rétroactivement.
  */
 export async function updatePromotionSettings(
   promotionId: string,
@@ -79,7 +88,7 @@ export async function updatePromotionSettings(
   }
 
   const confirmed = formData.get("confirmed") === "true";
-  const { initialCapital, ...newRules } = parsed.data;
+  const { startDate, endDate, initialCapital, ...newRules } = parsed.data;
 
   const promotion = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
   const currentRules = promotionRulesSchema.parse(promotion.rules);
@@ -95,8 +104,22 @@ export async function updatePromotionSettings(
     }
   }
 
-  const snapshots = await loadPortfolioSnapshots(promotionId);
-  const warnings = analyzeRulesImpact(newRules, snapshots);
+  const [snapshots, changeSessions] = await Promise.all([
+    loadPortfolioSnapshots(promotionId),
+    db.changeSession.findMany({ where: { promotionId }, select: { weekNumber: true, closesAt: true } }),
+  ]);
+
+  const warnings = [
+    ...analyzeRulesImpact(newRules, snapshots),
+    ...analyzeEndDateImpact({
+      newEndDate: endDate,
+      currentEndDate: promotion.endDate,
+      newFreezeHoursBeforeEnd: newRules.freezeHoursBeforeEnd,
+      currentFreezeHoursBeforeEnd: currentRules.freezeHoursBeforeEnd,
+      now: new Date(),
+      changeSessions,
+    }),
+  ];
 
   if (warnings.length > 0 && !confirmed) {
     return { warnings };
@@ -104,15 +127,24 @@ export async function updatePromotionSettings(
 
   await db.promotion.update({
     where: { id: promotionId },
-    data: { initialCapital, rules: newRules },
+    data: { startDate, endDate, initialCapital, rules: newRules },
   });
 
   await logAudit({
     adminId: session.user.id,
     action: "promotion.settings_update",
     target: promotionId,
-    before: { initialCapital: currentInitialCapital, ...currentRules } satisfies { initialCapital: number } & PromotionRules,
-    after: { initialCapital, ...newRules } satisfies { initialCapital: number } & PromotionRules,
+    before: {
+      startDate: promotion.startDate,
+      endDate: promotion.endDate,
+      initialCapital: currentInitialCapital,
+      ...currentRules,
+    } satisfies { startDate: Date; endDate: Date; initialCapital: number } & PromotionRules,
+    after: { startDate, endDate, initialCapital, ...newRules } satisfies {
+      startDate: Date;
+      endDate: Date;
+      initialCapital: number;
+    } & PromotionRules,
   });
 
   revalidatePath(`/admin/promotions/${promotionId}`);
@@ -120,5 +152,6 @@ export async function updatePromotionSettings(
   revalidatePath(`/admin/promotions/${promotionId}/reglement`);
   revalidatePath("/admin/promotions");
   revalidatePath("/reglement");
+  revalidatePath("/dashboard");
   return { saved: true };
 }

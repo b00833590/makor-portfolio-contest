@@ -11,12 +11,21 @@ const initialState: PromotionSettingsFormState = {};
 
 export interface PromotionSettingsFormProps {
   promotionId: string;
+  startDate: string;
+  endDate: string;
   initialCapital: number;
   rules: PromotionRules;
   capitalLocked: boolean;
 }
 
-export function PromotionSettingsForm({ promotionId, initialCapital, rules, capitalLocked }: PromotionSettingsFormProps) {
+export function PromotionSettingsForm({
+  promotionId,
+  startDate,
+  endDate,
+  initialCapital,
+  rules,
+  capitalLocked,
+}: PromotionSettingsFormProps) {
   const action = updatePromotionSettings.bind(null, promotionId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const confirmedInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +48,14 @@ export function PromotionSettingsForm({ promotionId, initialCapital, rules, capi
       <input ref={confirmedInputRef} type="hidden" name="confirmed" defaultValue="false" />
 
       <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="startDate">Date de début</Label>
+          <Input id="startDate" name="startDate" type="date" required defaultValue={startDate} />
+        </div>
+        <div>
+          <Label htmlFor="endDate">Date de fin</Label>
+          <Input id="endDate" name="endDate" type="date" required defaultValue={endDate} />
+        </div>
         <div>
           <Label htmlFor="initialCapital">Capital initial (€)</Label>
           <Input
@@ -143,8 +160,8 @@ export function PromotionSettingsForm({ promotionId, initialCapital, rules, capi
             Ce changement crée des incohérences avec l&apos;état actuel des portefeuilles :
           </p>
           <ul className="flex flex-col gap-2">
-            {state.warnings!.map((warning) => (
-              <li key={warning.field}>
+            {state.warnings!.map((warning, index) => (
+              <li key={`${warning.field}-${index}`}>
                 <p className="text-sm font-medium">{warning.summary}</p>
                 {warning.details.map((detail) => (
                   <p key={detail} className="text-xs text-muted-foreground">

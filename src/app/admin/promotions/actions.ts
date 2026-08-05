@@ -64,7 +64,7 @@ export async function createPromotion(
   return {};
 }
 
-/** Nom + dates uniquement — voir [id]/parametres/actions.ts pour les règles (capital, positions, cryptos...). */
+/** Nom uniquement — voir [id]/parametres/actions.ts pour les dates et les règles (capital, positions, cryptos...). */
 export async function updatePromotion(
   promotionId: string,
   _prevState: PromotionFormState,
@@ -74,28 +74,26 @@ export async function updatePromotion(
 
   const parsed = updatePromotionBasicsSchema.safeParse({
     name: formData.get("name"),
-    startDate: formData.get("startDate"),
-    endDate: formData.get("endDate"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const { name, startDate, endDate } = parsed.data;
+  const { name } = parsed.data;
 
   const before = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
   await db.promotion.update({
     where: { id: promotionId },
-    data: { name, startDate, endDate },
+    data: { name },
   });
 
   await logAudit({
     adminId: session.user.id,
     action: "promotion.update",
     target: promotionId,
-    before: { name: before.name, startDate: before.startDate, endDate: before.endDate },
-    after: { name, startDate, endDate },
+    before: { name: before.name },
+    after: { name },
   });
 
   revalidatePath("/admin/promotions");

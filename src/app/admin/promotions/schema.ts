@@ -30,19 +30,14 @@ function withPromotionRefinements<T extends typeof promotionFieldsSchema>(schema
 export const createPromotionSchema = withPromotionRefinements(promotionFieldsSchema);
 
 /**
- * Nom + dates seulement — les règles (capital, positions, cryptos, sessions...)
- * se modifient depuis l'écran dédié "Paramètres" (voir [id]/parametres), qui
- * analyse l'impact d'un changement avant de l'appliquer. Un seul champ n'a
- * qu'un seul endroit où le modifier, pour ne jamais avoir deux logiques
- * divergentes sur la même donnée.
+ * Nom seulement — dates, capital, positions, cryptos, sessions... se
+ * modifient depuis l'écran dédié "Paramètres" (voir [id]/parametres), qui
+ * analyse l'impact d'un changement avant de l'appliquer (sessions de
+ * changement qui déborderaient de la nouvelle date de fin, gel déclenché
+ * immédiatement, etc.). Un seul champ n'a qu'un seul endroit où le
+ * modifier, pour ne jamais avoir deux logiques divergentes sur la même
+ * donnée.
  */
-export const updatePromotionBasicsSchema = z
-  .object({
-    name: z.string().trim().min(1, "Le nom est obligatoire"),
-    startDate: z.coerce.date(),
-    endDate: z.coerce.date(),
-  })
-  .refine((data) => data.endDate > data.startDate, {
-    error: "La date de fin doit être après la date de début",
-    path: ["endDate"],
-  });
+export const updatePromotionBasicsSchema = z.object({
+  name: z.string().trim().min(1, "Le nom est obligatoire"),
+});

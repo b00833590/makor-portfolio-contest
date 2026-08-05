@@ -14,7 +14,7 @@ export interface PortfolioImpactSnapshot {
 }
 
 export interface RuleImpactWarning {
-  field: keyof PromotionRules;
+  field: keyof PromotionRules | "endDate";
   summary: string;
   details: string[];
 }
@@ -91,6 +91,75 @@ export function analyzeRulesImpact(
       field: "maxPositionSize",
       summary: `${oversized.length} position(s) ouverte(s) valent déjà plus que la nouvelle taille maximale.`,
       details: [`Concerné(s) : ${summarizeNames(oversized)}.`, "Ces positions ne seront pas modifiées automatiquement."],
+    });
+  }
+
+  return warnings;
+}
+
+export interface ChangeSessionSummary {
+  weekNumber: number;
+  closesAt: Date;
+}
+
+/**
+ * Même logique d'avertissement que {@link analyzeRulesImpact}, mais pour la
+ * date de fin (et le gel qui en dépend) plutôt que les règles numériques —
+ * séparé parce que ça compare des dates à un historique de sessions, pas des
+ * règles à des portefeuilles. Trois risques distincts, chacun réel :
+ * - une session de changement déjà planifiée qui déborderait de la nouvelle
+ *   date de fin (jamais ajustée automatiquement — l'admin doit le faire) ;
+ * - un changement qui déclenche le gel des positions immédiatement (la
+ *   fenêtre de gel dépend à la fois de la date de fin et de sa propre durée
+ *   configurable, donc les deux peuvent la faire basculer) ;
+ * - une nouvelle date de fin déjà passée.
+ */
+export function analyzeEndDateImpact(params: {
+  newEndDate: Date;
+  currentEndDate: Date;
+  newFreezeHoursBeforeEnd: number;
+  currentFreezeHoursBeforeEnd: number;
+  now: Date;
+  changeSessions: ChangeSessionSummary[];
+}): RuleImpactWarning[] {
+  const { newEndDate, currentEndDate, newFreezeHoursBeforeEnd, currentFreezeHoursBeforeEnd, now, changeSessions } = params;
+  const warnings: RuleImpactWarning[] = [];
+
+  const dateUnchanged = newEndDate.getTime() === currentEndDate.getTime();
+  const freezeUnchanged = newFreezeHoursBeforeEnd === currentFreezeHoursBeforeEnd;
+  if (dateUnchanged && freezeUnchanged) return warnings;
+
+  if (!dateUnchanged) {
+    const overrunSessions = changeSessions.filter((session) => session.closesAt.getTime() > newEndDate.getTime());
+    if (overrunSessions.length > 0) {
+      warnings.push({
+        field: "endDate",
+        summary: `${overrunSessions.length} session(s) de changement déjà planifiée(s) se terminent après la nouvelle date de fin.`,
+        details: [
+          `Concernée(s) : semaine(s) ${summarizeNames(overrunSessions.map((s) => String(s.weekNumber)))}.`,
+          "Elles ne sont pas ajustées automatiquement — raccourcissez-les manuellement depuis la page de la promotion si nécessaire.",
+        ],
+      });
+    }
+
+    if (newEndDate.getTime() <= now.getTime()) {
+      warnings.push({
+        field: "endDate",
+        summary: "La nouvelle date de fin est déjà passée.",
+        details: ["Le concours sera considéré comme figé dès l'enregistrement de ce changement."],
+      });
+    }
+  }
+
+  const wasFrozen = now.getTime() >= currentEndDate.getTime() - currentFreezeHoursBeforeEnd * 60 * 60 * 1000;
+  const willBeFrozen = now.getTime() >= newEndDate.getTime() - newFreezeHoursBeforeEnd * 60 * 60 * 1000;
+  if (!wasFrozen && willBeFrozen) {
+    warnings.push({
+      field: "endDate",
+      summary: "Ce changement déclenche immédiatement le gel des positions.",
+      details: [
+        `Avec un gel de ${newFreezeHoursBeforeEnd}h avant la fin, plus aucun changement ne sera possible pour les participants dès l'enregistrement.`,
+      ],
     });
   }
 
