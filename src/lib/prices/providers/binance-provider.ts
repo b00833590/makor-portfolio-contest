@@ -43,7 +43,10 @@ export class BinanceProvider implements PriceProvider {
     const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(this.pairSymbol(asset))}`;
 
     const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`[ingest:binance] ${asset.symbol}: HTTP ${response.status} — ${await response.text()}`);
+      return null;
+    }
 
     const body = (await response.json()) as { price?: string };
     if (!body.price) return null;

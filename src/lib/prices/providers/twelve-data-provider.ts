@@ -34,10 +34,16 @@ export class TwelveDataProvider implements PriceProvider {
       cache: "no-store",
       headers: { Authorization: `apikey ${this.apiKey}` },
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`[ingest:twelve-data] ${asset.symbol}: HTTP ${response.status} — ${await response.text()}`);
+      return null;
+    }
 
     const body = (await response.json()) as { price?: string; code?: number; message?: string };
-    if (!body.price) return null;
+    if (!body.price) {
+      console.error(`[ingest:twelve-data] ${asset.symbol}: no price in response — code=${body.code} message=${body.message}`);
+      return null;
+    }
 
     const price = Number(body.price);
     if (!Number.isFinite(price)) return null;
