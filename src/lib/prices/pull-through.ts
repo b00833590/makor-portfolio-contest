@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { getPriceProviders } from "@/lib/prices";
 import { isPriceStale } from "@/lib/prices/staleness";
+import { fetchPriceWithFallback } from "@/lib/prices/provider-fallback";
 import type { Asset } from "@/generated/prisma/client";
 
 type AssetForRefresh = Pick<Asset, "id" | "symbol" | "type" | "currency" | "externalId">;
@@ -50,8 +51,7 @@ export async function refreshAssetPricesIfStale(
         return;
       }
 
-      const provider = providers.find((candidate) => candidate.supports(asset));
-      const quote = provider ? await provider.fetchPrice(asset) : null;
+      const quote = await fetchPriceWithFallback(providers, asset);
 
       if (quote) {
         await db.price.create({

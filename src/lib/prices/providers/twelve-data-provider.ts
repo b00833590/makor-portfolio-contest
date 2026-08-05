@@ -24,10 +24,15 @@ export class TwelveDataProvider implements PriceProvider {
   constructor(private readonly apiKey: string) {}
 
   /**
-   * US stocks only. Yahoo's own symbol convention (used for search — see
-   * search-providers.ts) never suffixes US listings but always suffixes
-   * non-US ones (".PA", ".ST"...) — YahooProvider covers those instead, see
-   * index.ts.
+   * Fallback only (see provider-fallback.ts) — YahooProvider is tried first
+   * for every stock. Twelve Data's 800/day free quota can't sustain being
+   * the primary source for a whole catalog (see yahoo-provider.ts), but it
+   * still adds real redundancy if Yahoo's endpoint ever breaks — worth
+   * keeping, at near-zero quota cost, as long as it only fires on Yahoo
+   * failures. Limited to US-shaped symbols (Yahoo's own convention: never
+   * suffixed, e.g. "AAPL") since Twelve Data has no way to resolve a
+   * Yahoo-style market suffix like ".PA" — attempting it for non-US symbols
+   * would just waste a call that's certain to fail.
    */
   supports(asset: Pick<Asset, "type" | "symbol">): boolean {
     return asset.type === AssetType.STOCK && !asset.symbol.includes(".");

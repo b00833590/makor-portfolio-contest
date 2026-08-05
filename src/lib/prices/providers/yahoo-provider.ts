@@ -45,26 +45,31 @@ interface YahooChartResponse {
 }
 
 /**
- * Twelve Data's free plan only covers US exchanges — Yahoo Finance's
- * undocumented chart endpoint is used as a free, keyless complement
- * specifically for non-US listings, so European (and any other
- * international) stocks stay purchasable without a paid data plan. Search
- * also sources from Yahoo for stocks (see search-providers.ts) so the
- * symbol stored in the catalog is always exactly what this endpoint
- * expects — no cross-provider ticker format mismatch (Yahoo uses a dash for
- * share classes, e.g. "BRK-B"; other providers may use a dot instead, which
- * Yahoo doesn't recognize). This is the same endpoint the widely-used
- * `yfinance` Python library relies on: unofficial and unsupported by
- * Yahoo, so it may change or get rate-limited without notice — if that
- * happens, only non-US stocks are affected (getPriceProviders keeps Twelve
- * Data as the sole US provider).
+ * Primary stock price source, US and international alike — Twelve Data's
+ * free plan is US-only AND capped at 800 requests/day, a quota easily blown
+ * through by a single trading day of ingestion + dashboard views + chart
+ * opens across a whole catalog (confirmed live: 21,367 requests in one day
+ * against that 800 cap). Once exhausted, every subsequent Twelve Data call
+ * fails for the rest of the day — that's what silently stalled US stock
+ * prices while non-US ones (already on Yahoo) kept updating fine. Yahoo has
+ * shown no such wall in practice, and search already sources from Yahoo for
+ * stocks (see search-providers.ts) so the catalog symbol is always exactly
+ * what this endpoint expects — no cross-provider ticker format mismatch
+ * (Yahoo uses a dash for share classes, e.g. "BRK-B"; other providers may
+ * use a dot instead, which Yahoo doesn't recognize).
+ *
+ * This is the same endpoint the widely-used `yfinance` Python library
+ * relies on: unofficial and unsupported by Yahoo, so it may change or get
+ * rate-limited without notice — Twelve Data is kept as a fallback for
+ * US-shaped symbols specifically (see provider-fallback.ts and
+ * TwelveDataProvider.supports), not removed, so a Yahoo outage degrades
+ * rather than fully breaks US stock pricing.
  */
 export class YahooProvider implements PriceProvider {
   readonly source = "yahoo";
 
-  /** Non-US stocks — Yahoo always suffixes these (".PA", ".ST"...), never US ones. Twelve Data keeps US stocks. */
   supports(asset: Pick<Asset, "type" | "symbol">): boolean {
-    return asset.type === AssetType.STOCK && asset.symbol.includes(".");
+    return asset.type === AssetType.STOCK;
   }
 
   private async fetchChart(symbol: string, params?: Record<string, string>): Promise<YahooChartResponse["chart"]["result"] extends infer R ? R : never> {

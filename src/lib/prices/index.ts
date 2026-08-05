@@ -6,15 +6,13 @@ import { MockPriceProvider } from "@/lib/prices/providers/mock-provider";
 import type { PriceProvider } from "@/lib/prices/types";
 
 /**
- * Providers are tried in order; the first one whose `supports()` matches the
- * asset is used. Add a new source by pushing another provider here —
- * nothing else needs to change.
- *
- * Stocks split by market rather than a single source: Twelve Data's free
- * plan only covers US exchanges, so non-US listings (symbol contains a
- * Yahoo-style market suffix, e.g. ".PA" — see search-providers.ts) go to
- * YahooProvider instead — each provider's `supports()` is mutually
- * exclusive on that, not just array order.
+ * Order matters: callers try each supporting provider in turn until one
+ * succeeds (see provider-fallback.ts), not just the first match. For
+ * stocks, Yahoo goes first (primary — see yahoo-provider.ts for why Twelve
+ * Data can't hold that role), Twelve Data second as a fallback limited to
+ * US-shaped symbols (see twelve-data-provider.ts). Add a new source by
+ * pushing another provider here in the right position — nothing else needs
+ * to change.
  */
 export function getPriceProviders(): PriceProvider[] {
   const providers: PriceProvider[] = [new BinanceProvider(), new YahooProvider()];

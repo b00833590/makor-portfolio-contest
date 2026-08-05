@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getPriceProviders } from "@/lib/prices";
+import { fetchHistoryWithFallback } from "@/lib/prices/provider-fallback";
 import type { Asset } from "@/generated/prisma/client";
 import type { HistoryInterval, HistoryPoint } from "@/lib/prices/types";
 
@@ -48,8 +49,7 @@ export async function getAssetPriceHistory(
   const now = options.now ?? new Date();
   const { days, interval } = resolveDaysAndInterval(period, options.purchasedAt, now);
 
-  const provider = getPriceProviders().find((candidate) => candidate.supports(asset));
-  const providerPoints = await provider?.fetchHistory?.(asset, { days, interval });
+  const providerPoints = await fetchHistoryWithFallback(getPriceProviders(), asset, { days, interval });
   if (providerPoints && providerPoints.length > 0) {
     return { points: providerPoints, isFromProvider: true };
   }

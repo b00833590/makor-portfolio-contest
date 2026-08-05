@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { isPriceStale } from "@/lib/prices/staleness";
+import { fetchPriceWithFallback } from "@/lib/prices/provider-fallback";
 import type { PriceProvider } from "@/lib/prices/types";
 
 export interface IngestResult {
@@ -39,14 +40,14 @@ export async function ingestAssetPrices(providers: PriceProvider[], now: Date = 
       continue;
     }
 
-    const provider = providers.find((candidate) => candidate.supports(asset));
-    if (!provider) {
+    const isSupported = providers.some((candidate) => candidate.supports(asset));
+    if (!isSupported) {
       results.push({ assetId: asset.id, symbol: asset.symbol, status: "unsupported" });
       continue;
     }
 
     try {
-      const quote = await provider.fetchPrice(asset);
+      const quote = await fetchPriceWithFallback(providers, asset);
       if (!quote) {
         results.push({ assetId: asset.id, symbol: asset.symbol, status: "failed" });
         continue;
