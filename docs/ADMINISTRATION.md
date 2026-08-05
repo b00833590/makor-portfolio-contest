@@ -37,6 +37,25 @@ Ces règles sont versionnées par promotion (stockées en JSON sur chaque `Promo
 le règlement d'une nouvelle saison n'affecte jamais l'historique des saisons précédentes, qui
 reste figé pour le Hall of Fame.
 
+## Modifier les règles d'un concours en cours
+
+Aucune règle n'est figée après la création d'une promotion. Depuis la page d'une promotion
+(`/admin/promotions/[id]`), bouton **Paramètres** : capital initial, nombre max de positions,
+tailles min/max, cryptomonnaies max, changements par session, gel avant la fin, fenêtre de
+constitution — tout est modifiable à tout moment, effet immédiat pour tous les participants dès
+leur prochain ordre.
+
+Avant d'enregistrer, la page vérifie si le changement crée une incohérence avec l'état réel des
+portefeuilles (ex. baisser le nombre max de cryptomonnaies alors que des participants en
+détiennent déjà plus) et affiche un avertissement détaillé si c'est le cas — rien n'est jamais
+modifié de force chez les participants, un second clic confirme explicitement le changement malgré
+l'avertissement. Le **capital initial** est le seul champ verrouillé dès qu'une transaction existe
+dans la promotion (le concours a réellement commencé — le changer rétroactivement à ce stade
+fausserait le capital disponible de tout le monde).
+
+Toute modification est journalisée dans `/admin/audit` (qui, quand, ancienne valeur, nouvelle
+valeur).
+
 ## Ajouter, modifier, retirer des participants
 
 Depuis `/admin/participants` :

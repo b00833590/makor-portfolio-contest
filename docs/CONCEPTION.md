@@ -111,7 +111,8 @@ Promotion (saison)
  ├─ id, nom, date_debut, date_fin, statut, capital_initial, règles (JSON versionné)
 
 User
- ├─ id, nom, email, rôle (participant/admin), promotion_id, avatar, date_arrivée
+ ├─ id, nom (identifiant de connexion), mot_de_passe, rôle (participant/admin), promotion_id,
+ │  avatar, date_arrivée
 
 Asset (univers d'investissement)
  ├─ id, symbole, nom, type (action/etf/crypto), secteur, devise, actif (bool)

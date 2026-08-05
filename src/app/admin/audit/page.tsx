@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { formatAuditChange } from "@/lib/audit-format";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -11,13 +12,6 @@ import {
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "medium" });
 const AUDIT_LOG_LIMIT = 200;
-
-function formatChange(before: unknown, after: unknown): string {
-  const parts: string[] = [];
-  if (before !== null && before !== undefined) parts.push(`avant : ${JSON.stringify(before)}`);
-  if (after !== null && after !== undefined) parts.push(`après : ${JSON.stringify(after)}`);
-  return parts.join(" · ");
-}
 
 export default async function AuditLogPage() {
   const entries = await db.auditLog.findMany({
@@ -60,8 +54,8 @@ export default async function AuditLogPage() {
                 <TableCell className="max-w-40 truncate font-mono text-xs" title={entry.target}>
                   {entry.target}
                 </TableCell>
-                <TableCell className="max-w-md truncate text-xs text-muted-foreground" title={formatChange(entry.before, entry.after)}>
-                  {formatChange(entry.before, entry.after)}
+                <TableCell className="max-w-md truncate text-xs text-muted-foreground" title={formatAuditChange(entry.before, entry.after)}>
+                  {formatAuditChange(entry.before, entry.after)}
                 </TableCell>
               </TableRow>
             ))}

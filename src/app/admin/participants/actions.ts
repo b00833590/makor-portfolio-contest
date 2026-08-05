@@ -10,7 +10,7 @@ import { createParticipantSchema, resetPasswordSchema, reassignPromotionSchema }
 
 export interface ParticipantFormState {
   error?: string;
-  created?: { name: string; email?: string; tempPassword: string };
+  created?: { name: string; tempPassword: string };
 }
 
 export async function createParticipant(
@@ -21,7 +21,6 @@ export async function createParticipant(
 
   const parsed = createParticipantSchema.safeParse({
     name: formData.get("name"),
-    email: formData.get("email") || undefined,
     promotionId: formData.get("promotionId"),
   });
 
@@ -29,7 +28,7 @@ export async function createParticipant(
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const { name, email, promotionId } = parsed.data;
+  const { name, promotionId } = parsed.data;
 
   const result = await createParticipantWithTempPassword({ name, promotionId });
   if (result.status === "exists") {
@@ -44,7 +43,7 @@ export async function createParticipant(
   });
 
   revalidatePath("/admin/participants");
-  return { created: { name, email: email || undefined, tempPassword: result.tempPassword } };
+  return { created: { name, tempPassword: result.tempPassword } };
 }
 
 export async function resetParticipantPassword(

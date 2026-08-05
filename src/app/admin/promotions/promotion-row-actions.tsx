@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updatePromotion, deletePromotion, type PromotionFormState } from "./actions";
-import type { PromotionRules } from "@/lib/promotion-rules";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PromotionFormFields } from "./promotion-form-fields";
+import { PromotionBasicsFormFields } from "./promotion-basics-form-fields";
 
 const initialState: PromotionFormState = {};
 
@@ -19,8 +19,6 @@ export interface PromotionRowActionsProps {
   name: string;
   startDate: string;
   endDate: string;
-  initialCapital: number;
-  rules: PromotionRules;
   participantCount: number;
   portfolioCount: number;
 }
@@ -30,8 +28,6 @@ export function PromotionRowActions({
   name,
   startDate,
   endDate,
-  initialCapital,
-  rules,
   participantCount,
   portfolioCount,
 }: PromotionRowActionsProps) {
@@ -50,6 +46,10 @@ export function PromotionRowActions({
 
   return (
     <div className="flex gap-2">
+      <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/promotions/${promotionId}/parametres`} />}>
+        Paramètres
+      </Button>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
           Modifier
@@ -59,16 +59,7 @@ export function PromotionRowActions({
             <DialogTitle>Modifier {name}</DialogTitle>
           </DialogHeader>
           <form action={formAction} className="grid grid-cols-2 gap-4">
-            <PromotionFormFields
-              idPrefix="edit-"
-              defaults={{
-                name,
-                startDate,
-                endDate,
-                initialCapital,
-                ...rules,
-              }}
-            />
+            <PromotionBasicsFormFields idPrefix="edit-" defaults={{ name, startDate, endDate }} />
             {state.error && <p className="col-span-2 text-sm text-destructive">{state.error}</p>}
             <div className="col-span-2">
               <Button type="submit" disabled={pending}>

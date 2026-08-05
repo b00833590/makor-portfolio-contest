@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
-import type { PromotionRules } from "@/lib/promotion-rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,8 +84,6 @@ export default async function PromotionsPage() {
                   name={promotion.name}
                   startDate={toDateInputValue(promotion.startDate)}
                   endDate={toDateInputValue(promotion.endDate)}
-                  initialCapital={Number(promotion.initialCapital)}
-                  rules={promotion.rules as unknown as PromotionRules}
                   participantCount={promotion._count.users}
                   portfolioCount={promotion._count.portfolios}
                 />

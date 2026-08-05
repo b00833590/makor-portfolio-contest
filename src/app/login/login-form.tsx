@@ -16,7 +16,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <div>
         <Label htmlFor="name">Identifiant (Prénom Nom)</Label>
-        <Input id="name" name="name" required placeholder="Adam Dupont" autoComplete="username" />
+        <Input id="name" name="name" required placeholder="Prénom Nom" autoComplete="username" />
       </div>
       <div>
         <Label htmlFor="password">Mot de passe</Label>

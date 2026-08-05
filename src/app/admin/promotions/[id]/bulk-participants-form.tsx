@@ -31,11 +31,7 @@ export function BulkParticipantsForm({ promotionId }: { promotionId: string }) {
           <div key={key} className="flex items-end gap-2">
             <div className="flex-1">
               {index === 0 && <Label htmlFor={`name-${key}`}>Prénom Nom</Label>}
-              <Input id={`name-${key}`} name="name" placeholder="Adam Dupont" />
-            </div>
-            <div className="flex-1">
-              {index === 0 && <Label htmlFor={`email-${key}`}>Email (optionnel)</Label>}
-              <Input id={`email-${key}`} name="email" type="email" placeholder="adam.dupont@makorgroup.com" />
+              <Input id={`name-${key}`} name="name" placeholder="Prénom Nom" />
             </div>
             {rowKeys.length > 1 && (
               <Button
@@ -67,12 +63,7 @@ export function BulkParticipantsForm({ promotionId }: { promotionId: string }) {
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           {state.results.map((result) =>
             result.status === "created" ? (
-              <CredentialsResult
-                key={result.name}
-                name={result.name}
-                tempPassword={result.tempPassword}
-                email={result.email}
-              />
+              <CredentialsResult key={result.name} name={result.name} tempPassword={result.tempPassword} />
             ) : (
               <p key={result.name} className="text-sm text-destructive">
                 « {result.name} » existe déjà — compte non créé.

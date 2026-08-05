@@ -48,6 +48,9 @@ export default async function PromotionDetailPage({
         <div className="mt-1 flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">{promotion.name}</h2>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/promotions/${promotion.id}/parametres`} />}>
+              Paramètres
+            </Button>
             <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/admin/promotions/${promotion.id}/reglement`} />}>
               Règlement
             </Button>

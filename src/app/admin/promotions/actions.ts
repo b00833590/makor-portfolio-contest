@@ -8,7 +8,7 @@ import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { provisionPortfolios } from "@/lib/portfolio-provisioning";
 import { ensureInitializationWindow } from "@/lib/initialization-window";
 import { PromotionStatus } from "@/generated/prisma/enums";
-import { createPromotionSchema, updatePromotionSchema } from "./schema";
+import { createPromotionSchema, updatePromotionBasicsSchema } from "./schema";
 
 export interface PromotionFormState {
   error?: string;
@@ -64,6 +64,7 @@ export async function createPromotion(
   return {};
 }
 
+/** Nom + dates uniquement — voir [id]/parametres/actions.ts pour les règles (capital, positions, cryptos...). */
 export async function updatePromotion(
   promotionId: string,
   _prevState: PromotionFormState,
@@ -71,43 +72,34 @@ export async function updatePromotion(
 ): Promise<PromotionFormState> {
   const session = await requireAdmin();
 
-  const parsed = updatePromotionSchema.safeParse({
+  const parsed = updatePromotionBasicsSchema.safeParse({
     name: formData.get("name"),
     startDate: formData.get("startDate"),
     endDate: formData.get("endDate"),
-    initialCapital: formData.get("initialCapital"),
-    minPositionSize: formData.get("minPositionSize"),
-    maxPositionSize: formData.get("maxPositionSize"),
-    maxPositions: formData.get("maxPositions"),
-    maxCryptoPositions: formData.get("maxCryptoPositions"),
-    changeSessionsPerWeek: formData.get("changeSessionsPerWeek"),
-    maxChangesPerSession: formData.get("maxChangesPerSession"),
-    freezeHoursBeforeEnd: formData.get("freezeHoursBeforeEnd"),
-    initializationWindowHours: formData.get("initializationWindowHours"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const { name, startDate, endDate, initialCapital, ...ruleFields } = parsed.data;
-  const rules = promotionRulesSchema.parse(ruleFields);
+  const { name, startDate, endDate } = parsed.data;
 
   const before = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
   await db.promotion.update({
     where: { id: promotionId },
-    data: { name, startDate, endDate, initialCapital, rules },
+    data: { name, startDate, endDate },
   });
 
   await logAudit({
     adminId: session.user.id,
     action: "promotion.update",
     target: promotionId,
-    before: { name: before.name, startDate: before.startDate, endDate: before.endDate, initialCapital: before.initialCapital, rules: before.rules },
-    after: { name, startDate, endDate, initialCapital, rules },
+    before: { name: before.name, startDate: before.startDate, endDate: before.endDate },
+    after: { name, startDate, endDate },
   });
 
   revalidatePath("/admin/promotions");
+  revalidatePath(`/admin/promotions/${promotionId}`);
   return {};
 }
 

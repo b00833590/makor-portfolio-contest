@@ -29,11 +29,7 @@ export function ParticipantForm({ promotions }: { promotions: PromotionOption[] 
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <Label htmlFor="name">Identifiant (Prénom Nom)</Label>
-          <Input id="name" name="name" required placeholder="Adam Dupont" />
-        </div>
-        <div>
-          <Label htmlFor="email">Email (optionnel)</Label>
-          <Input id="email" name="email" type="email" placeholder="adam.dupont@makorgroup.com" />
+          <Input id="name" name="name" required placeholder="Prénom Nom" />
         </div>
         <div>
           <Label htmlFor="promotionId">Promotion</Label>
@@ -59,9 +55,7 @@ export function ParticipantForm({ promotions }: { promotions: PromotionOption[] 
         </Button>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state.created && (
-        <CredentialsResult name={state.created.name} tempPassword={state.created.tempPassword} email={state.created.email} />
-      )}
+      {state.created && <CredentialsResult name={state.created.name} tempPassword={state.created.tempPassword} />}
     </form>
   );
 }
