@@ -98,7 +98,10 @@ export function AssetSearchCombobox({
             <AssetLogo symbol={item.symbol} logoUrl={item.logoUrl} className="size-6" />
             <span className="flex min-w-0 flex-col">
               <span className="truncate font-medium">{item.symbol}</span>
-              <span className="truncate text-xs text-muted-foreground">{item.name}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {item.name}
+                {item.exchangeLabel && ` — ${item.exchangeLabel}`}
+              </span>
             </span>
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">{typeLabels[item.type]}</span>
           </ComboboxItem>

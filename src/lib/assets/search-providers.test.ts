@@ -99,6 +99,23 @@ describe("mapYahooStockResults", () => {
 
     expect(results).toHaveLength(0);
   });
+
+  it("carries the exchange label through so similarly-named but unrelated companies stay distinguishable", () => {
+    // Real case: searching "Total Energy" only ever returns Total Energy Services Inc.
+    // (a small Canadian oilfield-services company), never TotalEnergies SE (the French
+    // energy major) — nothing about the ticker format flags that, only the exchange does.
+    const results = mapYahooStockResults([
+      { symbol: "TOT.TO", longname: "Total Energy Services Inc.", quoteType: "EQUITY", exchDisp: "Toronto" },
+    ]);
+
+    expect(results[0].exchangeLabel).toBe("Toronto");
+  });
+
+  it("omits the exchange label when Yahoo doesn't provide one", () => {
+    const results = mapYahooStockResults([{ symbol: "AAPL", shortname: "Apple Inc.", quoteType: "EQUITY" }]);
+
+    expect(results[0].exchangeLabel).toBeUndefined();
+  });
 });
 
 describe("mapCoinGeckoResults", () => {

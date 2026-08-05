@@ -7,6 +7,8 @@ export interface AssetSearchResult {
   currency: string;
   externalId?: string;
   logoUrl: string | null;
+  /** Display-only (e.g. "Paris", "Toronto") — never stored, just shown in search so unrelated companies with similar names (see market-parity note below) aren't mistaken for each other. */
+  exchangeLabel?: string;
 }
 
 export interface YahooSymbolSearchItem {
@@ -14,6 +16,7 @@ export interface YahooSymbolSearchItem {
   shortname?: string;
   longname?: string;
   quoteType: string;
+  exchDisp?: string;
 }
 
 /**
@@ -29,6 +32,16 @@ export interface YahooSymbolSearchItem {
  * market suffix (".PA", ".ST"...); US ones never do, which is also how
  * price-provider routing decides between Twelve Data (US, see
  * twelve-data-provider.ts) and Yahoo (everything else).
+ *
+ * `exchangeLabel` guards against a different, real risk than ticker
+ * collisions: two genuinely different, unrelated companies with similar
+ * *names* (not tickers) — e.g. searching "Total Energy" returns only
+ * "Total Energy Services Inc." (a small Canadian oilfield-services company)
+ * on every exchange, never "TotalEnergies SE" (the French energy major,
+ * only found by searching its exact one-word name or ticker). Nothing about
+ * the symbol format catches that mix-up — only showing the exchange next to
+ * the name gives a participant enough context to notice before buying the
+ * wrong company outright.
  */
 export function mapYahooStockResults(items: YahooSymbolSearchItem[], limit = 6): AssetSearchResult[] {
   const seen = new Set<string>();
@@ -48,6 +61,7 @@ export function mapYahooStockResults(items: YahooSymbolSearchItem[], limit = 6):
       type: AssetType.STOCK,
       currency: "EUR",
       logoUrl: `https://images.financialmodelingprep.com/symbol/${symbol.split(/[.-]/)[0]}.png`,
+      exchangeLabel: item.exchDisp,
     });
 
     if (results.length >= limit) break;
