@@ -9,14 +9,15 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // `migrate deploy` (and other CLI commands using this config) needs a
-    // direct, non-pooled connection: the Postgres advisory lock it takes
-    // out is session-scoped, and Neon's PgBouncer pooler can hand a later
-    // client the same backend connection an earlier `migrate deploy` used
-    // without that lock ever being released — every following deploy then
-    // times out acquiring it (Prisma error P1002). The app's runtime
-    // queries (src/lib/db.ts) are unaffected — they keep using the pooled
-    // DATABASE_URL directly, not this config file.
-    url: process.env["DIRECT_DATABASE_URL"] ?? process.env["DATABASE_URL"],
+    // Tried routing this at Neon's direct (non-pooled) endpoint to dodge a
+    // stuck Postgres advisory lock from `migrate deploy` (see git history) —
+    // reverted: Vercel's build network (iad1) can't reliably reach that
+    // endpoint at all (P1001), a known Neon/Vercel interaction. Back to the
+    // same pooled DATABASE_URL the app uses at runtime (src/lib/db.ts). If
+    // a stuck advisory lock ever blocks a deploy again (Prisma error P1002,
+    // "advisory lock" in the message), the fix is to find and terminate the
+    // stale backend session holding it — see pg_locks / pg_terminate_backend
+    // — not to switch this back to a direct connection.
+    url: process.env["DATABASE_URL"],
   },
 });

@@ -25,13 +25,8 @@ réveil sur la première requête après une pause), sans jamais nécessiter d'i
 3. Vercel détecte automatiquement Next.js — ne rien changer aux réglages de build.
 4. Dans **Environment Variables**, ajouter :
    - `DATABASE_URL` = la chaîne de connexion **pooled** Neon (celle avec `-pooler` dans le nom
-     d'hôte) copiée à l'étape précédente — utilisée par l'application en runtime
-   - `DIRECT_DATABASE_URL` = la même chaîne de connexion, mais **sans** `-pooler` dans le nom
-     d'hôte (ex. `ep-xxx-pooler.c-4...` → `ep-xxx.c-4...`) — utilisée uniquement par `prisma
-     migrate deploy` au build (voir `prisma.config.ts`). Nécessaire car le verrou Postgres pris
-     par une migration ne survit pas au recyclage d'une connexion par le pooler PgBouncer de
-     Neon, ce qui bloque les déploiements suivants avec une erreur `P1002` (timeout
-     d'acquisition de verrou) tant qu'une connexion pooled reste utilisée pour migrer.
+     d'hôte) copiée à l'étape précédente — utilisée à la fois par l'application en runtime et par
+     `prisma migrate deploy` au build (voir note ci-dessous)
    - `TWELVE_DATA_API_KEY` = votre clé gratuite [twelvedata.com](https://twelvedata.com) (optionnel,
      mais recommandé pour une recherche de tickers et des prix fiables en production)
    - `CRON_SECRET` = une valeur aléatoire de votre choix (ex. générée avec
@@ -40,15 +35,23 @@ réveil sur la première requête après une pause), sans jamais nécessiter d'i
 5. **Deploy**. Le premier déploiement échouera si la base est vide — c'est normal, on applique
    le schéma à l'étape suivante.
 
+> **Note** : `prisma migrate deploy` prend un verrou Postgres (advisory lock) le temps de la
+> migration. Ce verrou est attaché à la connexion, pas à la commande — si un build est interrompu
+> avant que la migration se termine (crash, timeout), la connexion peut être recyclée par le
+> pooler PgBouncer de Neon sans que le verrou soit relâché, et bloquer tous les déploiements
+> suivants avec une erreur `P1002` (timeout d'acquisition de verrou). Passer par la connexion
+> **directe** Neon (sans `-pooler`) pour la migration semble la solution logique, mais ne
+> fonctionne pas de manière fiable depuis les serveurs de build Vercel (erreur `P1001`, connexion
+> injoignable — limitation réseau connue, pas un bug ici). Si `P1002` se reproduit : se connecter à
+> la base (`DATABASE_URL`), trouver la session bloquante (`select * from pg_locks where locktype =
+> 'advisory'`), et la terminer (`select pg_terminate_backend(<pid>)`) — ça ne touche aucune donnée.
+
 ## 3. Appliquer le schéma et créer le compte admin
 
-`prisma migrate deploy` lit `DIRECT_DATABASE_URL` en priorité (voir `prisma.config.ts`) — pour un
-lancement manuel depuis votre machine, pointez-la temporairement vers la chaîne de connexion
-**directe** Neon (sans `-pooler`, même raison qu'à l'étape précédente). `db:seed` n'utilise pas le
-moteur de migration : la chaîne pooled habituelle (`DATABASE_URL`) suffit.
+Depuis votre machine locale, avec `DATABASE_URL` pointée temporairement vers Neon :
 
 ```bash
-DIRECT_DATABASE_URL="<chaîne de connexion directe Neon>" npx prisma migrate deploy
+DATABASE_URL="<chaîne de connexion Neon>" npx prisma migrate deploy
 DATABASE_URL="<chaîne de connexion Neon>" npm run db:seed
 ```
 
