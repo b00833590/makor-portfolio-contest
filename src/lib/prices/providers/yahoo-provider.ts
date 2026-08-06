@@ -53,21 +53,38 @@ interface YahooChartResponse {
 }
 
 /**
- * Yahoo répond parfois `200 OK` avec `regularMarketPrice`/`regularMarketTime` figés sur la
- * clôture de la veille alors que la session du jour est déjà ouverte — sans jamais renvoyer
- * d'erreur HTTP ni de `chart.error` détectable autrement (constaté en direct : NVDA, AAPL, MSFT
- * et SPY tous bloqués simultanément sur la même clôture pendant que le marché US était ouvert
- * depuis 47 minutes, sur un endpoint non officiel connu pour changer sans préavis — voir la
- * documentation de la classe). Une telle réponse, bien que valide dans sa forme, n'est pas une
- * cotation fraîche : la traiter comme un échec (voir fetchPrice) laisse
+ * Au-delà du délai habituel d'une cotation "gratuite" (15-20 min, norme du secteur pour un flux
+ * non temps réel) — un écart plus grand pendant que la session est censée être ouverte trahit un
+ * flux réellement figé, pas un simple délai normal.
+ */
+const STALE_TOLERANCE_SECONDS = 30 * 60;
+
+/**
+ * Yahoo répond parfois `200 OK` avec `regularMarketPrice`/`regularMarketTime` figés — parfois
+ * sur la clôture de la veille (constaté en direct sur des tickers US : NVDA, AAPL, MSFT et SPY
+ * tous bloqués simultanément sur la même clôture pendant que le marché était ouvert depuis 47
+ * minutes), parfois sur un instantané pris peu après l'ouverture du jour puis plus jamais
+ * rafraîchi de toute la session (constaté sur des tickers européens : MC.PA, RMS.PA, TTE.PA...
+ * tous figés ~25 minutes après l'ouverture Euronext, plus de 7h avant que quiconque ne s'en
+ * aperçoive — le flux de bougies intrajournalières s'arrête net au même instant, ce n'est pas
+ * qu'un champ résumé en retard). Aucune erreur HTTP ni `chart.error` ne signale ces deux cas —
+ * endpoint non officiel connu pour changer sans préavis, voir la documentation de la classe.
+ *
+ * Comparer à `now` (borné à la fenêtre de session, pour ne jamais pénaliser une dernière
+ * cotation légitime hors marché) plutôt qu'uniquement à l'heure d'ouverture couvre les deux
+ * formes constatées d'un seul coup. Une réponse ainsi détectée, bien que valide dans sa forme,
+ * n'est pas une cotation fraîche : la traiter comme un échec (voir fetchPrice) laisse
  * `fetchPriceWithFallback` essayer le fournisseur suivant au lieu d'écrire silencieusement une
  * donnée périmée comme si elle venait d'être rafraîchie.
  */
 export function isStaleDuringMarketHours(meta: YahooChartMeta, now: Date): boolean {
-  const sessionStart = meta.currentTradingPeriod?.regular?.start;
-  if (!meta.regularMarketTime || !sessionStart) return false;
+  const period = meta.currentTradingPeriod?.regular;
+  if (!meta.regularMarketTime || !period) return false;
+
   const nowSeconds = now.getTime() / 1000;
-  return meta.regularMarketTime < sessionStart && nowSeconds >= sessionStart;
+  if (nowSeconds < period.start || nowSeconds > period.end) return false;
+
+  return nowSeconds - meta.regularMarketTime > STALE_TOLERANCE_SECONDS;
 }
 
 /**
@@ -90,6 +107,15 @@ export function isStaleDuringMarketHours(meta: YahooChartMeta, now: Date): boole
  * US-shaped symbols specifically (see provider-fallback.ts and
  * TwelveDataProvider.supports), not removed, so a Yahoo outage degrades
  * rather than fully breaks US stock pricing.
+ *
+ * Update (2026-08-06): "no such wall in practice" no longer holds — Yahoo has
+ * been observed serving stale-but-200-OK quotes for both US and European
+ * tickers (see isStaleDuringMarketHours). European exchange-suffixed symbols
+ * still have no fallback provider (Twelve Data can't resolve them), so a
+ * Yahoo degradation there currently just stops price updates cleanly
+ * (surfaced as `isStale`) instead of a live number — not silently wrong
+ * anymore, but not resilient either. A second European-capable provider
+ * would close that gap if this keeps recurring.
  */
 export class YahooProvider implements PriceProvider {
   readonly source = "yahoo";
