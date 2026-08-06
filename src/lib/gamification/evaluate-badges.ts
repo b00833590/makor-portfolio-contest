@@ -1,51 +1,263 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { badgeDefinitions } from "./badge-definitions";
-import { evaluateBadgeCriteria, type BadgeEvaluationContext } from "./badge-criteria";
-import { getLeaderboard } from "./get-leaderboard";
+import { TransactionType, ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import type { BadgeRarity } from "@/generated/prisma/enums";
+import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { BADGE_CATALOG, evaluateBadgeCatalog } from "./badges/catalog";
+import type { BadgeEvaluationContext, ChangeWindowUsage, RankHistoryPoint } from "./badges/types";
+import { computeHasSuccessfulArbitrage } from "./badges/trading";
+import { computeMaxPostBuyGainPct } from "./badges/conviction";
+import { getLeaderboard, type LeaderboardRow } from "./get-leaderboard";
+import { buildTrades } from "./match-closing-trades";
+import { buildAllocation } from "./get-participant-stats";
 
-async function ensureBadgesSeeded(): Promise<Map<string, string>> {
-  const badgeIdByCode = new Map<string, string>();
-  for (const definition of badgeDefinitions) {
-    const badge = await db.badge.upsert({
-      where: { code: definition.code },
-      update: { name: definition.name, description: definition.description, icon: definition.icon },
-      create: definition,
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+
+export interface AwardedBadge {
+  code: string;
+  name: string;
+  rarity: BadgeRarity;
+}
+
+export async function ensureBadgesSeeded(): Promise<void> {
+  for (const spec of BADGE_CATALOG) {
+    const data = {
+      name: spec.name,
+      description: spec.description,
+      condition: spec.condition,
+      category: spec.category,
+      rarity: spec.rarity,
+      icon: spec.icon,
+    };
+    await db.badge.upsert({
+      where: { code: spec.code },
+      update: data,
+      create: { code: spec.code, ...data },
     });
-    badgeIdByCode.set(definition.code, badge.id);
   }
-  return badgeIdByCode;
 }
 
 async function buildEvaluationContext(
+  userId: string,
   portfolioId: string,
-  leaderboardRow: { rank: number; previousRank: number | null; cumulativeReturnPct: number },
+  promotionId: string,
+  maxPositions: number,
+  row: LeaderboardRow,
+  leaderboard: LeaderboardRow[],
   now: Date,
 ): Promise<BadgeEvaluationContext> {
-  const [positions, lastTransaction] = await Promise.all([
+  const [allPositions, transactions, snapshots, closedWeeklySessions, user, existingBadges] = await Promise.all([
     db.position.findMany({
-      where: { portfolioId, quantity: { gt: 0 }, closedAt: null },
-      include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
+      where: { portfolioId },
+      include: { asset: { select: { sector: true, currency: true, prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
     }),
-    db.transaction.findFirst({ where: { portfolioId }, orderBy: { createdAt: "desc" } }),
+    db.transaction.findMany({
+      where: { portfolioId },
+      select: { assetId: true, type: true, price: true, quantity: true, changeSessionId: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.performanceSnapshot.findMany({ where: { portfolioId }, orderBy: { timestamp: "desc" } }),
+    db.changeSession.findMany({
+      where: { promotionId, kind: ChangeSessionKind.WEEKLY, status: ChangeSessionStatus.CLOSED },
+      include: { usages: { where: { userId } } },
+    }),
+    db.user.findUnique({ where: { id: userId }, select: { currentStreakDays: true, longestStreakDays: true } }),
+    db.userBadge.findMany({ where: { userId, promotionId }, include: { badge: { select: { code: true } } } }),
   ]);
 
-  const positionContexts = positions.map((position) => {
+  const openPositions = allPositions.filter((position) => Number(position.quantity) > 0 && position.closedAt === null);
+  const currentPriceByAsset = new Map(
+    allPositions.map((position) => [position.assetId, Number(position.asset.prices[0]?.price ?? position.avgEntryPrice)]),
+  );
+
+  const positionSnapshots = openPositions.map((position) => {
     const quantity = Number(position.quantity);
     const avgEntryPrice = Number(position.avgEntryPrice);
-    const currentPrice = Number(position.asset.prices[0]?.price ?? avgEntryPrice);
+    const currentPrice = currentPriceByAsset.get(position.assetId) ?? avgEntryPrice;
     return { marketValue: quantity * currentPrice, costBasis: quantity * avgEntryPrice };
   });
 
+  const trades = buildTrades(
+    allPositions.map((position) => ({
+      id: position.id,
+      assetId: position.assetId,
+      avgEntryPrice: Number(position.avgEntryPrice),
+      quantity: Number(position.quantity),
+      openedAt: position.openedAt,
+      closedAt: position.closedAt,
+    })),
+    transactions.map((transaction) => ({
+      assetId: transaction.assetId,
+      type: transaction.type,
+      price: Number(transaction.price),
+      quantity: Number(transaction.quantity),
+      createdAt: transaction.createdAt,
+    })),
+    currentPriceByAsset,
+  );
+  const closedAtByPositionId = new Map(
+    allPositions.filter((position) => position.closedAt).map((position) => [position.id, position.closedAt!]),
+  );
+  const closedTradesChronological = trades
+    .filter((trade) => !trade.isOpen)
+    .map((trade) => ({
+      pnlEur: trade.pnlEur,
+      pnlPct: trade.pnlPct,
+      closedAt: closedAtByPositionId.get(trade.positionId)!,
+    }))
+    .filter((trade) => trade.closedAt)
+    .sort((a, b) => a.closedAt.getTime() - b.closedAt.getTime());
+
+  const currentPnlPctByAsset = new Map(
+    openPositions.map((position) => {
+      const avgEntryPrice = Number(position.avgEntryPrice);
+      const currentPrice = currentPriceByAsset.get(position.assetId) ?? avgEntryPrice;
+      const pnlPct = avgEntryPrice > 0 ? ((currentPrice - avgEntryPrice) / avgEntryPrice) * 100 : 0;
+      return [position.assetId, pnlPct];
+    }),
+  );
+  const hasSuccessfulArbitrage = computeHasSuccessfulArbitrage(transactions, currentPnlPctByAsset);
+
+  const buyTransactions = transactions.filter((t) => t.type === TransactionType.BUY);
+  const priceHistoryByAsset = new Map<string, { price: number; timestamp: Date }[]>();
+  if (buyTransactions.length > 0) {
+    const buyAssetIds = [...new Set(buyTransactions.map((t) => t.assetId))];
+    const minDate = new Date(Math.min(...buyTransactions.map((t) => t.createdAt.getTime())));
+    const maxDate = new Date(Math.max(...buyTransactions.map((t) => t.createdAt.getTime())) + FIVE_DAYS_MS);
+    const priceRows = await db.price.findMany({
+      where: { assetId: { in: buyAssetIds }, timestamp: { gte: minDate, lte: maxDate } },
+      orderBy: { timestamp: "asc" },
+    });
+    for (const priceRow of priceRows) {
+      const list = priceHistoryByAsset.get(priceRow.assetId) ?? [];
+      list.push({ price: Number(priceRow.price), timestamp: priceRow.timestamp });
+      priceHistoryByAsset.set(priceRow.assetId, list);
+    }
+  }
+  const postBuyMaxGainPct = computeMaxPostBuyGainPct(
+    buyTransactions.map((t) => ({ assetId: t.assetId, price: Number(t.price), createdAt: t.createdAt })),
+    priceHistoryByAsset,
+  );
+
+  const rankHistory: RankHistoryPoint[] = snapshots.map((snapshot) => ({ timestamp: snapshot.timestamp, rank: snapshot.rank }));
+  const dailyReturnPct = snapshots.length > 0 ? Number(snapshots[0].dailyReturnPct) : null;
+
+  const rank2 = leaderboard.find((r) => r.rank === 2);
+  const gapToSecondPts = row.rank === 1 && rank2 ? row.cumulativeReturnPct - rank2.cumulativeReturnPct : null;
+
+  const weeklyChangeWindows: ChangeWindowUsage[] = closedWeeklySessions.map((session) => ({
+    hadWindow: session.maxChangesPerParticipant > 0,
+    changesUsed: session.usages[0]?.changesUsed ?? 0,
+  }));
+
+  const sectorEntries = openPositions.map((position) => ({
+    key: position.asset.sector ?? "Non renseigné",
+    value: currentPriceByAsset.get(position.assetId)! * Number(position.quantity),
+  }));
+  const currencyEntries = openPositions.map((position) => ({
+    key: position.asset.currency,
+    value: currentPriceByAsset.get(position.assetId)! * Number(position.quantity),
+  }));
+
   return {
     now,
-    investedValue: positionContexts.reduce((total, position) => total + position.marketValue, 0),
-    positions: positionContexts,
-    lastTransactionDate: lastTransaction?.createdAt ?? null,
-    cumulativeReturnPct: leaderboardRow.cumulativeReturnPct,
-    currentRank: leaderboardRow.rank,
-    previousRank: leaderboardRow.previousRank,
+    openPositionCount: openPositions.length,
+    maxPositions,
+    investedValue: positionSnapshots.reduce((total, position) => total + position.marketValue, 0),
+    positions: positionSnapshots,
+    transactionCount: transactions.length,
+    firstTransactionDate: transactions[0]?.createdAt ?? null,
+    lastTransactionDate: transactions[transactions.length - 1]?.createdAt ?? null,
+    closedTradesChronological,
+    hasSuccessfulArbitrage,
+    postBuyMaxGainPct,
+    cumulativeReturnPct: row.cumulativeReturnPct,
+    dailyReturnPct,
+    currentRank: row.rank,
+    previousRank: row.previousRank,
+    gapToSecondPts,
+    rankHistory,
+    participantCount: leaderboard.length,
+    sectorAllocation: buildAllocation(sectorEntries),
+    currencyAllocation: buildAllocation(currencyEntries),
+    weeklyChangeWindows,
+    currentStreakDays: user?.currentStreakDays ?? 0,
+    longestStreakDays: user?.longestStreakDays ?? 0,
+    alreadyOwnedCodes: new Set(existingBadges.map((userBadge) => userBadge.badge.code)),
+    totalBadgeCount: BADGE_CATALOG.length,
   };
+}
+
+async function awardBadgesForContext(
+  userId: string,
+  promotionId: string,
+  context: BadgeEvaluationContext,
+): Promise<AwardedBadge[]> {
+  const earnedCodes = evaluateBadgeCatalog(context);
+  const newCodes = earnedCodes.filter((code) => !context.alreadyOwnedCodes.has(code));
+  if (newCodes.length === 0) return [];
+
+  // PIONNIER est exclusif (un seul gagnant par promotion) — l'état DB au moment de
+  // l'attribution est la seule source fiable, pas dérivable du contexte pur d'un utilisateur.
+  const filteredCodes: string[] = [];
+  for (const code of newCodes) {
+    if (code === "PIONNIER") {
+      const alreadyAwarded = await db.userBadge.count({ where: { promotionId, badge: { code: "PIONNIER" } } });
+      if (alreadyAwarded > 0) continue;
+    }
+    filteredCodes.push(code);
+  }
+  if (filteredCodes.length === 0) return [];
+
+  const badgeRows = await db.badge.findMany({ where: { code: { in: filteredCodes } } });
+  const awarded: AwardedBadge[] = [];
+  for (const badge of badgeRows) {
+    await db.userBadge.upsert({
+      where: { userId_badgeId_promotionId: { userId, badgeId: badge.id, promotionId } },
+      update: {},
+      create: { userId, badgeId: badge.id, promotionId },
+    });
+    awarded.push({ code: badge.code, name: badge.name, rarity: badge.rarity });
+  }
+  return awarded;
+}
+
+export async function markBadgesSeen(userId: string, promotionId: string, codes: string[]): Promise<void> {
+  if (codes.length === 0) return;
+  await db.userBadge.updateMany({
+    where: { userId, promotionId, seenAt: null, badge: { code: { in: codes } } },
+    data: { seenAt: new Date() },
+  });
+}
+
+export async function evaluateUserBadges(
+  userId: string,
+  promotionId: string,
+  now: Date = new Date(),
+): Promise<AwardedBadge[]> {
+  await ensureBadgesSeeded();
+  const [leaderboard, promotion] = await Promise.all([
+    getLeaderboard(promotionId, now),
+    db.promotion.findUniqueOrThrow({ where: { id: promotionId } }),
+  ]);
+  const row = leaderboard.find((r) => r.userId === userId);
+  if (!row) return [];
+
+  const maxPositions = promotionRulesSchema.parse(promotion.rules).maxPositions;
+  const context = await buildEvaluationContext(userId, row.portfolioId, promotionId, maxPositions, row, leaderboard, now);
+  return awardBadgesForContext(userId, promotionId, context);
+}
+
+/** Résout la promotion active de l'utilisateur puis délègue — point d'entrée pour le
+ * déclenchement instantané après une action de trading. Marque les badges obtenus comme vus
+ * dans la même requête (contrairement au cron nocturne) puisqu'un toast est affiché immédiatement. */
+export async function evaluateUserBadgesForUser(userId: string, now: Date = new Date()): Promise<AwardedBadge[]> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { promotionId: true } });
+  if (!user?.promotionId) return [];
+
+  const awarded = await evaluateUserBadges(userId, user.promotionId, now);
+  await markBadgesSeen(userId, user.promotionId, awarded.map((badge) => badge.code));
+  return awarded;
 }
 
 export interface BadgeAwardResult {
@@ -57,29 +269,26 @@ export async function evaluateAndAwardBadges(
   promotionId: string,
   now: Date = new Date(),
 ): Promise<BadgeAwardResult[]> {
-  const [badgeIdByCode, leaderboard] = await Promise.all([
-    ensureBadgesSeeded(),
+  await ensureBadgesSeeded();
+  const [leaderboard, promotion] = await Promise.all([
     getLeaderboard(promotionId, now),
+    db.promotion.findUniqueOrThrow({ where: { id: promotionId } }),
   ]);
+  const maxPositions = promotionRulesSchema.parse(promotion.rules).maxPositions;
 
   const results: BadgeAwardResult[] = [];
-
   for (const row of leaderboard) {
-    const context = await buildEvaluationContext(row.portfolioId, row, now);
-    const earnedCodes = evaluateBadgeCriteria(context);
-
-    for (const code of earnedCodes) {
-      const badgeId = badgeIdByCode.get(code);
-      if (!badgeId) continue;
-      await db.userBadge.upsert({
-        where: { userId_badgeId_promotionId: { userId: row.userId, badgeId, promotionId } },
-        update: {},
-        create: { userId: row.userId, badgeId, promotionId },
-      });
-    }
-
-    results.push({ userId: row.userId, awarded: earnedCodes });
+    const context = await buildEvaluationContext(
+      row.userId,
+      row.portfolioId,
+      promotionId,
+      maxPositions,
+      row,
+      leaderboard,
+      now,
+    );
+    const awarded = await awardBadgesForContext(row.userId, promotionId, context);
+    results.push({ userId: row.userId, awarded: awarded.map((badge) => badge.code) });
   }
-
   return results;
 }

@@ -47,6 +47,12 @@ model User {
   /// Redimensionnée/compressée côté client avant envoi (voir avatar-upload.ts).
   avatarUrl          String?  @db.Text
   createdAt          DateTime @default(now())
+  /// Dernière date (UTC, tronquée) de visite du dashboard/badges — série de
+  /// connexions consécutives, voir recordDailyVisit(). Nul tant que
+  /// l'utilisateur n'a jamais visité une page qui l'enregistre.
+  lastVisitDate      DateTime? @db.Date
+  currentStreakDays  Int      @default(0)
+  longestStreakDays  Int      @default(0)
 
   sessions Session[]
 
@@ -242,28 +248,62 @@ model PerformanceSnapshot {
   totalValue          Decimal  @db.Decimal(18, 2)
   dailyReturnPct      Decimal  @db.Decimal(9, 6)
   cumulativeReturnPct Decimal  @db.Decimal(9, 6)
+  /// Rang au sein de la promotion à l'instant du snapshot, calculé et écrit
+  /// dans la même passe que ce snapshot (voir snapshot-service.ts). Nul sur
+  /// les lignes historiques antérieures à l'introduction de ce champ — pas de
+  /// backfill possible.
+  rank                Int?
 
   portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
 
   @@index([portfolioId, timestamp])
 }
 
+enum BadgeCategory {
+  PERFORMANCE
+  TRADING
+  RISK_MANAGEMENT
+  CONVICTION
+  DIVERSIFICATION
+  RANKING
+  SPECIAL_EVENT
+  DISTINCTION
+}
+
+enum BadgeRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
 model Badge {
-  id          String @id @default(cuid())
-  code        String @unique
+  id          String        @id @default(cuid())
+  code        String        @unique
   name        String
   description String
+  /// Texte court affiché sur la carte badge verrouillée, ex. "Aucune position
+  /// ne dépasse 20% du portefeuille" — distinct de `description` (texte
+  /// d'ambiance affiché une fois débloqué).
+  condition   String
+  category    BadgeCategory
+  rarity      BadgeRarity
   icon        String
 
   userBadges UserBadge[]
 }
 
 model UserBadge {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   badgeId     String
   promotionId String
-  awardedAt   DateTime @default(now())
+  awardedAt   DateTime  @default(now())
+  /// Nul tant que la notification de déblocage n'a pas été affichée. Les
+  /// badges attribués instantanément (action de trading) sont marqués vus
+  /// dans la même requête ; les badges attribués par le cron nocturne
+  /// restent nuls jusqu'à affichage côté client (voir UnseenBadgeToaster).
+  seenAt      DateTime?
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   badge     Badge     @relation(fields: [badgeId], references: [id], onDelete: Cascade)

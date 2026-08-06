@@ -16,8 +16,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { AssetType, ChangeSessionStatus, PromotionStatus, TransactionType, UserRole } from "../src/generated/prisma/enums";
 import { defaultPromotionRules } from "../src/lib/promotion-rules";
-import { evaluateBadgeCriteria } from "../src/lib/gamification/badge-criteria";
-import { badgeDefinitions } from "../src/lib/gamification/badge-definitions";
+import { BADGE_CATALOG, evaluateBadgeCatalog } from "../src/lib/gamification/badges/catalog";
+import type { BadgeEvaluationContext } from "../src/lib/gamification/badges/types";
 import { rankEntries } from "../src/lib/gamification/ranking";
 
 const PROMOTION_NAME = "Promotion Démo — Été 2026";
@@ -262,13 +262,56 @@ async function main() {
   const previousRankByPortfolio = new Map(previousRanked.map((e) => [e.portfolioId, e.rank]));
 
   const badgeIdByCode = new Map<string, string>();
-  for (const definition of badgeDefinitions) {
+  for (const spec of BADGE_CATALOG) {
+    const data = {
+      name: spec.name,
+      description: spec.description,
+      condition: spec.condition,
+      category: spec.category,
+      rarity: spec.rarity,
+      icon: spec.icon,
+    };
     const badge = await db.badge.upsert({
-      where: { code: definition.code },
-      update: { name: definition.name, description: definition.description, icon: definition.icon },
-      create: definition,
+      where: { code: spec.code },
+      update: data,
+      create: { code: spec.code, ...data },
     });
-    badgeIdByCode.set(definition.code, badge.id);
+    badgeIdByCode.set(spec.code, badge.id);
+  }
+
+  // Contexte minimal, pur (aucun accès DB au-delà de ce que ce script suit déjà lui-même) —
+  // seuls les badges dérivables de cet état simplifié peuvent être attribués ici ; c'est
+  // suffisant pour peupler un jeu de démonstration visuel, pas une réplique du moteur complet
+  // (voir src/lib/gamification/evaluate-badges.ts pour l'évaluation réelle en production).
+  function demoContext(overrides: Partial<BadgeEvaluationContext>): BadgeEvaluationContext {
+    return {
+      now,
+      openPositionCount: 0,
+      maxPositions: defaultPromotionRules.maxPositions,
+      investedValue: 0,
+      positions: [],
+      transactionCount: 0,
+      firstTransactionDate: null,
+      lastTransactionDate: null,
+      closedTradesChronological: [],
+      hasSuccessfulArbitrage: false,
+      postBuyMaxGainPct: null,
+      cumulativeReturnPct: 0,
+      dailyReturnPct: null,
+      currentRank: null,
+      previousRank: null,
+      gapToSecondPts: null,
+      rankHistory: [],
+      participantCount: participantStates.length,
+      sectorAllocation: [],
+      currencyAllocation: [],
+      weeklyChangeWindows: [],
+      currentStreakDays: 0,
+      longestStreakDays: 0,
+      alreadyOwnedCodes: new Set(),
+      totalBadgeCount: BADGE_CATALOG.length,
+      ...overrides,
+    };
   }
 
   for (const rankedEntry of currentRanked) {
@@ -276,20 +319,23 @@ async function main() {
     const previousRank = previousRankByPortfolio.get(rankedEntry.portfolioId) ?? null;
 
     const investedValue = state.positions.reduce((sum, p) => sum + p.marketValue, 0);
-    const earned = evaluateBadgeCriteria({
-      now,
-      investedValue,
-      positions: state.positions,
-      lastTransactionDate: state.lastTransactionDate,
-      cumulativeReturnPct: rankedEntry.cumulativeReturnPct,
-      currentRank: rankedEntry.rank,
-      previousRank,
-    });
+    const earned = evaluateBadgeCatalog(
+      demoContext({
+        investedValue,
+        openPositionCount: state.positions.length,
+        positions: state.positions,
+        transactionCount: state.positions.length,
+        lastTransactionDate: state.lastTransactionDate,
+        cumulativeReturnPct: rankedEntry.cumulativeReturnPct,
+        currentRank: rankedEntry.rank,
+        previousRank,
+      }),
+    );
 
     for (const code of earned) {
       const badgeId = badgeIdByCode.get(code);
       if (!badgeId) continue;
-      await db.userBadge.create({ data: { userId: state.userId, badgeId, promotionId: promotion.id } });
+      await db.userBadge.create({ data: { userId: state.userId, badgeId, promotionId: promotion.id, seenAt: now } });
     }
   }
 

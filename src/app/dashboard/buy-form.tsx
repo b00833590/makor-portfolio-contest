@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { buyAsset, type TradeFormState } from "./actions";
+import { useBadgeToast } from "./use-badge-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ const initialState: TradeFormState = {};
 export function BuyForm() {
   const [state, formAction, pending] = useActionState(buyAsset, initialState);
   const [selected, setSelected] = useState<AssetSearchResult | null>(null);
+  useBadgeToast(state);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4">

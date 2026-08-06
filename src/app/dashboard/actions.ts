@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { verifySession } from "@/lib/dal";
 import { executeOrder } from "@/lib/trading/execute-order";
 import { ensureAssetForPurchase } from "@/lib/assets/ensure-asset";
+import { evaluateUserBadgesForUser, type AwardedBadge } from "@/lib/gamification/evaluate-badges";
 import { amountOrderSchema, dynamicBuySchema, sellPartialSchema } from "./schema";
 
 export interface TradeFormState {
   error?: string;
+  newBadges?: AwardedBadge[];
 }
 
 export async function buyAsset(
@@ -38,9 +40,14 @@ export async function buyAsset(
     assetId: assetResult.asset.id,
     amount: parsed.data.amount,
   });
+  if (!result.ok) {
+    revalidatePath("/dashboard");
+    return { error: result.reason };
+  }
 
+  const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
-  return result.ok ? {} : { error: result.reason };
+  return newBadges.length > 0 ? { newBadges } : {};
 }
 
 export async function increasePosition(
@@ -61,9 +68,14 @@ export async function increasePosition(
     assetId: parsed.data.assetId,
     amount: parsed.data.amount,
   });
+  if (!result.ok) {
+    revalidatePath("/dashboard");
+    return { error: result.reason };
+  }
 
+  const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
-  return result.ok ? {} : { error: result.reason };
+  return newBadges.length > 0 ? { newBadges } : {};
 }
 
 export async function sellPartial(
@@ -84,15 +96,25 @@ export async function sellPartial(
     assetId: parsed.data.assetId,
     quantity: parsed.data.quantity,
   });
+  if (!result.ok) {
+    revalidatePath("/dashboard");
+    return { error: result.reason };
+  }
 
+  const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
-  return result.ok ? {} : { error: result.reason };
+  return newBadges.length > 0 ? { newBadges } : {};
 }
 
 export async function sellFull(assetId: string): Promise<TradeFormState> {
   const session = await verifySession();
   const result = await executeOrder(session.user.id, { type: "SELL_FULL", assetId });
+  if (!result.ok) {
+    revalidatePath("/dashboard");
+    return { error: result.reason };
+  }
 
+  const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
-  return result.ok ? {} : { error: result.reason };
+  return newBadges.length > 0 ? { newBadges } : {};
 }

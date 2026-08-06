@@ -3,17 +3,18 @@ import { verifySession } from "@/lib/dal";
 import { getPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
-import { getUserBadges } from "@/lib/gamification/get-user-badges";
+import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
+import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
 import { getOpenChangeSession } from "@/lib/trading/execute-order";
 import { getClosingSoonNotice } from "@/lib/trading/change-session-notice";
 import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { SiteHeader } from "@/components/site-header";
+import { UnseenBadgeToaster } from "@/components/badges/unseen-badge-toaster";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BuyForm } from "./buy-form";
 import { PositionCard } from "./position-card";
 import { PerformanceChart } from "./performance-chart";
 import { TransactionHistoryTable } from "./transaction-history-table";
-import { BadgesSection } from "./badges-section";
 import { InitializationWindowBanner } from "./initialization-window-banner";
 import { AutoRefresh } from "@/components/auto-refresh";
 
@@ -25,13 +26,13 @@ export default async function DashboardPage() {
   if (session.user.role === "ADMIN") {
     redirect("/admin");
   }
-  const portfolioView = await getPortfolioView(session.user.id);
+  const [portfolioView] = await Promise.all([getPortfolioView(session.user.id), recordDailyVisit(session.user.id)]);
 
-  const [performanceHistory, transactionHistory, badges, openChangeSession] = portfolioView
+  const [performanceHistory, transactionHistory, unseenBadges, openChangeSession] = portfolioView
     ? await Promise.all([
         getPerformanceHistory(portfolioView.portfolioId),
         getTransactionHistory(portfolioView.portfolioId),
-        getUserBadges(session.user.id, portfolioView.promotionId),
+        getUnseenBadges(session.user.id, portfolioView.promotionId),
         getOpenChangeSession(portfolioView.promotionId),
       ])
     : [[], [], [], null];
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
         role={session.user.role}
         avatarUrl={session.user.avatarUrl}
       />
+      <UnseenBadgeToaster badges={unseenBadges} />
       <div className="mx-auto w-full max-w-3xl px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Mon portefeuille</h1>
 
@@ -122,6 +124,17 @@ export default async function DashboardPage() {
                   </span>
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Positions</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-semibold tabular-nums">
+                  {portfolioView.positions.length}
+                  <span className="ml-1 text-base font-normal text-muted-foreground">
+                    / {portfolioView.maxPositions}
+                  </span>
+                </CardContent>
+              </Card>
             </div>
 
             <Card>
@@ -130,15 +143,6 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <PerformanceChart data={performanceHistory} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Badges</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BadgesSection badges={badges} />
               </CardContent>
             </Card>
 

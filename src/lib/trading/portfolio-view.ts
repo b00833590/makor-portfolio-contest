@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { AssetType, type PromotionStatus } from "@/generated/prisma/enums";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
+import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { computeAvailableCash } from "./execute-order";
 
 export interface PositionView {
@@ -34,6 +35,9 @@ export interface PortfolioView {
   portfolioId: string;
   initialCapital: number;
   availableCash: number;
+  /** Nombre maximal de positions autorisées, configuré par l'admin (Promotion.rules) — relu à
+   * chaque chargement, s'adapte automatiquement si l'admin modifie la limite en cours de saison. */
+  maxPositions: number;
   positions: PositionView[];
   totalMarketValue: number;
   /** Capital disponible + valeur investie — la valeur totale réelle du compte. */
@@ -148,6 +152,7 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
     portfolioId: portfolio.id,
     initialCapital,
     availableCash,
+    maxPositions: promotionRulesSchema.parse(promotion.rules).maxPositions,
     positions,
     totalMarketValue,
     totalValue,

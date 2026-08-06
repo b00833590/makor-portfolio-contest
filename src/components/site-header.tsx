@@ -22,6 +22,7 @@ interface NavLink {
 
 const participantNavLinks: NavLink[] = [
   { href: "/dashboard", label: "Portefeuille" },
+  { href: "/badges", label: "Badges" },
   { href: "/leaderboard", label: "Classement" },
   { href: "/statistiques", label: "Statistiques" },
   { href: "/hall-of-fame", label: "Hall of Fame" },

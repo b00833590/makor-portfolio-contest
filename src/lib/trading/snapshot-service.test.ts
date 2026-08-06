@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe("snapshotPortfolio", () => {
-  it("crée un snapshot à partir du cash disponible et des positions", async () => {
+  it("crée un snapshot à partir du cash disponible et des positions, sans rang (appel isolé)", async () => {
     dbMock.transaction.findMany.mockResolvedValue([{ type: "BUY", amount: 40_000 }]);
     dbMock.position.findMany.mockResolvedValue([
       {
@@ -44,6 +44,7 @@ describe("snapshotPortfolio", () => {
         totalValue: 960_000 + 48_000,
         dailyReturnPct: 0,
         cumulativeReturnPct: expect.any(Number),
+        rank: null,
       },
     });
   });
@@ -82,12 +83,10 @@ describe("snapshotActivePromotions", () => {
     expect(dbMock.performanceSnapshot.create).toHaveBeenCalledTimes(2);
   });
 
-  it("continue avec les autres portefeuilles si l'un d'eux échoue", async () => {
+  it("continue avec les autres portefeuilles si l'un d'eux échoue au calcul", async () => {
     dbMock.promotion.findMany.mockResolvedValue([{ id: "promo-1", initialCapital: 1_000_000 }]);
     dbMock.portfolio.findMany.mockResolvedValue([{ id: "portfolio-1" }, { id: "portfolio-2" }]);
-    dbMock.transaction.findMany
-      .mockRejectedValueOnce(new Error("boom"))
-      .mockResolvedValueOnce([]);
+    dbMock.transaction.findMany.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce([]);
     dbMock.position.findMany.mockResolvedValue([]);
     dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
 
@@ -97,5 +96,41 @@ describe("snapshotActivePromotions", () => {
       { portfolioId: "portfolio-1", status: "failed" },
       { portfolioId: "portfolio-2", status: "ok" },
     ]);
+    expect(dbMock.performanceSnapshot.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("classe les portefeuilles d'une même promotion par rendement cumulé et écrit le rang", async () => {
+    dbMock.promotion.findMany.mockResolvedValue([{ id: "promo-1", initialCapital: 1_000_000 }]);
+    dbMock.portfolio.findMany.mockResolvedValue([{ id: "portfolio-1" }, { id: "portfolio-2" }]);
+    // portfolio-1 : 40 000 investis à +20% -> avantage ; portfolio-2 : aucune position.
+    dbMock.transaction.findMany
+      .mockResolvedValueOnce([{ type: "BUY", amount: 40_000 }])
+      .mockResolvedValueOnce([]);
+    dbMock.position.findMany
+      .mockResolvedValueOnce([{ quantity: 400, avgEntryPrice: 100, asset: { prices: [{ price: 120 }] } }])
+      .mockResolvedValueOnce([]);
+    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+
+    await snapshotActivePromotions(NOW);
+
+    const calls = dbMock.performanceSnapshot.create.mock.calls.map((call) => call[0].data);
+    const portfolio1Call = calls.find((call) => call.portfolioId === "portfolio-1")!;
+    const portfolio2Call = calls.find((call) => call.portfolioId === "portfolio-2")!;
+    expect(portfolio1Call.rank).toBe(1);
+    expect(portfolio2Call.rank).toBe(2);
+  });
+
+  it("ne classe que les portefeuilles calculés avec succès, pas ceux en échec", async () => {
+    dbMock.promotion.findMany.mockResolvedValue([{ id: "promo-1", initialCapital: 1_000_000 }]);
+    dbMock.portfolio.findMany.mockResolvedValue([{ id: "portfolio-1" }, { id: "portfolio-2" }]);
+    dbMock.transaction.findMany.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce([]);
+    dbMock.position.findMany.mockResolvedValue([]);
+    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+
+    await snapshotActivePromotions(NOW);
+
+    expect(dbMock.performanceSnapshot.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ portfolioId: "portfolio-2", rank: 1 }),
+    });
   });
 });

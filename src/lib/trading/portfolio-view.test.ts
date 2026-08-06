@@ -18,6 +18,17 @@ vi.mock("@/lib/prices/pull-through", () => ({
 
 const { getPortfolioView } = await import("./portfolio-view");
 
+const PROMOTION_RULES = {
+  minPositionSize: 1_000,
+  maxPositionSize: 100_000,
+  maxPositions: 20,
+  maxCryptoPositions: 5,
+  changeSessionsPerWeek: 1,
+  maxChangesPerSession: 5,
+  freezeHoursBeforeEnd: 24,
+  initializationWindowHours: 48,
+};
+
 function resetMocks() {
   Object.values(dbMock).forEach((group) => Object.values(group).forEach((fn) => fn.mockReset()));
   refreshAssetPricesIfStaleMock.mockReset();
@@ -42,6 +53,7 @@ describe("getPortfolioView", () => {
       id: "promo-1",
       name: "Promotion Test",
       status: PromotionStatus.ACTIVE,
+      rules: PROMOTION_RULES,
       initialCapital: 1_000_000,
     });
     dbMock.portfolio.findUnique.mockResolvedValue({
@@ -74,6 +86,7 @@ describe("getPortfolioView", () => {
     expect(view!.totalValue).toBe(1_003_000);
     expect(view!.totalGainEur).toBe(3_000);
     expect(view!.totalGainPct).toBeCloseTo(0.3, 5);
+    expect(view!.maxPositions).toBe(20);
 
     const position = view!.positions[0];
     expect(position.entryValue).toBe(15_000);
@@ -91,6 +104,7 @@ describe("getPortfolioView", () => {
       id: "promo-1",
       name: "Promotion Test",
       status: PromotionStatus.ACTIVE,
+      rules: PROMOTION_RULES,
       initialCapital: 1_000_000,
     });
     dbMock.portfolio.findUnique.mockResolvedValue({
@@ -126,6 +140,7 @@ describe("getPortfolioView", () => {
       id: "promo-1",
       name: "Promotion Test",
       status: PromotionStatus.ACTIVE,
+      rules: PROMOTION_RULES,
       initialCapital: 1_000_000,
     });
     dbMock.portfolio.findUnique.mockResolvedValue({

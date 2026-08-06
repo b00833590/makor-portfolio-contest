@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { provisionPortfolios } from "@/lib/portfolio-provisioning";
 import { ensureInitializationWindow } from "@/lib/initialization-window";
+import { awardCloseOnlyBadges } from "@/lib/gamification/award-close-only-badges";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { createPromotionSchema, updatePromotionBasicsSchema } from "./schema";
 
@@ -142,12 +143,22 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
     initializationWindowOpened = (await ensureInitializationWindow(promotionId)) !== null;
   }
 
+  let closeOnlyBadgesAwarded: number | undefined;
+  if (status === PromotionStatus.CLOSED) {
+    closeOnlyBadgesAwarded = (await awardCloseOnlyBadges(promotionId)).length;
+  }
+
   await logAudit({
     adminId: session.user.id,
     action: "promotion.status",
     target: promotionId,
     before: { status: before.status },
-    after: { status: promotion.status, provisionedPortfolios: provisionedCount, initializationWindowOpened },
+    after: {
+      status: promotion.status,
+      provisionedPortfolios: provisionedCount,
+      initializationWindowOpened,
+      closeOnlyBadgesAwarded,
+    },
   });
 
   revalidatePath("/admin/promotions");

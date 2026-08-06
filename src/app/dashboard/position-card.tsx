@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { LineChart } from "lucide-react";
 import { increasePosition, sellPartial, sellFull, type TradeFormState } from "./actions";
+import { useBadgeToast } from "./use-badge-toast";
 import type { PositionView } from "@/lib/trading/portfolio-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,9 @@ export function PositionCard({ position }: { position: PositionView }) {
   const [sellState, sellFormAction, sellPending] = useActionState(sellPartial, initialState);
   const sellFullAction = sellFull.bind(null, position.assetId);
   const [sellFullState, sellFullFormAction, sellFullPending] = useActionState(sellFullAction, initialState);
+  useBadgeToast(increaseState);
+  useBadgeToast(sellState);
+  useBadgeToast(sellFullState);
 
   const isPositive = position.pnl >= 0;
 

@@ -39,7 +39,7 @@ function sampleStdDev(values: number[]): number | null {
   return Math.sqrt(variance);
 }
 
-function buildAllocation<K extends string>(
+export function buildAllocation<K extends string>(
   entries: { key: K; value: number }[],
 ): AllocationSlice[] {
   const totalValue = entries.reduce((sum, entry) => sum + entry.value, 0);
