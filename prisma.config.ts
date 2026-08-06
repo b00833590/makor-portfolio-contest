@@ -9,15 +9,11 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Tried routing this at Neon's direct (non-pooled) endpoint to dodge a
-    // stuck Postgres advisory lock from `migrate deploy` (see git history) —
-    // reverted: Vercel's build network (iad1) can't reliably reach that
-    // endpoint at all (P1001), a known Neon/Vercel interaction. Back to the
-    // same pooled DATABASE_URL the app uses at runtime (src/lib/db.ts). If
-    // a stuck advisory lock ever blocks a deploy again (Prisma error P1002,
-    // "advisory lock" in the message), the fix is to find and terminate the
-    // stale backend session holding it — see pg_locks / pg_terminate_backend
-    // — not to switch this back to a direct connection.
-    url: process.env["DATABASE_URL"],
+    // Supabase (see .env): migrations must go through DIRECT_URL (session-mode
+    // pooler, port 5432), not DATABASE_URL (transaction-mode pooler, port
+    // 6543, used by the app at runtime — src/lib/db.ts). Supabase's
+    // transaction-mode PgBouncer pooler doesn't reliably support the DDL
+    // patterns `prisma migrate` issues.
+    url: process.env["DIRECT_URL"],
   },
 });
