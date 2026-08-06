@@ -29,12 +29,20 @@ function resolveRangeAndInterval(request: HistoryRequest): { range: string; inte
   return { range: pickRange(request.days), interval: "1d" };
 }
 
+interface YahooChartMeta {
+  regularMarketPrice?: number;
+  regularMarketTime?: number;
+  /** Bornes (epoch secondes) de la session régulière du jour — utilisées pour détecter un
+   * `regularMarketPrice` périmé, voir isStaleDuringMarketHours. */
+  currentTradingPeriod?: { regular?: { start: number; end: number } };
+}
+
 interface YahooChartResponse {
   chart: {
     result:
       | [
           {
-            meta: { regularMarketPrice?: number; regularMarketTime?: number };
+            meta: YahooChartMeta;
             timestamp?: number[];
             indicators: { quote: [{ close?: (number | null)[]; volume?: (number | null)[] }] };
           },
@@ -42,6 +50,24 @@ interface YahooChartResponse {
       | null;
     error: { code: string; description: string } | null;
   };
+}
+
+/**
+ * Yahoo répond parfois `200 OK` avec `regularMarketPrice`/`regularMarketTime` figés sur la
+ * clôture de la veille alors que la session du jour est déjà ouverte — sans jamais renvoyer
+ * d'erreur HTTP ni de `chart.error` détectable autrement (constaté en direct : NVDA, AAPL, MSFT
+ * et SPY tous bloqués simultanément sur la même clôture pendant que le marché US était ouvert
+ * depuis 47 minutes, sur un endpoint non officiel connu pour changer sans préavis — voir la
+ * documentation de la classe). Une telle réponse, bien que valide dans sa forme, n'est pas une
+ * cotation fraîche : la traiter comme un échec (voir fetchPrice) laisse
+ * `fetchPriceWithFallback` essayer le fournisseur suivant au lieu d'écrire silencieusement une
+ * donnée périmée comme si elle venait d'être rafraîchie.
+ */
+export function isStaleDuringMarketHours(meta: YahooChartMeta, now: Date): boolean {
+  const sessionStart = meta.currentTradingPeriod?.regular?.start;
+  if (!meta.regularMarketTime || !sessionStart) return false;
+  const nowSeconds = now.getTime() / 1000;
+  return meta.regularMarketTime < sessionStart && nowSeconds >= sessionStart;
 }
 
 /**
@@ -98,8 +124,16 @@ export class YahooProvider implements PriceProvider {
     const result = await this.fetchChart(asset.symbol);
     if (!result) return null;
 
-    const { regularMarketPrice, regularMarketTime } = result[0].meta;
+    const meta = result[0].meta;
+    const { regularMarketPrice, regularMarketTime } = meta;
     if (regularMarketPrice === undefined || !Number.isFinite(regularMarketPrice)) return null;
+
+    if (isStaleDuringMarketHours(meta, new Date())) {
+      console.error(
+        `[ingest:yahoo] ${asset.symbol}: regularMarketTime antérieur à l'ouverture de la session en cours — donnée périmée renvoyée par Yahoo (200 OK, sans erreur), traitée comme un échec pour laisser la main au fournisseur de repli.`,
+      );
+      return null;
+    }
 
     return {
       price: regularMarketPrice,
