@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { formatParisDate } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Membre depuis</span>
-              <span className="font-medium">{user.createdAt.toLocaleDateString("fr-FR")}</span>
+              <span className="font-medium">{formatParisDate(user.createdAt)}</span>
             </div>
           </CardContent>
         </Card>

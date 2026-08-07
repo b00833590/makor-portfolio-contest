@@ -62,3 +62,23 @@ export async function destroySession(): Promise<void> {
 
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
+
+/**
+ * Invalide toutes les sessions actives d'un utilisateur — à appeler après un
+ * changement de mot de passe pour que l'objectif de sécurité de l'opération
+ * (couper l'accès à qui connaissait l'ancien mot de passe) soit réellement
+ * atteint : sans ça, un cookie de session déjà volé restait valide jusqu'à
+ * 30 jours après le changement, quel que soit le nouveau mot de passe.
+ */
+export async function destroyAllSessionsForUser(userId: string): Promise<void> {
+  await db.session.deleteMany({ where: { userId } });
+}
+
+/** Comme {@link destroyAllSessionsForUser}, mais préserve la session en cours (auto-changement de mot de passe). */
+export async function destroyOtherSessionsForUser(userId: string): Promise<void> {
+  const cookieStore = await cookies();
+  const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  await db.session.deleteMany({
+    where: { userId, ...(currentToken ? { sessionToken: { not: currentToken } } : {}) },
+  });
+}

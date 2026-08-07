@@ -36,14 +36,21 @@ export function ChangeSessionRowActions({
   const updateAction = updateChangeSession.bind(null, promotionId, changeSessionId);
   const [state, formAction, pending] = useActionState(updateAction, initialState);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const isInitializationWindow = kind === ChangeSessionKind.INITIALIZATION;
   const label = isInitializationWindow ? "la fenêtre de constitution" : `la semaine ${weekNumber}`;
 
   async function handleDelete() {
     setDeletePending(true);
-    await deleteChangeSession(promotionId, changeSessionId);
-    setDeletePending(false);
-    setDeleteOpen(false);
+    setDeleteError(null);
+    try {
+      await deleteChangeSession(promotionId, changeSessionId);
+      setDeleteOpen(false);
+    } catch {
+      setDeleteError("La suppression a échoué. Réessayez.");
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   return (
@@ -82,6 +89,7 @@ export function ChangeSessionRowActions({
             Les transactions déjà passées pendant cette session sont conservées (juste détachées de la session).
             Seul le compteur de changements utilisés pour cette session sera supprimé.
           </p>
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
               Annuler

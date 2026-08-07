@@ -1,6 +1,7 @@
 import { verifySession } from "@/lib/dal";
 import { getHallOfFame } from "@/lib/gamification/hall-of-fame";
 import { pickWinner } from "@/lib/gamification/pick-winner";
+import { formatParisDate } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,8 +56,8 @@ export default async function HallOfFamePage() {
                 <div>
                   <CardTitle>{season.name}</CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {season.startDate.toLocaleDateString("fr-FR")} →{" "}
-                    {season.endDate.toLocaleDateString("fr-FR")}
+                    {formatParisDate(season.startDate)} →{" "}
+                    {formatParisDate(season.endDate)}
                   </p>
                 </div>
                 {season.winner ? (

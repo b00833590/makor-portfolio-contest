@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { destroyOtherSessionsForUser } from "@/lib/auth/session";
 import { changePasswordSchema } from "./schema";
 
 export interface ChangePasswordFormState {
@@ -37,6 +38,7 @@ export async function changePassword(
     where: { id: session.user.id },
     data: { passwordHash, mustChangePassword: false },
   });
+  await destroyOtherSessionsForUser(session.user.id);
 
   redirect(session.user.role === "ADMIN" ? "/admin" : "/dashboard");
 }

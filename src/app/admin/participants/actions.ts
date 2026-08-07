@@ -5,7 +5,9 @@ import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { hashPassword, generateTempPassword } from "@/lib/auth/password";
+import { destroyAllSessionsForUser } from "@/lib/auth/session";
 import { createParticipantWithTempPassword } from "@/lib/participants/create-participant";
+import { provisionPortfolioIfPromotionActive } from "@/lib/portfolio-provisioning";
 import { createParticipantSchema, resetPasswordSchema, reassignPromotionSchema } from "./schema";
 
 export interface ParticipantFormState {
@@ -34,6 +36,8 @@ export async function createParticipant(
   if (result.status === "exists") {
     return { error: `L'identifiant "${name}" est déjà utilisé.` };
   }
+
+  await provisionPortfolioIfPromotionActive(promotionId);
 
   await logAudit({
     adminId: session.user.id,
@@ -66,6 +70,7 @@ export async function resetParticipantPassword(
     where: { id: parsed.data.userId },
     data: { passwordHash, mustChangePassword: true },
   });
+  await destroyAllSessionsForUser(parsed.data.userId);
 
   await logAudit({
     adminId: session.user.id,
@@ -97,6 +102,8 @@ export async function reassignParticipantPromotion(
     where: { id: parsed.data.userId },
     data: { promotionId: parsed.data.promotionId },
   });
+
+  await provisionPortfolioIfPromotionActive(parsed.data.promotionId);
 
   await logAudit({
     adminId: session.user.id,

@@ -198,7 +198,7 @@ export default async function LeaderboardPage() {
         )}
 
         {podium.length > 0 && (
-          <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {podium.map((row, index) => (
               <PodiumCard key={row.userId} row={row} place={index + 1} isSelf={row.userId === session.user.id} />
             ))}

@@ -33,12 +33,19 @@ export function PromotionRowActions({
   const updateAction = updatePromotion.bind(null, promotionId);
   const [state, formAction, pending] = useActionState(updateAction, initialState);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleDelete() {
     setDeletePending(true);
-    await deletePromotion(promotionId);
-    setDeletePending(false);
-    setDeleteOpen(false);
+    setDeleteError(null);
+    try {
+      await deletePromotion(promotionId);
+      setDeleteOpen(false);
+    } catch {
+      setDeleteError("La suppression a échoué. Réessayez.");
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   return (
@@ -92,6 +99,7 @@ export function PromotionRowActions({
               Les {participantCount} compte(s) participant(s) ne seront <strong>pas</strong> supprimés, seulement
               détachés de cette promotion.
             </p>
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
                 Annuler

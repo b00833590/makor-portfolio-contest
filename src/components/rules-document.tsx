@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
 import type { PromotionRules } from "@/lib/promotion-rules";
-import { formatParisDateTime } from "@/lib/timezone";
+import { formatParisDate, formatParisDateTime } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -125,7 +125,7 @@ export function RulesDocument({
         <h1 className="text-2xl font-semibold tracking-tight">{promotion.name}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary">
-            {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
+            {formatParisDate(promotion.startDate)} → {formatParisDate(promotion.endDate)}
           </Badge>
           <Badge variant="secondary">{formatDurationDays(durationDays)}</Badge>
           <Badge variant="secondary">Capital initial : {currencyFormatter.format(promotion.initialCapital)}</Badge>
@@ -138,7 +138,7 @@ export function RulesDocument({
         <p>
           Chaque participant démarre avec un portefeuille fictif de{" "}
           <strong className="text-foreground">{currencyFormatter.format(promotion.initialCapital)}</strong>{" "}
-          et doit le faire fructifier au mieux jusqu&apos;au {promotion.endDate.toLocaleDateString("fr-FR")}.
+          et doit le faire fructifier au mieux jusqu&apos;au {formatParisDate(promotion.endDate)}.
         </p>
         <p>
           Le classement est calculé uniquement à partir de la{" "}

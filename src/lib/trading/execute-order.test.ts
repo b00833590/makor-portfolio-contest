@@ -12,6 +12,7 @@ const dbMock = {
   position: { findMany: vi.fn(), create: vi.fn(), update: vi.fn(), findFirstOrThrow: vi.fn() },
   transaction: { findMany: vi.fn(), create: vi.fn() },
   $transaction: vi.fn(async (callback: (tx: typeof dbMock) => Promise<void>) => callback(dbMock)),
+  $executeRaw: vi.fn(),
 };
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
