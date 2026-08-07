@@ -155,6 +155,16 @@ model Portfolio {
   @@unique([userId, promotionId])
 }
 
+/// Un portefeuille peut avoir plusieurs lignes fermées (closedAt renseigné,
+/// quantity = 0) sur le même actif au fil du temps (achat, vente totale,
+/// rachat plus tard) — mais jamais deux lignes OUVERTES simultanément sur le
+/// même actif. Cette contrainte est appliquée par un index unique partiel
+/// (`WHERE "closedAt" IS NULL`) créé en SQL brut dans la migration
+/// 20260807130000_position_unique_open_per_asset — le DSL Prisma ne supporte
+/// pas les index partiels, donc cette contrainte n'apparaît pas ci-dessous.
+/// Ne PAS la supprimer par erreur lors d'un futur `prisma migrate dev` (le
+/// diff n'en a pas connaissance) ; voir aussi le verrou applicatif dans
+/// src/lib/trading/execute-order.ts qui empêche la course qu'elle referme.
 model Position {
   id            String    @id @default(cuid())
   portfolioId   String

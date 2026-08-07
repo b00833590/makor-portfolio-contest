@@ -1,12 +1,20 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { ChangeSessionStatus, TransactionType } from "@/generated/prisma/enums";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { validateOrder } from "./rules-engine";
 import type { PositionContext, TradeContext, TradeOrderInput, TradeValidationResult } from "./types";
 
-export async function computeAvailableCash(portfolioId: string, initialCapital: number): Promise<number> {
-  const transactions = await db.transaction.findMany({
+/** `db` en temps normal, ou le client de transaction quand on est déjà dans un `$transaction`. */
+type DbClient = typeof db | Prisma.TransactionClient;
+
+export async function computeAvailableCash(
+  portfolioId: string,
+  initialCapital: number,
+  client: DbClient = db,
+): Promise<number> {
+  const transactions = await client.transaction.findMany({
     where: { portfolioId },
     select: { type: true, amount: true },
   });
@@ -18,8 +26,8 @@ export async function computeAvailableCash(portfolioId: string, initialCapital: 
   }, initialCapital);
 }
 
-async function loadPositionsContext(portfolioId: string): Promise<PositionContext[]> {
-  const positions = await db.position.findMany({
+async function loadPositionsContext(portfolioId: string, client: DbClient): Promise<PositionContext[]> {
+  const positions = await client.position.findMany({
     where: { portfolioId, quantity: { gt: 0 }, closedAt: null },
     include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
   });
@@ -33,8 +41,8 @@ async function loadPositionsContext(portfolioId: string): Promise<PositionContex
   }));
 }
 
-export async function getOpenChangeSession(promotionId: string, now: Date = new Date()) {
-  return db.changeSession.findFirst({
+export async function getOpenChangeSession(promotionId: string, now: Date = new Date(), client: DbClient = db) {
+  return client.changeSession.findFirst({
     where: {
       promotionId,
       status: ChangeSessionStatus.OPEN,
@@ -48,18 +56,19 @@ export async function buildTradeContext(
   userId: string,
   assetId: string,
   now: Date = new Date(),
+  client: DbClient = db,
 ): Promise<{ context: TradeContext; portfolioId: string; changeSessionId: string | null } | { error: string }> {
-  const user = await db.user.findUnique({ where: { id: userId } });
+  const user = await client.user.findUnique({ where: { id: userId } });
   if (!user?.promotionId) {
     return { error: "Vous n'êtes assigné à aucune promotion en cours." };
   }
 
   const [portfolio, promotion, asset] = await Promise.all([
-    db.portfolio.findUnique({
+    client.portfolio.findUnique({
       where: { userId_promotionId: { userId, promotionId: user.promotionId } },
     }),
-    db.promotion.findUniqueOrThrow({ where: { id: user.promotionId } }),
-    db.asset.findUnique({ where: { id: assetId }, include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } }),
+    client.promotion.findUniqueOrThrow({ where: { id: user.promotionId } }),
+    client.asset.findUnique({ where: { id: assetId }, include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } }),
   ]);
 
   if (!portfolio) {
@@ -73,16 +82,16 @@ export async function buildTradeContext(
     return { error: "Aucun prix disponible pour cet actif." };
   }
 
-  const changeSession = await getOpenChangeSession(promotion.id, now);
+  const changeSession = await getOpenChangeSession(promotion.id, now, client);
   const changesUsed = changeSession
-    ? (await db.changeUsage.findUnique({
+    ? (await client.changeUsage.findUnique({
         where: { changeSessionId_userId: { changeSessionId: changeSession.id, userId } },
       }))?.changesUsed ?? 0
     : 0;
 
   const [positions, availableCash] = await Promise.all([
-    loadPositionsContext(portfolio.id),
-    computeAvailableCash(portfolio.id, Number(promotion.initialCapital)),
+    loadPositionsContext(portfolio.id, client),
+    computeAvailableCash(portfolio.id, Number(promotion.initialCapital), client),
   ]);
 
   const context: TradeContext = {
@@ -111,103 +120,118 @@ export async function buildTradeContext(
 }
 
 async function applyOrder(
+  client: DbClient,
   portfolioId: string,
   changeSessionId: string | null,
   userId: string,
   order: TradeOrderInput,
   currentPrice: number,
 ): Promise<void> {
-  await db.$transaction(async (tx) => {
-    let quantity: number;
-    let amount: number;
+  let quantity: number;
+  let amount: number;
 
-    if (order.type === "BUY") {
-      quantity = order.amount / currentPrice;
-      amount = order.amount;
-      await tx.position.create({
-        data: {
-          portfolioId,
-          assetId: order.assetId,
-          quantity,
-          avgEntryPrice: currentPrice,
-        },
-      });
-    } else if (order.type === "INCREASE") {
-      const existing = await tx.position.findFirstOrThrow({
-        where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
-      });
-      const addedQuantity = order.amount / currentPrice;
-      const oldQuantity = Number(existing.quantity);
-      const oldAvgPrice = Number(existing.avgEntryPrice);
-      const newQuantity = oldQuantity + addedQuantity;
-      const newAvgPrice = (oldQuantity * oldAvgPrice + order.amount) / newQuantity;
-
-      quantity = addedQuantity;
-      amount = order.amount;
-      await tx.position.update({
-        where: { id: existing.id },
-        data: { quantity: newQuantity, avgEntryPrice: newAvgPrice },
-      });
-    } else if (order.type === "SELL_PARTIAL") {
-      const existing = await tx.position.findFirstOrThrow({
-        where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
-      });
-      quantity = order.quantity;
-      amount = order.quantity * currentPrice;
-      await tx.position.update({
-        where: { id: existing.id },
-        data: { quantity: Number(existing.quantity) - order.quantity },
-      });
-    } else {
-      const existing = await tx.position.findFirstOrThrow({
-        where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
-      });
-      quantity = Number(existing.quantity);
-      amount = quantity * currentPrice;
-      await tx.position.update({
-        where: { id: existing.id },
-        data: { quantity: 0, closedAt: new Date() },
-      });
-    }
-
-    await tx.transaction.create({
+  if (order.type === "BUY") {
+    quantity = order.amount / currentPrice;
+    amount = order.amount;
+    await client.position.create({
       data: {
         portfolioId,
         assetId: order.assetId,
-        type: order.type as TransactionType,
         quantity,
-        price: currentPrice,
-        amount,
-        changeSessionId,
+        avgEntryPrice: currentPrice,
       },
     });
+  } else if (order.type === "INCREASE") {
+    const existing = await client.position.findFirstOrThrow({
+      where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
+    });
+    const addedQuantity = order.amount / currentPrice;
+    const oldQuantity = Number(existing.quantity);
+    const oldAvgPrice = Number(existing.avgEntryPrice);
+    const newQuantity = oldQuantity + addedQuantity;
+    const newAvgPrice = (oldQuantity * oldAvgPrice + order.amount) / newQuantity;
 
-    if (changeSessionId) {
-      await tx.changeUsage.upsert({
-        where: { changeSessionId_userId: { changeSessionId, userId } },
-        create: { changeSessionId, userId, changesUsed: 1 },
-        update: { changesUsed: { increment: 1 } },
-      });
-    }
+    quantity = addedQuantity;
+    amount = order.amount;
+    await client.position.update({
+      where: { id: existing.id },
+      data: { quantity: newQuantity, avgEntryPrice: newAvgPrice },
+    });
+  } else if (order.type === "SELL_PARTIAL") {
+    const existing = await client.position.findFirstOrThrow({
+      where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
+    });
+    quantity = order.quantity;
+    amount = order.quantity * currentPrice;
+    await client.position.update({
+      where: { id: existing.id },
+      data: { quantity: Number(existing.quantity) - order.quantity },
+    });
+  } else {
+    const existing = await client.position.findFirstOrThrow({
+      where: { portfolioId, assetId: order.assetId, quantity: { gt: 0 }, closedAt: null },
+    });
+    quantity = Number(existing.quantity);
+    amount = quantity * currentPrice;
+    await client.position.update({
+      where: { id: existing.id },
+      data: { quantity: 0, closedAt: new Date() },
+    });
+  }
+
+  await client.transaction.create({
+    data: {
+      portfolioId,
+      assetId: order.assetId,
+      type: order.type as TransactionType,
+      quantity,
+      price: currentPrice,
+      amount,
+      changeSessionId,
+    },
   });
+
+  if (changeSessionId) {
+    await client.changeUsage.upsert({
+      where: { changeSessionId_userId: { changeSessionId, userId } },
+      create: { changeSessionId, userId, changesUsed: 1 },
+      update: { changesUsed: { increment: 1 } },
+    });
+  }
 }
 
+/**
+ * Lecture du contexte, validation des règles, puis écriture forment un seul
+ * bloc atomique et sérialisé par participant. Sans ça, deux ordres du même
+ * utilisateur envoyés en même temps (double-clic, deux onglets, retry réseau)
+ * liraient tous les deux le même instantané (cash disponible, positions
+ * ouvertes, quota de changements) et pourraient passer la validation
+ * ensemble — dépassement du capital, du nombre max de positions/cryptos, ou
+ * du quota de changements. Le verrou advisory Postgres par utilisateur force
+ * ces ordres à s'exécuter l'un après l'autre ; l'index unique partiel sur
+ * Position (voir schema.prisma) est le filet de sécurité en base si jamais
+ * ce verrou était contourné.
+ */
 export async function executeOrder(
   userId: string,
   order: TradeOrderInput,
   now: Date = new Date(),
 ): Promise<TradeValidationResult> {
-  const built = await buildTradeContext(userId, order.assetId, now);
-  if ("error" in built) {
-    return { ok: false, reason: built.error };
-  }
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
 
-  const { context, portfolioId, changeSessionId } = built;
-  const validation = validateOrder(order, context);
-  if (!validation.ok) {
-    return validation;
-  }
+    const built = await buildTradeContext(userId, order.assetId, now, tx);
+    if ("error" in built) {
+      return { ok: false, reason: built.error };
+    }
 
-  await applyOrder(portfolioId, changeSessionId, userId, order, context.asset.currentPrice);
-  return { ok: true };
+    const { context, portfolioId, changeSessionId } = built;
+    const validation = validateOrder(order, context);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    await applyOrder(tx, portfolioId, changeSessionId, userId, order, context.asset.currentPrice);
+    return { ok: true };
+  });
 }
