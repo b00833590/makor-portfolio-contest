@@ -123,6 +123,52 @@ describe("refreshAssetPricesIfStale", () => {
     expect(result.has("asset-1")).toBe(false);
   });
 
+  it("coalesces concurrent refreshes of the same stale asset into a single provider call", async () => {
+    const now = new Date("2026-01-01T12:00:00Z");
+    const timestamp = new Date(now.getTime() - STOCK_PRICE_STALE_MS - 1000);
+    priceFindManyMock.mockResolvedValue([{ assetId: "asset-1", price: 100, timestamp }]);
+
+    // Un léger délai (au lieu d'une résolution immédiate) laisse le temps aux deux appels
+    // concurrents d'atteindre tous les deux `refreshWithDedupe` avant que le premier n'ait
+    // fini — sans quoi le second arriverait toujours après coup et ne testerait rien.
+    const fetchPrice = vi.fn(
+      () =>
+        new Promise<{ price: number; timestamp: Date; source: string }>((resolve) =>
+          setTimeout(() => resolve({ price: 180, timestamp: now, source: "test-provider" }), 10),
+        ),
+    );
+    getPriceProvidersMock.mockReturnValue([makeProvider({ fetchPrice })]);
+
+    // Deux appels concurrents (dashboard + classement chargés au même instant, par ex.)
+    // pour le même actif périmé, avant que le premier n'ait eu le temps d'écrire son résultat.
+    const [firstResult, secondResult] = await Promise.all([
+      refreshAssetPricesIfStale([makeAsset()], now),
+      refreshAssetPricesIfStale([makeAsset()], now),
+    ]);
+
+    expect(fetchPrice).toHaveBeenCalledTimes(1);
+    expect(priceCreateMock).toHaveBeenCalledTimes(1);
+    expect(firstResult.get("asset-1")).toEqual({ price: 180, timestamp: now, isStale: false });
+    expect(secondResult.get("asset-1")).toEqual({ price: 180, timestamp: now, isStale: false });
+  });
+
+  it("does not coalesce refreshes of different assets", async () => {
+    priceFindManyMock.mockResolvedValue([]);
+    const fetchPrice = vi.fn(async (asset: { symbol: string }) => ({
+      price: asset.symbol === "AAPL" ? 180 : 250,
+      timestamp: new Date(),
+      source: "test-provider",
+    }));
+    getPriceProvidersMock.mockReturnValue([makeProvider({ fetchPrice })]);
+
+    await Promise.all([
+      refreshAssetPricesIfStale([makeAsset({ id: "asset-1", symbol: "AAPL" })]),
+      refreshAssetPricesIfStale([makeAsset({ id: "asset-2", symbol: "MSFT" })]),
+    ]);
+
+    expect(fetchPrice).toHaveBeenCalledTimes(2);
+  });
+
   it("applies the shorter crypto staleness threshold instead of the stock one", async () => {
     const now = new Date("2026-01-01T12:00:00Z");
     const timestamp = new Date(now.getTime() - CRYPTO_PRICE_STALE_MS - 1000);
