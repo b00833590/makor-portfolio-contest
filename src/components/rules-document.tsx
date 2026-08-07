@@ -230,6 +230,21 @@ export function RulesDocument({
           </strong>
           . En dehors de ces créneaux, le portefeuille est verrouillé.
         </p>
+        <InfoBox>
+          <p>
+            <strong className="text-foreground">Ce qui compte comme 1 changement :</strong>{" "}
+            chaque achat, chaque renforcement d&apos;une position existante, chaque vente partielle et chaque vente
+            totale que vous validez consomme 1 changement — quel que soit le type d&apos;opération, indépendamment
+            de son montant, et sans lien entre deux opérations successives.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Vendre une position puis en acheter une autre dans la même session : 2 changements (1 pour la vente, 1 pour l&apos;achat).</li>
+            <li>Vendre une partie d&apos;une position puis la renforcer à nouveau dans la même session : 2 changements également.</li>
+          </ul>
+          <p className="mt-2">
+            Les changements non utilisés à la fermeture d&apos;une session ne sont pas reportés à la suivante.
+          </p>
+        </InfoBox>
         {weeklySessions.length > 0 && (
           <div className="flex flex-col gap-1.5">
             {weeklySessions.map((session) => (

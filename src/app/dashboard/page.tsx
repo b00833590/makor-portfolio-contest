@@ -5,7 +5,7 @@ import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
 import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
-import { getOpenChangeSession, getNextScheduledChangeSession } from "@/lib/trading/execute-order";
+import { getOpenChangeSession, getNextScheduledChangeSession, getChangesUsedCount } from "@/lib/trading/execute-order";
 import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenBadgeToaster } from "@/components/badges/unseen-badge-toaster";
@@ -41,6 +41,9 @@ export default async function DashboardPage() {
   const weeklySessionOpen = openChangeSession && !isInitializationWindow ? openChangeSession : null;
   const nextChangeSession =
     portfolioView && !openChangeSession ? await getNextScheduledChangeSession(portfolioView.promotionId) : null;
+  const changesUsed = weeklySessionOpen
+    ? await getChangesUsedCount(weeklySessionOpen.id, session.user.id)
+    : undefined;
 
   return (
     <>
@@ -67,6 +70,8 @@ export default async function DashboardPage() {
             status="OPEN"
             opensAt={weeklySessionOpen.opensAt.toISOString()}
             closesAt={weeklySessionOpen.closesAt.toISOString()}
+            changesUsed={changesUsed}
+            maxChangesPerParticipant={weeklySessionOpen.maxChangesPerParticipant}
           />
         )}
 

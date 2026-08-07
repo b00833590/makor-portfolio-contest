@@ -77,6 +77,14 @@ export async function getNextScheduledChangeSession(promotionId: string, now: Da
   });
 }
 
+/** Changements déjà consommés par ce participant sur cette session — pour l'affichage du quota côté tableau de bord. */
+export async function getChangesUsedCount(changeSessionId: string, userId: string, client: DbClient = db): Promise<number> {
+  const usage = await client.changeUsage.findUnique({
+    where: { changeSessionId_userId: { changeSessionId, userId } },
+  });
+  return usage?.changesUsed ?? 0;
+}
+
 export async function buildTradeContext(
   userId: string,
   assetId: string,

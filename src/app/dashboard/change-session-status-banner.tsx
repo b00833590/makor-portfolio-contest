@@ -18,6 +18,9 @@ interface ChangeSessionStatusBannerProps {
   /** ISO string — les composants client ne doivent pas recevoir de `Date` directement depuis un Server Component. */
   opensAt: string;
   closesAt: string;
+  /** Quota de changements — non pertinent (et absent) tant que la session n'est pas ouverte. */
+  changesUsed?: number;
+  maxChangesPerParticipant?: number;
 }
 
 /**
@@ -27,7 +30,13 @@ interface ChangeSessionStatusBannerProps {
  * Reprend le pattern déjà en place dans InitializationWindowBanner (mêmes
  * classes, même mécanique de compte à rebours côté client).
  */
-export function ChangeSessionStatusBanner({ status, opensAt, closesAt }: ChangeSessionStatusBannerProps) {
+export function ChangeSessionStatusBanner({
+  status,
+  opensAt,
+  closesAt,
+  changesUsed,
+  maxChangesPerParticipant,
+}: ChangeSessionStatusBannerProps) {
   const targetMs = new Date(status === "OPEN" ? closesAt : opensAt).getTime();
   const [remainingMs, setRemainingMs] = useState(() => targetMs - Date.now());
 
@@ -47,6 +56,12 @@ export function ChangeSessionStatusBanner({ status, opensAt, closesAt }: ChangeS
           <p className="tabular-nums">{isClosed ? "Fermeture en cours..." : `⏱ Ferme dans ${formatRemaining(remainingMs)}`}</p>
         </div>
         <p className="mt-1 text-muted-foreground">{windowLabel}</p>
+        {maxChangesPerParticipant !== undefined && (
+          <p className="mt-1 tabular-nums text-muted-foreground">
+            {changesUsed ?? 0}/{maxChangesPerParticipant} changement{maxChangesPerParticipant > 1 ? "s" : ""} utilisé
+            {(changesUsed ?? 0) > 1 ? "s" : ""} cette session
+          </p>
+        )}
       </div>
     );
   }
