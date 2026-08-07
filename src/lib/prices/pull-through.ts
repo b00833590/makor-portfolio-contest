@@ -4,6 +4,7 @@ import { getPriceProviders } from "@/lib/prices";
 import { isPriceStale } from "@/lib/prices/staleness";
 import { fetchPriceWithFallback } from "@/lib/prices/provider-fallback";
 import type { Asset } from "@/generated/prisma/client";
+import type { PriceProvider } from "./types";
 
 type AssetForRefresh = Pick<Asset, "id" | "symbol" | "type" | "currency" | "externalId">;
 
@@ -12,6 +13,50 @@ export interface RefreshedPrice {
   timestamp: Date;
   /** `true` si la cotation est périmée mais qu'aucune nouvelle valeur n'a pu être obtenue. */
   isStale: boolean;
+}
+
+/**
+ * Rafraîchissements réellement en cours, par actif — partagés entre tous les
+ * appels concurrents de ce process. Sans ça, plusieurs participants chargeant
+ * leur tableau de bord (ou dashboard + classement) au même instant, juste
+ * quand un actif dépasse le seuil de péremption, verraient chacun le même
+ * prix périmé en base et déclencheraient chacun son propre appel fournisseur
+ * pour le même actif — jusqu'à N appels redondants au lieu d'1 seul, ce qui
+ * ronge le quota gratuit (Twelve Data notamment, voir staleness.ts) sans
+ * bénéfice de fraîcheur. La map ne retient qu'un travail EN COURS, jamais une
+ * valeur : elle s'auto-nettoie dès que l'appel se termine (succès ou échec).
+ *
+ * Limite assumée : ceci ne coalesce que les requêtes traitées par la même
+ * instance serverless. Deux instances distinctes recevant une requête pour le
+ * même actif au même instant pourraient encore, en théorie, déclencher 2
+ * appels au lieu d'1 — un verrou distribué (advisory lock Postgres, comme
+ * dans execute-order.ts) l'empêcherait totalement, mais nécessiterait de
+ * garder une transaction ouverte pendant tout l'appel HTTP au fournisseur, ce
+ * qui immobiliserait une connexion du pool pendant un temps réseau
+ * imprévisible — un compromis jugé pire que le risque résiduel à l'échelle de
+ * ce concours (quelques dizaines de participants).
+ */
+const inFlightRefreshes = new Map<string, Promise<RefreshedPrice | null>>();
+
+async function fetchAndStore(asset: AssetForRefresh, providers: PriceProvider[]): Promise<RefreshedPrice | null> {
+  const quote = await fetchPriceWithFallback(providers, asset);
+  if (!quote) return null;
+
+  await db.price.create({
+    data: { assetId: asset.id, timestamp: quote.timestamp, price: quote.price, source: quote.source },
+  });
+  return { price: quote.price, timestamp: quote.timestamp, isStale: false };
+}
+
+function refreshWithDedupe(asset: AssetForRefresh, providers: PriceProvider[]): Promise<RefreshedPrice | null> {
+  const inFlight = inFlightRefreshes.get(asset.id);
+  if (inFlight) return inFlight;
+
+  const promise = fetchAndStore(asset, providers).finally(() => {
+    inFlightRefreshes.delete(asset.id);
+  });
+  inFlightRefreshes.set(asset.id, promise);
+  return promise;
 }
 
 /**
@@ -51,13 +96,10 @@ export async function refreshAssetPricesIfStale(
         return;
       }
 
-      const quote = await fetchPriceWithFallback(providers, asset);
+      const refreshed = await refreshWithDedupe(asset, providers);
 
-      if (quote) {
-        await db.price.create({
-          data: { assetId: asset.id, timestamp: quote.timestamp, price: quote.price, source: quote.source },
-        });
-        result.set(asset.id, { price: quote.price, timestamp: quote.timestamp, isStale: false });
+      if (refreshed) {
+        result.set(asset.id, refreshed);
       } else if (latest) {
         result.set(asset.id, { price: Number(latest.price), timestamp: latest.timestamp, isStale: true });
       }
