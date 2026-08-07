@@ -1,23 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { formatParisDate } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { toParisDateTimeLocalValue, formatParisDateTime } from "@/lib/timezone";
+import { computeChangeSessionStatus } from "@/lib/trading/change-session-status";
 import { ChangeSessionForm } from "./change-session-form";
-import { ChangeSessionRowActions } from "./change-session-row-actions";
+import { ChangeSessionsList, type ChangeSessionViewModel } from "./change-sessions-list";
 import { BulkParticipantsForm } from "./bulk-participants-form";
-import { setChangeSessionStatus, recalculateAllSnapshots } from "./actions";
+import { recalculateAllSnapshots } from "./actions";
 
-const statusLabels: Record<ChangeSessionStatus, string> = {
-  SCHEDULED: "Planifiée",
-  OPEN: "Ouverte",
-  CLOSED: "Fermée",
-};
+function formatDuration(opensAt: Date, closesAt: Date): string {
+  const totalMinutes = Math.round((closesAt.getTime() - opensAt.getTime()) / 60_000);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
+}
 
 export default async function PromotionDetailPage({
   params,
@@ -29,7 +33,7 @@ export default async function PromotionDetailPage({
   const promotion = await db.promotion.findUnique({
     where: { id },
     include: {
-      changeSessions: { orderBy: { weekNumber: "asc" } },
+      changeSessions: { orderBy: { opensAt: "asc" } },
       users: { orderBy: { name: "asc" }, select: { id: true, name: true } },
     },
   });
@@ -39,6 +43,21 @@ export default async function PromotionDetailPage({
   }
 
   const rules = promotionRulesSchema.parse(promotion.rules);
+  const now = new Date();
+  const sessionViewModels: ChangeSessionViewModel[] = promotion.changeSessions.map((changeSession) => ({
+    id: changeSession.id,
+    kind: changeSession.kind,
+    effectiveStatus: computeChangeSessionStatus(changeSession, now),
+    label:
+      changeSession.kind === ChangeSessionKind.INITIALIZATION
+        ? "Fenêtre de constitution du portefeuille"
+        : `Session du ${formatParisDate(changeSession.opensAt)}`,
+    windowLabel: `${formatParisDateTime(changeSession.opensAt)} → ${formatParisDateTime(changeSession.closesAt)}`,
+    durationLabel: formatDuration(changeSession.opensAt, changeSession.closesAt),
+    opensAtLocal: toParisDateTimeLocalValue(changeSession.opensAt),
+    closesAtLocal: toParisDateTimeLocalValue(changeSession.closesAt),
+    maxChangesPerParticipant: changeSession.maxChangesPerParticipant,
+  }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -97,65 +116,7 @@ export default async function PromotionDetailPage({
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-4">
-        {promotion.changeSessions.length === 0 && (
-          <p className="text-sm text-muted-foreground">Aucune session de changement pour le moment.</p>
-        )}
-        {promotion.changeSessions.map((changeSession) => {
-          const isInitializationWindow = changeSession.kind === ChangeSessionKind.INITIALIZATION;
-          return (
-          <Card key={changeSession.id} className={isInitializationWindow ? "border-primary/50" : undefined}>
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle>
-                  {isInitializationWindow ? "Fenêtre de constitution du portefeuille" : `Semaine ${changeSession.weekNumber}`}
-                </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {formatParisDateTime(changeSession.opensAt)} →{" "}
-                  {formatParisDateTime(changeSession.closesAt)} ·{" "}
-                  {isInitializationWindow ? "changements illimités" : `${changeSession.maxChangesPerParticipant} changements max`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {isInitializationWindow && <Badge variant="outline">Initialisation</Badge>}
-                <Badge variant={changeSession.status === "OPEN" ? "default" : "secondary"}>
-                  {statusLabels[changeSession.status]}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-2">
-              {changeSession.status === ChangeSessionStatus.SCHEDULED && (
-                <form
-                  action={setChangeSessionStatus.bind(null, promotion.id, changeSession.id, ChangeSessionStatus.OPEN)}
-                >
-                  <Button type="submit" variant="outline">
-                    Ouvrir
-                  </Button>
-                </form>
-              )}
-              {changeSession.status === ChangeSessionStatus.OPEN && (
-                <form
-                  action={setChangeSessionStatus.bind(null, promotion.id, changeSession.id, ChangeSessionStatus.CLOSED)}
-                >
-                  <Button type="submit" variant="outline">
-                    Fermer
-                  </Button>
-                </form>
-              )}
-              <ChangeSessionRowActions
-                promotionId={promotion.id}
-                changeSessionId={changeSession.id}
-                kind={changeSession.kind}
-                weekNumber={changeSession.weekNumber}
-                opensAt={toParisDateTimeLocalValue(changeSession.opensAt)}
-                closesAt={toParisDateTimeLocalValue(changeSession.closesAt)}
-                maxChangesPerParticipant={changeSession.maxChangesPerParticipant}
-              />
-            </CardContent>
-          </Card>
-          );
-        })}
-      </div>
+      <ChangeSessionsList promotionId={promotion.id} sessions={sessionViewModels} />
     </div>
   );
 }

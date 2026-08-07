@@ -18,7 +18,7 @@ export function ChangeSessionRowActions({
   promotionId,
   changeSessionId,
   kind,
-  weekNumber,
+  label,
   opensAt,
   closesAt,
   maxChangesPerParticipant,
@@ -26,7 +26,8 @@ export function ChangeSessionRowActions({
   promotionId: string;
   changeSessionId: string;
   kind: ChangeSessionKind;
-  weekNumber: number;
+  /** Libellé déjà formaté (ex. "la session du 10/08/2026 08:00 → 17:00") pour les titres de dialogue. */
+  label: string;
   opensAt: string;
   closesAt: string;
   maxChangesPerParticipant: number;
@@ -38,7 +39,6 @@ export function ChangeSessionRowActions({
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const isInitializationWindow = kind === ChangeSessionKind.INITIALIZATION;
-  const label = isInitializationWindow ? "la fenêtre de constitution" : `la semaine ${weekNumber}`;
 
   async function handleDelete() {
     setDeletePending(true);
@@ -66,7 +66,7 @@ export function ChangeSessionRowActions({
           <form action={formAction} className="flex flex-wrap items-end gap-4">
             <ChangeSessionFormFields
               idPrefix="edit-"
-              defaults={{ weekNumber, opensAt, closesAt, maxChangesPerParticipant }}
+              defaults={{ opensAt, closesAt, maxChangesPerParticipant }}
               isInitializationWindow={isInitializationWindow}
             />
             {state.error && <p className="w-full text-sm text-destructive">{state.error}</p>}

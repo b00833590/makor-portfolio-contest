@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { parisDateTimeLocalSchema } from "@/lib/timezone";
 
+// weekNumber n'est plus saisi par l'admin (voir actions.ts) — ce n'est qu'un
+// numéro interne auto-assigné, la fenêtre elle-même est identifiée par ses
+// horaires, pas par un numéro de semaine (les sessions peuvent être ad hoc).
 export const createChangeSessionSchema = z
   .object({
-    // 0 est réservé à la fenêtre de constitution du portefeuille (voir ChangeSessionKind.INITIALIZATION).
-    weekNumber: z.coerce.number().int().min(0),
     opensAt: parisDateTimeLocalSchema,
     closesAt: parisDateTimeLocalSchema,
     maxChangesPerParticipant: z.coerce.number().int().positive(),

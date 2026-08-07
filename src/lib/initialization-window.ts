@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 
 /**
@@ -8,6 +8,9 @@ import { promotionRulesSchema } from "@/lib/promotion-rules";
  * lancement d'une promotion (passage à ACTIVE) — semaine 0, changements
  * illimités (voir rules-engine.ts). Idempotent : ne crée rien si une fenêtre
  * d'initialisation existe déjà pour cette promotion (réactivation après clôture).
+ * `status` reste au défaut SCHEDULED : comme `opensAt = now`, elle est
+ * immédiatement considérée ouverte par computeChangeSessionStatus, sans avoir
+ * besoin de forcer status=OPEN à la création.
  */
 export async function ensureInitializationWindow(promotionId: string, now: Date = new Date()) {
   const existing = await db.changeSession.findFirst({
@@ -29,7 +32,6 @@ export async function ensureInitializationWindow(promotionId: string, now: Date 
       weekNumber: 0,
       opensAt: now,
       closesAt,
-      status: ChangeSessionStatus.OPEN,
       maxChangesPerParticipant: rules.maxChangesPerSession,
     },
   });

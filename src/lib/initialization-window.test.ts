@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { defaultPromotionRules } from "@/lib/promotion-rules";
 
 const findFirstMock = vi.fn();
@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe("ensureInitializationWindow", () => {
-  it("crée une fenêtre d'initialisation ouverte, durée = règle de la promotion", async () => {
+  it("crée une fenêtre d'initialisation (status SCHEDULED, ouverte automatiquement car opensAt=now), durée = règle de la promotion", async () => {
     findFirstMock.mockResolvedValue(null);
     findUniqueOrThrowMock.mockResolvedValue({
       rules: { ...defaultPromotionRules, initializationWindowHours: 6 },
@@ -44,7 +44,6 @@ describe("ensureInitializationWindow", () => {
         weekNumber: 0,
         opensAt: NOW,
         closesAt: new Date("2026-09-01T16:00:00Z"),
-        status: ChangeSessionStatus.OPEN,
         maxChangesPerParticipant: defaultPromotionRules.maxChangesPerSession,
       },
     });

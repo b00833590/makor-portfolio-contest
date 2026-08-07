@@ -5,8 +5,7 @@ import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
 import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
-import { getOpenChangeSession } from "@/lib/trading/execute-order";
-import { getClosingSoonNotice } from "@/lib/trading/change-session-notice";
+import { getOpenChangeSession, getNextScheduledChangeSession } from "@/lib/trading/execute-order";
 import { ChangeSessionKind } from "@/generated/prisma/enums";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenBadgeToaster } from "@/components/badges/unseen-badge-toaster";
@@ -16,6 +15,7 @@ import { PositionCard } from "./position-card";
 import { PerformanceChart } from "./performance-chart";
 import { TransactionHistoryTable } from "./transaction-history-table";
 import { InitializationWindowBanner } from "./initialization-window-banner";
+import { ChangeSessionStatusBanner } from "./change-session-status-banner";
 import { AutoRefresh } from "@/components/auto-refresh";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
@@ -38,8 +38,9 @@ export default async function DashboardPage() {
     : [[], [], [], null];
 
   const isInitializationWindow = openChangeSession?.kind === ChangeSessionKind.INITIALIZATION;
-  const closingSoonNotice =
-    openChangeSession && !isInitializationWindow ? getClosingSoonNotice(openChangeSession.closesAt, new Date()) : null;
+  const weeklySessionOpen = openChangeSession && !isInitializationWindow ? openChangeSession : null;
+  const nextChangeSession =
+    portfolioView && !openChangeSession ? await getNextScheduledChangeSession(portfolioView.promotionId) : null;
 
   return (
     <>
@@ -61,10 +62,26 @@ export default async function DashboardPage() {
           />
         )}
 
-        {closingSoonNotice && (
-          <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-foreground">
-            ⏰ {closingSoonNotice.message}
-          </div>
+        {weeklySessionOpen && (
+          <ChangeSessionStatusBanner
+            status="OPEN"
+            opensAt={weeklySessionOpen.opensAt.toISOString()}
+            closesAt={weeklySessionOpen.closesAt.toISOString()}
+          />
+        )}
+
+        {!isInitializationWindow && !weeklySessionOpen && nextChangeSession && (
+          <ChangeSessionStatusBanner
+            status="UPCOMING"
+            opensAt={nextChangeSession.opensAt.toISOString()}
+            closesAt={nextChangeSession.closesAt.toISOString()}
+          />
+        )}
+
+        {!isInitializationWindow && !weeklySessionOpen && !nextChangeSession && portfolioView && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Aucune session de changement n&apos;est prévue pour le moment — votre portefeuille est verrouillé.
+          </p>
         )}
 
         {!portfolioView && (

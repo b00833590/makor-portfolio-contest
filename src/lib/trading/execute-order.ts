@@ -41,14 +41,39 @@ async function loadPositionsContext(portfolioId: string, client: DbClient): Prom
   }));
 }
 
+/**
+ * La session "effectivement ouverte" est calculée directement dans la requête,
+ * en miroir de computeChangeSessionStatus : soit une session en mode
+ * automatique (status SCHEDULED, jamais touchée par l'admin) dont l'heure
+ * actuelle tombe dans sa fenêtre, soit une session forcée ouverte par
+ * dérogation admin ("Ouvrir maintenant") tant que closesAt n'est pas dépassé.
+ * `orderBy` est un filet de sécurité si deux sessions se chevauchaient malgré
+ * la validation à la création (voir createChangeSession) — la plus récemment
+ * ouverte gagne plutôt qu'un choix arbitraire.
+ */
 export async function getOpenChangeSession(promotionId: string, now: Date = new Date(), client: DbClient = db) {
   return client.changeSession.findFirst({
     where: {
       promotionId,
-      status: ChangeSessionStatus.OPEN,
-      opensAt: { lte: now },
-      closesAt: { gte: now },
+      OR: [
+        { status: ChangeSessionStatus.SCHEDULED, opensAt: { lte: now }, closesAt: { gte: now } },
+        { status: ChangeSessionStatus.OPEN, closesAt: { gte: now } },
+      ],
     },
+    orderBy: { opensAt: "desc" },
+  });
+}
+
+/**
+ * Prochaine session à venir (aucune ouverte actuellement) — pour l'affichage
+ * participant "prochaine session de changement" sur le tableau de bord. Ne
+ * renvoie que des sessions en mode automatique : une session forcée fermée
+ * par avance (status CLOSED) n'est délibérément jamais proposée comme "à venir".
+ */
+export async function getNextScheduledChangeSession(promotionId: string, now: Date = new Date(), client: DbClient = db) {
+  return client.changeSession.findFirst({
+    where: { promotionId, status: ChangeSessionStatus.SCHEDULED, opensAt: { gt: now } },
+    orderBy: { opensAt: "asc" },
   });
 }
 

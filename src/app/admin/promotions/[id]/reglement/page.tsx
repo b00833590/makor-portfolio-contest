@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { formatParisDateTime } from "@/lib/timezone";
+import { computeChangeSessionStatus } from "@/lib/trading/change-session-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RulesDocument } from "@/components/rules-document";
 import { RulesEditForm } from "../rules-edit-form";
@@ -16,7 +17,7 @@ export default async function AdminPromotionReglementPage({
 
   const promotion = await db.promotion.findUnique({
     where: { id },
-    include: { changeSessions: { orderBy: { weekNumber: "asc" } } },
+    include: { changeSessions: { orderBy: { opensAt: "asc" } } },
   });
 
   if (!promotion) {
@@ -86,7 +87,10 @@ export default async function AdminPromotionReglementPage({
             rulesIntro: promotion.rulesIntro,
             rulesCustomNotes: promotion.rulesCustomNotes,
           }}
-          changeSessions={promotion.changeSessions}
+          changeSessions={promotion.changeSessions.map((session) => ({
+            ...session,
+            effectiveStatus: computeChangeSessionStatus(session, new Date()),
+          }))}
         />
       </div>
     </div>

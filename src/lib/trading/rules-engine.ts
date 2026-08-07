@@ -1,4 +1,5 @@
-import { ChangeSessionKind, ChangeSessionStatus, PromotionStatus } from "@/generated/prisma/enums";
+import { ChangeSessionKind, PromotionStatus } from "@/generated/prisma/enums";
+import { computeChangeSessionStatus } from "./change-session-status";
 import type { PositionContext, TradeContext, TradeOrderInput, TradeValidationResult } from "./types";
 
 function ok(): TradeValidationResult {
@@ -16,8 +17,7 @@ function findPosition(positions: PositionContext[], assetId: string): PositionCo
 function isChangeSessionOpen(ctx: TradeContext): boolean {
   const { changeSession, now } = ctx;
   if (!changeSession) return false;
-  if (changeSession.status !== ChangeSessionStatus.OPEN) return false;
-  return now >= changeSession.opensAt && now <= changeSession.closesAt;
+  return computeChangeSessionStatus(changeSession, now) === "OPEN";
 }
 
 function isFrozen(ctx: TradeContext): boolean {
