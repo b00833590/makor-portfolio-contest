@@ -19,7 +19,10 @@ export default async function ParticipantsPage() {
     db.user.findMany({
       where: { role: "PARTICIPANT" },
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        promotionId: true,
         promotion: { select: { name: true } },
         portfolios: { select: { id: true, promotionId: true } },
       },

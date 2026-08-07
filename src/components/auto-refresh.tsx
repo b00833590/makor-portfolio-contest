@@ -13,8 +13,16 @@ import { useRouter } from "next/navigation";
  *
  * En pause quand l'onglet n'est pas visible (`document.hidden`), pour ne pas
  * consommer de rafraîchissements pour un onglet en arrière-plan.
+ *
+ * Intervalle par défaut volontairement plus proche de la fraîcheur réelle
+ * des données (prix rafraîchis au plus toutes les 10-15 min, snapshots de
+ * performance calculés une fois par nuit) que d'un vrai temps réel : chaque
+ * tick relance un recalcul complet du classement/des stats pour tous les
+ * participants côté serveur, un intervalle de 10s multipliait inutilement
+ * cette charge par ~6 pour une donnée qui ne change quasiment jamais aussi
+ * vite.
  */
-export function AutoRefresh({ intervalMs = 10_000 }: { intervalMs?: number }) {
+export function AutoRefresh({ intervalMs = 60_000 }: { intervalMs?: number }) {
   const router = useRouter();
   const routerRef = useRef(router);
 
