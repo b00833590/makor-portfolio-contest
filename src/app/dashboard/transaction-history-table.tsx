@@ -7,6 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { formatParisDateTime } from "@/lib/timezone";
 import type { TransactionHistoryItem } from "@/lib/trading/transaction-history";
 
 const typeLabels: Record<TransactionHistoryItem["type"], string> = {
@@ -18,7 +19,6 @@ const typeLabels: Record<TransactionHistoryItem["type"], string> = {
 };
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
 export function TransactionHistoryTable({ transactions }: { transactions: TransactionHistoryItem[] }) {
   if (transactions.length === 0) {
@@ -40,7 +40,7 @@ export function TransactionHistoryTable({ transactions }: { transactions: Transa
       <TableBody>
         {transactions.map((transaction) => (
           <TableRow key={transaction.id}>
-            <TableCell>{dateFormatter.format(transaction.createdAt)}</TableCell>
+            <TableCell>{formatParisDateTime(transaction.createdAt)}</TableCell>
             <TableCell>
               <Badge variant={transaction.type.startsWith("SELL") ? "destructive" : "default"}>
                 {typeLabels[transaction.type]}

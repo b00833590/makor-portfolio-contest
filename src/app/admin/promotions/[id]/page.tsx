@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import { formatParisDate } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +63,7 @@ export default async function PromotionDetailPage({
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
+          {formatParisDate(promotion.startDate)} → {formatParisDate(promotion.endDate)}
         </p>
       </div>
 

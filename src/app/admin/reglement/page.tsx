@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
+import { formatParisDate } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -42,7 +43,7 @@ export default async function AdminReglementPage() {
                 <div>
                   <CardTitle className="text-base">{promotion.name}</CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {promotion.startDate.toLocaleDateString("fr-FR")} → {promotion.endDate.toLocaleDateString("fr-FR")}
+                    {formatParisDate(promotion.startDate)} → {formatParisDate(promotion.endDate)}
                   </p>
                 </div>
                 <Badge variant={promotion.status === "ACTIVE" ? "default" : "secondary"}>{promotion.status}</Badge>

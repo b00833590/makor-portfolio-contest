@@ -81,6 +81,16 @@ export function formatParisDateTime(date: Date): string {
   }).format(date);
 }
 
+/** Comme {@link formatParisDateTime} mais sans l'heure — pour les dates de début/fin de promotion. */
+export function formatParisDate(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: PARIS_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 /** Schéma Zod réutilisable pour un champ <input type="datetime-local"> interprété en heure de Paris. */
 export const parisDateTimeLocalSchema = z.string().transform((value, ctx) => {
   const date = parseParisDateTimeLocal(value);
