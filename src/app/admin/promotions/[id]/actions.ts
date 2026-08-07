@@ -6,10 +6,29 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { ChangeSessionStatus } from "@/generated/prisma/enums";
 import { recalculateAllPortfolioSnapshots } from "@/lib/trading/recalculate-snapshot";
+import { sessionsOverlap } from "@/lib/trading/change-session-status";
 import { createChangeSessionSchema, updateRulesTextSchema } from "./schema";
 
 export interface ChangeSessionFormState {
   error?: string;
+}
+
+/**
+ * Aucune autre session de la promotion ne doit chevaucher la fenêtre soumise
+ * — sinon `getOpenChangeSession` (src/lib/trading/execute-order.ts) devrait
+ * arbitrer entre deux sessions "ouvertes" en même temps. `excludeId` permet à
+ * une modification de ne pas se comparer à elle-même.
+ */
+async function findOverlappingSession(
+  promotionId: string,
+  window: { opensAt: Date; closesAt: Date },
+  excludeId?: string,
+) {
+  const others = await db.changeSession.findMany({
+    where: { promotionId, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { opensAt: true, closesAt: true },
+  });
+  return others.some((other) => sessionsOverlap(window, other));
 }
 
 export async function createChangeSession(
@@ -20,7 +39,6 @@ export async function createChangeSession(
   const session = await requireAdmin();
 
   const parsed = createChangeSessionSchema.safeParse({
-    weekNumber: formData.get("weekNumber"),
     opensAt: formData.get("opensAt"),
     closesAt: formData.get("closesAt"),
     maxChangesPerParticipant: formData.get("maxChangesPerParticipant"),
@@ -30,15 +48,26 @@ export async function createChangeSession(
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
+  if (await findOverlappingSession(promotionId, parsed.data)) {
+    return { error: "Cette fenêtre chevauche une session de changement déjà existante." };
+  }
+
+  const lastSession = await db.changeSession.findFirst({
+    where: { promotionId },
+    orderBy: { weekNumber: "desc" },
+    select: { weekNumber: true },
+  });
+  const weekNumber = (lastSession?.weekNumber ?? 0) + 1;
+
   const changeSession = await db.changeSession.create({
-    data: { promotionId, ...parsed.data },
+    data: { promotionId, weekNumber, ...parsed.data },
   });
 
   await logAudit({
     adminId: session.user.id,
     action: "change-session.create",
     target: changeSession.id,
-    after: parsed.data,
+    after: { weekNumber, ...parsed.data },
   });
 
   revalidatePath(`/admin/promotions/${promotionId}`);
@@ -54,7 +83,6 @@ export async function updateChangeSession(
   const session = await requireAdmin();
 
   const parsed = createChangeSessionSchema.safeParse({
-    weekNumber: formData.get("weekNumber"),
     opensAt: formData.get("opensAt"),
     closesAt: formData.get("closesAt"),
     maxChangesPerParticipant: formData.get("maxChangesPerParticipant"),
@@ -62,6 +90,10 @@ export async function updateChangeSession(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
+  }
+
+  if (await findOverlappingSession(promotionId, parsed.data, changeSessionId)) {
+    return { error: "Cette fenêtre chevauche une session de changement déjà existante." };
   }
 
   const before = await db.changeSession.findUniqueOrThrow({ where: { id: changeSessionId } });

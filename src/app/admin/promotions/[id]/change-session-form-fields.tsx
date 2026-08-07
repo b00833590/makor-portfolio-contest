@@ -2,7 +2,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export interface ChangeSessionFieldValues {
-  weekNumber?: number;
   opensAt?: string;
   closesAt?: string;
   maxChangesPerParticipant: number;
@@ -10,9 +9,12 @@ export interface ChangeSessionFieldValues {
 
 /**
  * Champs partagés entre création et modification d'une session de changement.
- * `isInitializationWindow` masque semaine n° et changements max (fixés par le
- * système, non pertinents pour la fenêtre de constitution — voir rules-engine.ts)
- * tout en les soumettant tels quels via des champs cachés.
+ * Aucune notion de "semaine n°" : une fenêtre est identifiée par ses horaires
+ * précis, pas par un numéro séquentiel (voir actions.ts, weekNumber est
+ * auto-assigné en interne, uniquement pour le tri legacy). `isInitializationWindow`
+ * masque le champ changements max (fixé par le système, illimité pendant la
+ * fenêtre de constitution — voir rules-engine.ts) tout en le soumettant via un
+ * champ caché.
  */
 export function ChangeSessionFormFields({
   idPrefix = "",
@@ -27,22 +29,6 @@ export function ChangeSessionFormFields({
 
   return (
     <>
-      {isInitializationWindow ? (
-        <input type="hidden" name="weekNumber" value={defaults.weekNumber ?? 0} />
-      ) : (
-        <div>
-          <Label htmlFor={id("weekNumber")}>Semaine n°</Label>
-          <Input
-            id={id("weekNumber")}
-            name="weekNumber"
-            type="number"
-            min={1}
-            required
-            className="w-24"
-            defaultValue={defaults.weekNumber}
-          />
-        </div>
-      )}
       <div>
         <Label htmlFor={id("opensAt")}>Ouverture</Label>
         <Input id={id("opensAt")} name="opensAt" type="datetime-local" required defaultValue={defaults.opensAt} />

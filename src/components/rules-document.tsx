@@ -13,8 +13,9 @@ import {
   Rocket,
   Info,
 } from "lucide-react";
-import type { ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
+import type { ChangeSessionKind } from "@/generated/prisma/enums";
 import type { PromotionRules } from "@/lib/promotion-rules";
+import type { ChangeSessionEffectiveStatus } from "@/lib/trading/change-session-status";
 import { formatParisDate, formatParisDateTime } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,10 +36,10 @@ function formatDurationDays(days: number): string {
   return `${days} jours`;
 }
 
-const changeSessionStatusLabels: Record<ChangeSessionStatus, string> = {
-  SCHEDULED: "Planifiée",
+const changeSessionStatusLabels: Record<ChangeSessionEffectiveStatus, string> = {
+  SCHEDULED: "Programmée",
   OPEN: "Ouverte",
-  CLOSED: "Fermée",
+  CLOSED: "Terminée",
 };
 
 function SectionCard({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
@@ -88,10 +89,9 @@ export interface RulesDocumentPromotion {
 export interface RulesDocumentChangeSession {
   id: string;
   kind: ChangeSessionKind;
-  weekNumber: number;
   opensAt: Date;
   closesAt: Date;
-  status: ChangeSessionStatus;
+  effectiveStatus: ChangeSessionEffectiveStatus;
   maxChangesPerParticipant: number;
 }
 
@@ -113,7 +113,7 @@ export function RulesDocument({
   const initializationSession = changeSessions.find((session) => session.kind === "INITIALIZATION");
   const weeklySessions = changeSessions
     .filter((session) => session.kind === "WEEKLY")
-    .sort((a, b) => a.weekNumber - b.weekNumber);
+    .sort((a, b) => a.opensAt.getTime() - b.opensAt.getTime());
   const cryptoAllowed = rules.maxCryptoPositions > 0;
 
   const defaultIntro = `Ce document constitue le règlement officiel du concours « ${promotion.name} ». Il est généré automatiquement à partir des paramètres définis par l'administrateur et reflète exactement les règles en vigueur pour cette promotion.`;
@@ -181,7 +181,7 @@ export function RulesDocument({
         </p>
         {initializationSession && (
           <InfoBox>
-            Fenêtre {initializationSession.status === "OPEN" ? "actuellement ouverte" : "programmée"} du{" "}
+            Fenêtre {initializationSession.effectiveStatus === "OPEN" ? "actuellement ouverte" : "programmée"} du{" "}
             {formatParisDateTime(initializationSession.opensAt)} au {formatParisDateTime(initializationSession.closesAt)}{" "}
             (heure de Paris).
           </InfoBox>
@@ -237,12 +237,12 @@ export function RulesDocument({
                 key={session.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
               >
-                <span className="text-foreground">Semaine {session.weekNumber}</span>
+                <span className="text-foreground">{formatParisDate(session.opensAt)}</span>
                 <span>
                   {formatParisDateTime(session.opensAt)} → {formatParisDateTime(session.closesAt)}
                 </span>
-                <Badge variant={session.status === "OPEN" ? "default" : "secondary"}>
-                  {changeSessionStatusLabels[session.status]}
+                <Badge variant={session.effectiveStatus === "OPEN" ? "default" : "secondary"}>
+                  {changeSessionStatusLabels[session.effectiveStatus]}
                 </Badge>
               </div>
             ))}

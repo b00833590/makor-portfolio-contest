@@ -1,6 +1,7 @@
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { computeChangeSessionStatus } from "@/lib/trading/change-session-status";
 import { SiteHeader } from "@/components/site-header";
 import { RulesDocument } from "@/components/rules-document";
 
@@ -15,9 +16,10 @@ export default async function ReglementPage() {
   const promotion = user.promotionId
     ? await db.promotion.findUnique({
         where: { id: user.promotionId },
-        include: { changeSessions: { orderBy: { weekNumber: "asc" } } },
+        include: { changeSessions: { orderBy: { opensAt: "asc" } } },
       })
     : null;
+  const now = new Date();
 
   return (
     <>
@@ -34,7 +36,10 @@ export default async function ReglementPage() {
               rulesIntro: promotion.rulesIntro,
               rulesCustomNotes: promotion.rulesCustomNotes,
             }}
-            changeSessions={promotion.changeSessions}
+            changeSessions={promotion.changeSessions.map((session) => ({
+              ...session,
+              effectiveStatus: computeChangeSessionStatus(session, now),
+            }))}
           />
         ) : (
           <>

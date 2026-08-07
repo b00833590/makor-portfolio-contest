@@ -73,9 +73,19 @@ describe("validateOrder — garde-fous globaux", () => {
     expect(result).toEqual({ ok: false, reason: expect.stringContaining("session") });
   });
 
-  it("refuse tout ordre si la session de changement n'a pas le statut OPEN", () => {
+  it("accepte un ordre pour une session au statut SCHEDULED si l'heure actuelle tombe dans sa fenêtre (ouverture automatique, aucune action admin requise)", () => {
     const ctx = baseContext({
       changeSession: { ...baseContext().changeSession!, status: ChangeSessionStatus.SCHEDULED },
+    });
+
+    const result = validateOrder({ type: "BUY", assetId: "asset-aapl", amount: 50_000 }, ctx);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("refuse tout ordre si l'admin a fermé la session par anticipation (statut CLOSED), même pendant sa fenêtre normale", () => {
+    const ctx = baseContext({
+      changeSession: { ...baseContext().changeSession!, status: ChangeSessionStatus.CLOSED },
     });
 
     const result = validateOrder({ type: "BUY", assetId: "asset-aapl", amount: 50_000 }, ctx);
