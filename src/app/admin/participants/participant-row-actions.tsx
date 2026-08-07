@@ -50,6 +50,22 @@ export function ParticipantRowActions({
     reassignParticipantPromotion,
     initialState,
   );
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    setDeletePending(true);
+    setDeleteError(null);
+    try {
+      await deleteParticipant(userId);
+      setDeleteOpen(false);
+    } catch {
+      setDeleteError("La suppression a échoué. Réessayez.");
+    } finally {
+      setDeletePending(false);
+    }
+  }
 
   return (
     <div className="flex justify-end gap-2">
@@ -111,11 +127,31 @@ export function ParticipantRowActions({
         </form>
       )}
 
-      <form action={deleteParticipant.bind(null, userId)}>
-        <Button type="submit" variant="destructive" size="sm">
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
           Supprimer
         </Button>
-      </form>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer {name} ?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Cette action est <strong className="text-destructive">définitive et irréversible</strong> : le compte,
+              son historique de transactions et ses badges seront supprimés.
+            </p>
+            {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
+                Annuler
+              </Button>
+              <Button variant="destructive" size="sm" disabled={deletePending} onClick={handleDelete}>
+                {deletePending ? "Suppression..." : "Supprimer définitivement"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

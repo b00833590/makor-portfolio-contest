@@ -47,7 +47,7 @@ export function PromotionSettingsForm({
     <form action={formAction} onInput={handleFormInput} className="flex flex-col gap-6">
       <input ref={confirmedInputRef} type="hidden" name="confirmed" defaultValue="false" />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="startDate">Date de début</Label>
           <Input id="startDate" name="startDate" type="date" required defaultValue={startDate} />

@@ -29,19 +29,27 @@ export function AvatarEditor({ name, avatarUrl }: { name: string; avatarUrl: str
 
   function handleCropConfirm(dataUrl: string) {
     closeCropDialog();
+    const previousPreview = preview;
     setPreview(dataUrl);
     startTransition(async () => {
       const result = await updateAvatar(dataUrl);
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        setPreview(previousPreview);
+      }
     });
   }
 
   function handleRemove() {
+    const previousPreview = preview;
     setPreview(null);
     setError(null);
     startTransition(async () => {
       const result = await removeAvatar();
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        setPreview(previousPreview);
+      }
     });
   }
 

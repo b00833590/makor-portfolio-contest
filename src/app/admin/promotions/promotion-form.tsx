@@ -12,7 +12,7 @@ export function PromotionForm() {
   const [state, formAction, pending] = useActionState(createPromotion, initialState);
 
   return (
-    <form action={formAction} className="grid grid-cols-2 gap-4 rounded-xl border border-border p-6">
+    <form action={formAction} className="grid grid-cols-1 gap-4 rounded-xl border border-border p-6 sm:grid-cols-2">
       <PromotionFormFields
         defaults={{
           initialCapital: 1_000_000,
