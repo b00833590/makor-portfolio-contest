@@ -6,7 +6,14 @@ import { evaluateAndAwardBadges } from "@/lib/gamification/evaluate-badges";
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
+  if (!cronSecret) {
+    // Voir le commentaire équivalent dans /api/cron/ingest-prices/route.ts :
+    // ouvert en local par confort, mais refusé en production pour éviter
+    // qu'un appelant anonyme ne pollue le classement/l'historique de perf.
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "CRON_SECRET n'est pas configuré." }, { status: 503 });
+    }
+  } else {
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

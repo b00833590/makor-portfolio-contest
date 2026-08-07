@@ -16,6 +16,32 @@ export interface AssetCandidate {
 export type EnsureAssetResult = { ok: true; asset: Asset } | { ok: false; error: string };
 
 /**
+ * `logoUrl` arrive tel quel depuis un formulaire (recherche de ticker côté
+ * participant, ou saisie admin) et est ensuite affiché sans échappement en
+ * `<img src>` pour TOUS les participants dès que quelqu'un détient cet actif
+ * (voir asset-logo.tsx) — jamais uniquement pour celui qui l'a acheté. Sans
+ * cette vérification, n'importe qui pourrait persister une URL de tracking
+ * ou de contenu arbitraire vue par tout le monde. On n'autorise donc que les
+ * hébergeurs de logos réellement utilisés par nos fournisseurs de recherche
+ * (voir src/lib/assets/search-providers.ts) ; toute autre valeur est ignorée
+ * (l'actif est quand même créé, juste sans logo) plutôt que de bloquer l'achat.
+ */
+const TRUSTED_LOGO_HOSTS = ["images.financialmodelingprep.com", "coingecko.com"];
+
+function sanitizeLogoUrl(logoUrl: string | undefined): string | undefined {
+  if (!logoUrl) return undefined;
+  try {
+    const parsed = new URL(logoUrl);
+    const isTrusted =
+      parsed.protocol === "https:" &&
+      TRUSTED_LOGO_HOSTS.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
+    return isTrusted ? logoUrl : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Récupère l'actif correspondant au ticker, ou le crée s'il n'existe pas
  * encore — sans toucher aux prix. Utilisé pour la correction manuelle admin
  * (le prix historique est saisi directement, pas rafraîchi depuis l'API).
@@ -42,7 +68,7 @@ export async function ensureAssetExists(candidate: AssetCandidate): Promise<Ensu
         type: candidate.type,
         currency: candidate.currency ?? "EUR",
         externalId: candidate.externalId,
-        logoUrl: candidate.logoUrl,
+        logoUrl: sanitizeLogoUrl(candidate.logoUrl),
       },
     });
   }

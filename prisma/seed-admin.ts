@@ -30,11 +30,11 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
   await db.user.create({
-    data: { name: DEFAULT_ADMIN_NAME, passwordHash, role: UserRole.ADMIN },
+    data: { name: DEFAULT_ADMIN_NAME, passwordHash, role: UserRole.ADMIN, mustChangePassword: true },
   });
 
-  console.log(`Compte admin créé : identifiant "${DEFAULT_ADMIN_NAME}", mot de passe "${DEFAULT_ADMIN_PASSWORD}".`);
-  console.log("Pensez à changer ce mot de passe une fois connecté.");
+  console.log(`Compte admin créé : identifiant "${DEFAULT_ADMIN_NAME}", mot de passe temporaire "${DEFAULT_ADMIN_PASSWORD}".`);
+  console.log("Ce mot de passe est documenté publiquement (docs/DEPLOIEMENT.md) : le changement sera imposé dès la première connexion.");
 
   await db.$disconnect();
 }
