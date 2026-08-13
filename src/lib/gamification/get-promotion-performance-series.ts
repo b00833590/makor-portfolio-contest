@@ -68,5 +68,5 @@ export async function getPromotionPerformanceSeries(promotionId: string): Promis
 export const getCachedPromotionPerformanceSeries = unstable_cache(
   (promotionId: string) => getPromotionPerformanceSeries(promotionId),
   ["promotion-performance-series"],
-  { revalidate: 300 },
+  { revalidate: 900 },
 );

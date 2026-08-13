@@ -80,5 +80,5 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
 export const getCachedPersonalRecords = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
   ["personal-records"],
-  { revalidate: 600 },
+  { revalidate: 900 },
 );
