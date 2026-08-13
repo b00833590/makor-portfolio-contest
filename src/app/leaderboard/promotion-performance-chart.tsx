@@ -28,6 +28,23 @@ function formatValue(metric: PerformanceMetric, value: number): string {
   }
 }
 
+/** Trie les entrées du tooltip par valeur à la date survolée (meilleure en haut) — pour
+ * "rank" un chiffre plus petit est meilleur, pour toutes les autres métriques c'est l'inverse. */
+function sortPayloadByMetric<T extends { value?: unknown }>(
+  payload: readonly T[] | undefined,
+  metric: PerformanceMetric,
+): T[] {
+  if (!payload) return [];
+  return [...payload].sort((a, b) => {
+    const aValue = typeof a.value === "number" ? a.value : undefined;
+    const bValue = typeof b.value === "number" ? b.value : undefined;
+    if (aValue === undefined && bValue === undefined) return 0;
+    if (aValue === undefined) return 1;
+    if (bValue === undefined) return -1;
+    return metric === "rank" ? aValue - bValue : bValue - aValue;
+  });
+}
+
 export function PromotionPerformanceChart({
   points,
   participantNames,
@@ -125,8 +142,11 @@ export function PromotionPerformanceChart({
             width={metric === "totalValue" || metric === "gainEur" ? 72 : 48}
           />
           <ChartTooltip
-            content={
+            content={({ active, payload, label }) => (
               <ChartTooltipContent
+                active={active}
+                payload={sortPayloadByMetric(payload, metric)}
+                label={label}
                 formatter={(value, name) => (
                   <div className="flex w-full items-center justify-between gap-3">
                     <span className="text-muted-foreground">{name}</span>
@@ -136,7 +156,7 @@ export function PromotionPerformanceChart({
                   </div>
                 )}
               />
-            }
+            )}
           />
           {participantNames
             .filter((name) => !hiddenNames.has(name))
