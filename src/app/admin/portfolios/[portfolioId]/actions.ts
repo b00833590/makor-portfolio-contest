@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -79,6 +79,7 @@ export async function createTransaction(
   });
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
+  updateTag("portfolio-view");
   return {};
 }
 
@@ -131,6 +132,7 @@ export async function updateTransaction(
   });
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
+  updateTag("portfolio-view");
   return {};
 }
 
@@ -159,6 +161,7 @@ export async function deleteTransaction(portfolioId: string, transactionId: stri
   });
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
+  updateTag("portfolio-view");
 }
 
 export async function recalculateSnapshot(portfolioId: string) {
@@ -173,4 +176,5 @@ export async function recalculateSnapshot(portfolioId: string) {
   });
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
+  updateTag("portfolio-view");
 }

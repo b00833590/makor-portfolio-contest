@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { AssetType, type PromotionStatus } from "@/generated/prisma/enums";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
@@ -160,3 +161,26 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
     totalGainPct: initialCapital > 0 ? (totalGainEur / initialCapital) * 100 : 0,
   };
 }
+
+/**
+ * Variante mise en cache de {@link getPortfolioView} — même raisonnement que
+ * {@link getCachedLeaderboard} (get-leaderboard.ts) : un refresh manuel du
+ * dashboard, la page la plus visitée, contournait totalement `AutoRefresh`.
+ *
+ * `unstable_cache` ne permet pas un tag dynamique par utilisateur (le tag est
+ * fixé à la définition, pas à l'appel) — on utilise donc un tag unique
+ * `"portfolio-view"`, partagé par tous les participants : le trade d'un seul
+ * utilisateur invalide le cache de tout le monde, ce qui reste correct (juste
+ * légèrement moins optimal qu'un tag par utilisateur) et bien plus simple à
+ * garder juste dans la durée — tout point de mutation (achat/vente côté
+ * participant dans dashboard/actions.ts, correction admin dans
+ * admin/portfolios/[portfolioId]/actions.ts et
+ * admin/promotions/[id]/actions.ts) doit appeler `updateTag("portfolio-view")`
+ * après avoir modifié positions/transactions. Si un point de mutation futur
+ * oublie cet appel, la fenêtre `revalidate` de 60s reste le filet de sécurité.
+ */
+export const getCachedPortfolioView = unstable_cache(
+  (userId: string) => getPortfolioView(userId),
+  ["portfolio-view"],
+  { revalidate: 60, tags: ["portfolio-view"] },
+);

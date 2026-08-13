@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { verifySession } from "@/lib/dal";
 import { executeOrder } from "@/lib/trading/execute-order";
 import { ensureAssetForPurchase } from "@/lib/assets/ensure-asset";
@@ -47,6 +47,7 @@ export async function buyAsset(
 
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
+  updateTag("portfolio-view");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -75,6 +76,7 @@ export async function increasePosition(
 
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
+  updateTag("portfolio-view");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -103,6 +105,7 @@ export async function sellPartial(
 
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
+  updateTag("portfolio-view");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -116,5 +119,6 @@ export async function sellFull(assetId: string): Promise<TradeFormState> {
 
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
+  updateTag("portfolio-view");
   return newBadges.length > 0 ? { newBadges } : {};
 }
