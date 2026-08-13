@@ -1,6 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { buildTrades } from "./match-closing-trades";
 
 export interface PersonalRecords {
@@ -90,8 +91,24 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
  * 15 minutes de `revalidate`. Réutiliser ce réflexe (bump de version) à chaque futur
  * changement de la forme des données retournées par une fonction déjà en cache.
  */
-export const getCachedPersonalRecords = unstable_cache(
+const getCachedPersonalRecordsMorning = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
-  ["personal-records-v2"],
-  { revalidate: 900 },
+  ["personal-records-v2", "morning"],
+  { revalidate: MORNING_INTERVAL_MS / 1000 },
 );
+const getCachedPersonalRecordsAfternoon = unstable_cache(
+  (portfolioId: string) => getPersonalRecords(portfolioId),
+  ["personal-records-v2", "afternoon"],
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+);
+const getCachedPersonalRecordsNight = unstable_cache(
+  (portfolioId: string) => getPersonalRecords(portfolioId),
+  ["personal-records-v2", "night"],
+  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+);
+export function getCachedPersonalRecords(portfolioId: string): Promise<PersonalRecords> {
+  const tier = getRefreshTier();
+  if (tier === "afternoon") return getCachedPersonalRecordsAfternoon(portfolioId);
+  if (tier === "morning") return getCachedPersonalRecordsMorning(portfolioId);
+  return getCachedPersonalRecordsNight(portfolioId);
+}
