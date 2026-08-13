@@ -1,12 +1,16 @@
 name: Ingestion des prix (floor refresh)
 
 # Remplace la fréquence du cron Vercel (limité à 1 exécution/jour sur le plan
-# Hobby, voir vercel.json) par un déclenchement toutes les 5 minutes. Sans
-# risque de dépasser les quotas gratuits des fournisseurs : l'ingestion
-# (src/lib/prices/ingest.ts) ne rappelle un fournisseur que pour les actifs
-# dont le prix a réellement expiré (src/lib/prices/staleness.ts) — la
-# plupart des exécutions ne font donc rien de coûteux. Voir la section
-# "Rafraîchissement des prix" du README pour le détail de l'architecture.
+# Hobby, voir vercel.json) par un déclenchement toutes les 15 minutes (remonté
+# de 5 min le 2026-08-13 pour réduire l'egress Supabase — chaque exécution
+# ouvre une connexion DB même quand aucun prix n'est périmé ; 15 min reste
+# confortablement sous STOCK_PRICE_STALE_MS = 10 min, voir staleness.ts, donc
+# aucune perte de fraîcheur perçue pour les actions). Sans risque de dépasser
+# les quotas gratuits des fournisseurs : l'ingestion (src/lib/prices/ingest.ts)
+# ne rappelle un fournisseur que pour les actifs dont le prix a réellement
+# expiré (src/lib/prices/staleness.ts) — la plupart des exécutions ne font
+# donc rien de coûteux. Voir la section "Rafraîchissement des prix" du README
+# pour le détail de l'architecture.
 #
 # Secrets requis (Settings > Secrets and variables > Actions du dépôt) :
 #   APP_URL      URL de déploiement, ex. https://mon-concours.vercel.app
@@ -15,7 +19,7 @@ name: Ingestion des prix (floor refresh)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 jobs:

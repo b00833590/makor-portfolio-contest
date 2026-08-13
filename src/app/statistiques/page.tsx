@@ -14,7 +14,8 @@ export default async function StatistiquesPage() {
   const user = await db.user.findUnique({ where: { id: session.user.id } });
   const header = (
     <>
-      <AutoRefresh />
+      {/* Stats agrégées ne changent qu'au rythme du snapshot nocturne : pas besoin du défaut 5 min. */}
+      <AutoRefresh intervalMs={600_000} />
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
     </>
   );

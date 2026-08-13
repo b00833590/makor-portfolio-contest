@@ -5,6 +5,7 @@ const dbMock = {
   portfolio: { findMany: vi.fn() },
   performanceSnapshot: { findFirst: vi.fn() },
   position: { findMany: vi.fn() },
+  user: { findMany: vi.fn() },
 };
 
 const computeAvailableCashMock = vi.fn();
@@ -24,6 +25,7 @@ function resetMocks() {
   computeAvailableCashMock.mockReset();
   refreshAssetPricesIfStaleMock.mockReset();
   dbMock.position.findMany.mockResolvedValue([]);
+  dbMock.user.findMany.mockResolvedValue([]);
   computeAvailableCashMock.mockResolvedValue(0);
   refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
 }
