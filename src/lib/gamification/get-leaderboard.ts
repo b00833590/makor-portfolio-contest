@@ -86,7 +86,7 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
 
   const portfolios = await db.portfolio.findMany({
     where: { promotionId },
-    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    include: { user: { select: { id: true, name: true } } },
   });
   const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
@@ -138,6 +138,23 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
   const rankedPreviousDay = rankEntries(previousDayEntries);
   const previousRankByPortfolio = new Map(rankedPreviousDay.map((entry) => [entry.portfolioId, entry.rank]));
 
+  // Avatar (photo base64) chargé uniquement pour le podium (top 3), pas pour
+  // tout le classement — cette page est ré-interrogée en continu par
+  // AutoRefresh, retransmettre la photo des ~30 participants à chaque tick
+  // dominait largement l'egress Supabase (voir incident du 2026-08). Le
+  // reste de la liste utilise le repli initiales de UserAvatar.
+  const podiumPortfolioIds = new Set(
+    rankedCurrent.filter((entry) => entry.rank <= 3).map((entry) => entry.portfolioId),
+  );
+  const podiumUserIds = portfolios
+    .filter((portfolio) => podiumPortfolioIds.has(portfolio.id))
+    .map((portfolio) => portfolio.user.id);
+  const podiumAvatars = await db.user.findMany({
+    where: { id: { in: podiumUserIds } },
+    select: { id: true, avatarUrl: true },
+  });
+  const avatarByUserId = new Map(podiumAvatars.map((user) => [user.id, user.avatarUrl]));
+
   return rankedCurrent
     .map((entry) => {
       const portfolio = portfolios.find((candidate) => candidate.id === entry.portfolioId)!;
@@ -151,7 +168,7 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
       return {
         userId: portfolio.user.id,
         name: portfolio.user.name,
-        avatarUrl: portfolio.user.avatarUrl,
+        avatarUrl: avatarByUserId.get(portfolio.user.id) ?? null,
         portfolioId: portfolio.id,
         totalValue: entry.totalValue,
         cumulativeReturnPct: entry.cumulativeReturnPct,
