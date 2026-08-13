@@ -25,7 +25,7 @@ export function PersonalRecordsSection({ records }: { records: PersonalRecords }
                 {records.bestDayPct !== null ? signed(records.bestDayPct) : "—"}
               </span>
               {records.bestDayDate && (
-                <span className="text-xs text-muted-foreground">{dateFormatter.format(records.bestDayDate)}</span>
+                <span className="text-xs text-muted-foreground">{dateFormatter.format(new Date(records.bestDayDate))}</span>
               )}
             </div>
             <div className="flex flex-col gap-0.5">

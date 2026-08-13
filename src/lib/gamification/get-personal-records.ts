@@ -5,7 +5,9 @@ import { buildTrades } from "./match-closing-trades";
 
 export interface PersonalRecords {
   bestDayPct: number | null;
-  bestDayDate: Date | null;
+  /** ISO — jamais un `Date` brut : ce type traverse unstable_cache (voir getCachedPersonalRecords
+   * plus bas), qui sérialise/désérialise la valeur et ne préserve pas les instances Date. */
+  bestDayDate: string | null;
   bestTradePct: number | null;
   bestTradeAssetSymbol: string | null;
   longestHoldDays: number | null;
@@ -68,7 +70,7 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
 
   return {
     bestDayPct: bestDaySnapshot ? Number(bestDaySnapshot.dailyReturnPct) : null,
-    bestDayDate: bestDaySnapshot?.timestamp ?? null,
+    bestDayDate: bestDaySnapshot ? bestDaySnapshot.timestamp.toISOString() : null,
     bestTradePct: bestTrade?.pnlPct ?? null,
     bestTradeAssetSymbol: bestTrade ? (symbolByAssetId.get(bestTrade.assetId) ?? null) : null,
     longestHoldDays: longestHold ? Math.round(longestHold.days) : null,
