@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -208,6 +208,7 @@ export async function recalculateAllSnapshots(promotionId: string) {
   const session = await requireAdmin();
 
   await recalculateAllPortfolioSnapshots(promotionId);
+  updateTag("portfolio-view");
 
   await logAudit({
     adminId: session.user.id,

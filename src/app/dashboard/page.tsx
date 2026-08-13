@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
-import { getPortfolioView } from "@/lib/trading/portfolio-view";
+import { getCachedPortfolioView } from "@/lib/trading/portfolio-view";
 import { getPerformanceHistory } from "@/lib/trading/performance-history";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
 import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
@@ -26,7 +26,10 @@ export default async function DashboardPage() {
   if (session.user.role === "ADMIN") {
     redirect("/admin");
   }
-  const [portfolioView] = await Promise.all([getPortfolioView(session.user.id), recordDailyVisit(session.user.id)]);
+  const [portfolioView] = await Promise.all([
+    getCachedPortfolioView(session.user.id),
+    recordDailyVisit(session.user.id),
+  ]);
 
   const [performanceHistory, transactionHistory, unseenBadges, openChangeSession] = portfolioView
     ? await Promise.all([
