@@ -198,5 +198,5 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
 export const getCachedLeaderboard = unstable_cache(
   (promotionId: string) => getLeaderboard(promotionId),
   ["leaderboard"],
-  { revalidate: 60, tags: ["leaderboard"] },
+  { revalidate: 300, tags: ["leaderboard"] },
 );

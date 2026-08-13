@@ -247,5 +247,5 @@ export async function getContestStats(promotionId: string, leaderboard: Leaderbo
 export const getCachedContestStats = unstable_cache(
   (promotionId: string, leaderboard: LeaderboardRow[]) => getContestStats(promotionId, leaderboard),
   ["contest-stats"],
-  { revalidate: 60 },
+  { revalidate: 600 },
 );

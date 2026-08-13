@@ -143,5 +143,5 @@ export const getCachedParticipantStats = unstable_cache(
     leaderboardRow: Pick<LeaderboardRow, "cumulativeReturnPct" | "weeklyReturnPct" | "bestPosition" | "worstPosition">,
   ) => getParticipantStats(portfolioId, leaderboardRow),
   ["participant-stats"],
-  { revalidate: 60 },
+  { revalidate: 600 },
 );
