@@ -177,10 +177,10 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
  * admin/portfolios/[portfolioId]/actions.ts et
  * admin/promotions/[id]/actions.ts) doit appeler `updateTag("portfolio-view")`
  * après avoir modifié positions/transactions. Si un point de mutation futur
- * oublie cet appel, la fenêtre `revalidate` de 60s reste le filet de sécurité.
+ * oublie cet appel, la fenêtre `revalidate` de 5 min reste le filet de sécurité.
  */
 export const getCachedPortfolioView = unstable_cache(
   (userId: string) => getPortfolioView(userId),
   ["portfolio-view"],
-  { revalidate: 60, tags: ["portfolio-view"] },
+  { revalidate: 300, tags: ["portfolio-view"] },
 );
