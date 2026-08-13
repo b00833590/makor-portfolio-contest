@@ -47,6 +47,14 @@ import { getPollIntervalMs, isMarketHours } from "@/lib/refresh-schedule";
  * ouvert à cheval sur une bascule de palier. `intervalMs` reste utilisable
  * pour forcer une cadence fixe, y compris hors marché, si un cas
  * particulier en avait besoin.
+ *
+ * Le délai est calé sur les multiples de l'intervalle depuis l'epoch
+ * (`Date.now() % interval`) plutôt que sur un délai relatif au montage du
+ * composant : deux onglets montés à des instants différents (ex. classement
+ * ouvert à 10h02, dashboard à 10h07) calculent le même prochain instant de
+ * réveil au lieu de dériver l'un de l'autre, donc tous les onglets se
+ * rafraîchissent au même instant avec les mêmes données de référence — sans
+ * changer la durée ni la fréquence des intervalles eux-mêmes.
  */
 export function AutoRefresh({ intervalMs }: { intervalMs?: number }) {
   const router = useRouter();
@@ -60,7 +68,8 @@ export function AutoRefresh({ intervalMs }: { intervalMs?: number }) {
     let timeoutId: ReturnType<typeof setTimeout>;
 
     function scheduleNext() {
-      const delay = intervalMs ?? getPollIntervalMs();
+      const interval = intervalMs ?? getPollIntervalMs();
+      const delay = interval - (Date.now() % interval);
       timeoutId = setTimeout(() => {
         if (!document.hidden && (intervalMs !== undefined || isMarketHours())) {
           routerRef.current.refresh();
