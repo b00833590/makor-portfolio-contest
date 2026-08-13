@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { getPollIntervalMs, isMarketHours } from "@/lib/refresh-schedule";
 
 /**
  * Ré-exécute le fetch des Server Components de la page courante à intervalle
@@ -32,8 +33,22 @@ import { useRouter } from "next/navigation";
  * plus rapide ne ferait que réveiller l'onglet sans rien rafraîchir de plus
  * côté serveur. 15 min reste aussi sous STOCK_PRICE_STALE_MS (10-15 min) :
  * les prix actions ne changent de toute façon jamais plus vite.
+ *
+ * Sans `intervalMs` explicite, la cadence suit les horaires de marché
+ * (`src/lib/refresh-schedule.ts`, heure de Paris) : 30 min de 9h à 15h30
+ * (Europe ouverte, US fermée), 15 min de 15h30 à 22h (Europe + US
+ * ouvertes), et **aucun rafraîchissement entre 22h et 9h** — marchés
+ * fermés, rien de nouveau à afficher. Pendant cette fenêtre nocturne, le
+ * composant continue de se réveiller (à la cadence de 30 min) pour
+ * détecter la réouverture à 9h, mais sans jamais appeler
+ * `router.refresh()` tant que `isMarketHours()` est faux. `setTimeout`
+ * récursif plutôt que `setInterval` fixe : chaque tick recalcule le délai
+ * et réévalue les horaires, pour s'adapter correctement si l'onglet reste
+ * ouvert à cheval sur une bascule de palier. `intervalMs` reste utilisable
+ * pour forcer une cadence fixe, y compris hors marché, si un cas
+ * particulier en avait besoin.
  */
-export function AutoRefresh({ intervalMs = 900_000 }: { intervalMs?: number }) {
+export function AutoRefresh({ intervalMs }: { intervalMs?: number }) {
   const router = useRouter();
   const routerRef = useRef(router);
 
@@ -42,11 +57,20 @@ export function AutoRefresh({ intervalMs = 900_000 }: { intervalMs?: number }) {
   }, [router]);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      if (!document.hidden) routerRef.current.refresh();
-    }, intervalMs);
+    let timeoutId: ReturnType<typeof setTimeout>;
 
-    return () => clearInterval(id);
+    function scheduleNext() {
+      const delay = intervalMs ?? getPollIntervalMs();
+      timeoutId = setTimeout(() => {
+        if (!document.hidden && (intervalMs !== undefined || isMarketHours())) {
+          routerRef.current.refresh();
+        }
+        scheduleNext();
+      }, delay);
+    }
+
+    scheduleNext();
+    return () => clearTimeout(timeoutId);
   }, [intervalMs]);
 
   return null;

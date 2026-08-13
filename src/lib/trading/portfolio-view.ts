@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { AssetType, type PromotionStatus } from "@/generated/prisma/enums";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { computeAvailableCash } from "./execute-order";
 
 export interface PositionView {
@@ -177,10 +178,31 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
  * admin/portfolios/[portfolioId]/actions.ts et
  * admin/promotions/[id]/actions.ts) doit appeler `updateTag("portfolio-view")`
  * après avoir modifié positions/transactions. Si un point de mutation futur
- * oublie cet appel, la fenêtre `revalidate` de 15 min reste le filet de sécurité.
+ * oublie cet appel, la fenêtre `revalidate` reste le filet de sécurité.
+ *
+ * Trois variantes (matin/après-midi/nuit, voir refresh-schedule.ts) plutôt
+ * qu'une seule : `revalidate` est figé à la définition d'`unstable_cache`,
+ * impossible à calculer dynamiquement à l'appel — `getCachedPortfolioView`
+ * choisit entre les trois selon l'heure. Même tag sur les trois.
  */
-export const getCachedPortfolioView = unstable_cache(
+const getCachedPortfolioViewMorning = unstable_cache(
   (userId: string) => getPortfolioView(userId),
-  ["portfolio-view"],
-  { revalidate: 900, tags: ["portfolio-view"] },
+  ["portfolio-view", "morning"],
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
+const getCachedPortfolioViewAfternoon = unstable_cache(
+  (userId: string) => getPortfolioView(userId),
+  ["portfolio-view", "afternoon"],
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
+);
+const getCachedPortfolioViewNight = unstable_cache(
+  (userId: string) => getPortfolioView(userId),
+  ["portfolio-view", "night"],
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
+);
+export function getCachedPortfolioView(userId: string): Promise<PortfolioView | null> {
+  const tier = getRefreshTier();
+  if (tier === "afternoon") return getCachedPortfolioViewAfternoon(userId);
+  if (tier === "morning") return getCachedPortfolioViewMorning(userId);
+  return getCachedPortfolioViewNight(userId);
+}

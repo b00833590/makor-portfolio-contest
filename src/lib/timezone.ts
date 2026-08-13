@@ -91,6 +91,21 @@ export function formatParisDate(date: Date): string {
   }).format(date);
 }
 
+/** Heure et minute courantes en heure de Paris (été/hiver géré automatiquement par Intl),
+ * quel que soit le fuseau du processus qui exécute ce code — utilisé pour toute logique qui
+ * doit varier selon l'heure locale française (ex. fréquence de rafraîchissement). Ne dépend
+ * d'aucune API Node : utilisable aussi bien côté serveur que dans un composant client. */
+export function getParisHourMinute(date: Date = new Date()): { hour: number; minute: number } {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: PARIS_TIME_ZONE,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return { hour: Number(parts.hour), minute: Number(parts.minute) };
+}
+
 /** Schéma Zod réutilisable pour un champ <input type="datetime-local"> interprété en heure de Paris. */
 export const parisDateTimeLocalSchema = z.string().transform((value, ctx) => {
   const date = parseParisDateTimeLocal(value);

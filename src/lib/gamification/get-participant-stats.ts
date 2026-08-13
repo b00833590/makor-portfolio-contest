@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
+import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { buildTrades } from "./match-closing-trades";
 import type { BestWorstPosition, LeaderboardRow } from "./get-leaderboard";
 
@@ -136,12 +137,37 @@ export async function getParticipantStats(
   };
 }
 
-/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement. */
-export const getCachedParticipantStats = unstable_cache(
-  (
-    portfolioId: string,
-    leaderboardRow: Pick<LeaderboardRow, "cumulativeReturnPct" | "weeklyReturnPct" | "bestPosition" | "worstPosition">,
-  ) => getParticipantStats(portfolioId, leaderboardRow),
-  ["participant-stats"],
-  { revalidate: 900 },
+type ParticipantStatsLeaderboardRow = Pick<
+  LeaderboardRow,
+  "cumulativeReturnPct" | "weeklyReturnPct" | "bestPosition" | "worstPosition"
+>;
+
+/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement (même pattern
+ * à trois variantes matin/après-midi/nuit selon l'heure). */
+const getCachedParticipantStatsMorning = unstable_cache(
+  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, leaderboardRow),
+  ["participant-stats", "morning"],
+  { revalidate: MORNING_INTERVAL_MS / 1000 },
 );
+const getCachedParticipantStatsAfternoon = unstable_cache(
+  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, leaderboardRow),
+  ["participant-stats", "afternoon"],
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+);
+const getCachedParticipantStatsNight = unstable_cache(
+  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, leaderboardRow),
+  ["participant-stats", "night"],
+  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+);
+export function getCachedParticipantStats(
+  portfolioId: string,
+  leaderboardRow: ParticipantStatsLeaderboardRow,
+): Promise<ParticipantStats> {
+  const tier = getRefreshTier();
+  if (tier === "afternoon") return getCachedParticipantStatsAfternoon(portfolioId, leaderboardRow);
+  if (tier === "morning") return getCachedParticipantStatsMorning(portfolioId, leaderboardRow);
+  return getCachedParticipantStatsNight(portfolioId, leaderboardRow);
+}

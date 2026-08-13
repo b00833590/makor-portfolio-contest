@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { computeAvailableCash } from "@/lib/trading/execute-order";
+import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { rankEntries, computeRankChange } from "./ranking";
 
 export interface BestWorstPosition {
@@ -194,9 +195,32 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
  * les participants et toutes les requêtes pendant `revalidate` secondes,
  * donc même un utilisateur qui spam le rafraîchissement ne génère plus
  * qu'une requête réelle par fenêtre, peu importe le nombre de rechargements.
+ *
+ * Trois variantes (matin/après-midi/nuit, voir refresh-schedule.ts) plutôt
+ * qu'une seule : `revalidate` est figé à la définition d'`unstable_cache`,
+ * impossible à calculer dynamiquement à l'appel — `getCachedLeaderboard`
+ * choisit entre les trois selon l'heure. Même tag sur les trois :
+ * `updateTag("leaderboard")` (voir profil/actions.ts) invalide la variante
+ * active quelle qu'elle soit.
  */
-export const getCachedLeaderboard = unstable_cache(
+const getCachedLeaderboardMorning = unstable_cache(
   (promotionId: string) => getLeaderboard(promotionId),
-  ["leaderboard"],
-  { revalidate: 900, tags: ["leaderboard"] },
+  ["leaderboard", "morning"],
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["leaderboard"] },
 );
+const getCachedLeaderboardAfternoon = unstable_cache(
+  (promotionId: string) => getLeaderboard(promotionId),
+  ["leaderboard", "afternoon"],
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["leaderboard"] },
+);
+const getCachedLeaderboardNight = unstable_cache(
+  (promotionId: string) => getLeaderboard(promotionId),
+  ["leaderboard", "night"],
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["leaderboard"] },
+);
+export function getCachedLeaderboard(promotionId: string): Promise<LeaderboardRow[]> {
+  const tier = getRefreshTier();
+  if (tier === "afternoon") return getCachedLeaderboardAfternoon(promotionId);
+  if (tier === "morning") return getCachedLeaderboardMorning(promotionId);
+  return getCachedLeaderboardNight(promotionId);
+}
