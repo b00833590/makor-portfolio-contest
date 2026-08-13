@@ -37,7 +37,7 @@ describe("getPersonalRecords", () => {
     const records = await getPersonalRecords("portfolio-1");
 
     expect(records.bestDayPct).toBe(12.5);
-    expect(records.bestDayDate).toEqual(bestDay);
+    expect(records.bestDayDate).toBe(bestDay.toISOString());
   });
 
   it("expose le meilleur trade (clôturé) et son symbole", async () => {
