@@ -157,7 +157,8 @@ export function PromotionPerformanceChart({
           <Brush
             dataKey="label"
             height={24}
-            stroke="var(--border)"
+            fill="var(--muted)"
+            stroke="var(--muted-foreground)"
             travellerWidth={8}
             startIndex={brushRange.startIndex}
             endIndex={brushRange.endIndex}
