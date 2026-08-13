@@ -1,7 +1,11 @@
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
-import { getLeaderboard, type BestWorstPosition, type LeaderboardRow } from "@/lib/gamification/get-leaderboard";
-import { getPromotionPerformanceSeries } from "@/lib/gamification/get-promotion-performance-series";
+import {
+  getCachedLeaderboard,
+  type BestWorstPosition,
+  type LeaderboardRow,
+} from "@/lib/gamification/get-leaderboard";
+import { getCachedPromotionPerformanceSeries } from "@/lib/gamification/get-promotion-performance-series";
 import { computeLeaderboardGaps, type LeaderboardGaps } from "@/lib/gamification/leaderboard-gaps";
 import { SiteHeader } from "@/components/site-header";
 import { UserAvatar } from "@/components/user-avatar";
@@ -162,8 +166,8 @@ export default async function LeaderboardPage() {
   }
 
   const [leaderboard, performanceSeries, promotion] = await Promise.all([
-    getLeaderboard(user.promotionId),
-    getPromotionPerformanceSeries(user.promotionId),
+    getCachedLeaderboard(user.promotionId),
+    getCachedPromotionPerformanceSeries(user.promotionId),
     db.promotion.findUniqueOrThrow({ where: { id: user.promotionId }, select: { initialCapital: true } }),
   ]);
   const podium = leaderboard.slice(0, 3);

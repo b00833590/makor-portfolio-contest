@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { getBadgeBoard } from "@/lib/gamification/get-badge-board";
-import { getPersonalRecords } from "@/lib/gamification/get-personal-records";
+import { getCachedPersonalRecords } from "@/lib/gamification/get-personal-records";
 import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
 import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
 import { SiteHeader } from "@/components/site-header";
@@ -60,7 +60,7 @@ export default async function BadgesPage() {
 
   const [board, records, unseen] = await Promise.all([
     getBadgeBoard(session.user.id, user.promotionId),
-    getPersonalRecords(portfolio.id),
+    getCachedPersonalRecords(portfolio.id),
     getUnseenBadges(session.user.id, user.promotionId),
     recordDailyVisit(session.user.id),
   ]);

@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { buildTrades } from "./match-closing-trades";
 
@@ -74,3 +75,10 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
     longestHoldAssetSymbol: longestHold?.symbol ?? null,
   };
 }
+
+/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement. */
+export const getCachedPersonalRecords = unstable_cache(
+  (portfolioId: string) => getPersonalRecords(portfolioId),
+  ["personal-records"],
+  { revalidate: 60 },
+);

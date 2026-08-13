@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 
 export interface ParticipantSnapshotMetrics {
@@ -62,3 +63,10 @@ export async function getPromotionPerformanceSeries(promotionId: string): Promis
     participantNames: portfolios.map((portfolio) => portfolio.user.name),
   };
 }
+
+/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement (même page, même problème). */
+export const getCachedPromotionPerformanceSeries = unstable_cache(
+  (promotionId: string) => getPromotionPerformanceSeries(promotionId),
+  ["promotion-performance-series"],
+  { revalidate: 60 },
+);

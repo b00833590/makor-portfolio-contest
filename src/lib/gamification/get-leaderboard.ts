@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { computeAvailableCash } from "@/lib/trading/execute-order";
@@ -182,3 +183,20 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
     })
     .sort((a, b) => a.rank - b.rank);
 }
+
+/**
+ * Variante mise en cache de {@link getLeaderboard}, à utiliser dans les pages
+ * plutôt que la fonction brute — un rafraîchissement manuel (F5) ou une
+ * navigation ne passent pas par `AutoRefresh` et n'étaient donc pas couverts
+ * par l'intervalle de poll : sans ce cache serveur partagé, chaque
+ * chargement de page, quel qu'en soit le déclencheur, ré-exécutait toutes
+ * les requêtes Supabase. `unstable_cache` mutualise le résultat entre tous
+ * les participants et toutes les requêtes pendant `revalidate` secondes,
+ * donc même un utilisateur qui spam le rafraîchissement ne génère plus
+ * qu'une requête réelle par fenêtre, peu importe le nombre de rechargements.
+ */
+export const getCachedLeaderboard = unstable_cache(
+  (promotionId: string) => getLeaderboard(promotionId),
+  ["leaderboard"],
+  { revalidate: 60, tags: ["leaderboard"] },
+);

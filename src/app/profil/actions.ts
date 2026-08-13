@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { avatarDataUrlSchema } from "./schema";
@@ -14,6 +14,12 @@ function revalidateAvatarSurfaces() {
   revalidatePath("/dashboard");
   revalidatePath("/leaderboard");
   revalidatePath("/statistiques");
+  // getCachedLeaderboard (get-leaderboard.ts) est mis en cache 60s indépendamment
+  // de la route — revalidatePath seul ne le purge pas, il faut son tag explicite
+  // pour qu'un changement d'avatar sur le podium apparaisse immédiatement.
+  // updateTag (pas revalidateTag) : lecture immédiate de sa propre écriture,
+  // seule forme utilisable depuis une Server Action dans cette version de Next.
+  updateTag("leaderboard");
 }
 
 export async function updateAvatar(dataUrl: string): Promise<AvatarFormState> {
