@@ -20,17 +20,41 @@ dépassé, plaçant l'organisation en grace period jusqu'au 15 août. Cause raci
 page `/leaderboard` retransmettait la photo de profil (base64) de **tous** les participants à
 chaque exécution, et `AutoRefresh` (`src/components/auto-refresh.tsx`) rafraîchissait cette page
 toutes les 60s — un fan-out qui dominait largement l'egress, bien plus que la fréquence de poll
-en elle-même. Corrigé côté code : `get-leaderboard.ts` ne récupère plus l'avatar que pour le
-podium (top 3, indépendant du nombre de participants) au lieu de tous, et les intervalles
-d'`AutoRefresh` sont montés à 5 min (dashboard/leaderboard) et 10 min (badges/statistiques) ; le
-cron GitHub Actions d'ingestion des prix est passé de 5 à 15 min. Comme la mécanique exacte de fin
-de grace period n'est pas entièrement documentée par Supabase (voir discussions GitHub officielles
-sur le sujet), et par prudence pour un concours encore actif, le projet a été migré vers une
-**nouvelle organisation Supabase** (quota gratuit totalement indépendant de celle restreinte, les
-quotas Supabase sont par organisation et non par compte) en région **Paris (`eu-west-3`)** — via
-`pg_dump`/`pg_restore` du schéma + données, puis changement de `DATABASE_URL`/`DIRECT_URL` sur le
-même projet Vercel (même URL pour les participants, aucune interruption). L'ancienne organisation
-Supabase restreinte n'est plus utilisée et peut être ignorée ou supprimée.
+en elle-même. Corrigé côté code en plusieurs passes le même jour :
+
+- `get-leaderboard.ts` ne récupère plus l'avatar que pour le podium (top 3, indépendant du nombre
+  de participants) au lieu de tous.
+- **Découverte d'un second trou** : `AutoRefresh` ne protège que le rafraîchissement automatique —
+  un rechargement manuel (F5), un premier chargement ou une navigation ré-exécutaient toutes les
+  requêtes Supabase sans aucune limite, contournant entièrement l'intervalle de poll. Corrigé en
+  enveloppant les requêtes des 4 pages les plus visitées (leaderboard, dashboard, badges,
+  statistiques — `get-leaderboard.ts`, `portfolio-view.ts`, `get-contest-stats.ts`,
+  `get-personal-records.ts`, `get-participant-stats.ts`, `get-promotion-performance-series.ts`)
+  dans `unstable_cache`, un cache serveur **partagé entre tous les participants et toutes les
+  requêtes**, pas seulement par utilisateur. Ses actions restent instantanées pour l'auteur grâce à
+  `updateTag` appelé à chaque point de mutation (trades participant dans `dashboard/actions.ts`,
+  corrections admin dans `admin/portfolios/[portfolioId]/actions.ts` et
+  `admin/promotions/[id]/actions.ts`, changement d'avatar dans `profil/actions.ts`) — la fenêtre de
+  cache n'est donc plus qu'un filet de sécurité pour les changements passifs (évolution des prix),
+  jamais un facteur de latence sur ses propres actions.
+- Le cron GitHub Actions d'ingestion des prix est passé de 5 à 15 min.
+- Une fois le cache serveur en place, l'intervalle d'`AutoRefresh` et les 6 fenêtres
+  `unstable_cache` ont été unifiés à **15 min partout** : rien de plus court n'apporte de fraîcheur
+  réelle, les prix ne changeant de toute façon jamais plus vite que `STOCK_PRICE_STALE_MS` (voir
+  `staleness.ts`).
+
+Résultat : l'egress ne dépend plus ni de la fréquence de poll ni du comportement des
+participants (rafraîchissement manuel compris) — plafond dur d'environ une requête Supabase réelle
+toutes les 15 min par promotion, quel que soit le trafic.
+
+Comme la mécanique exacte de fin de grace period n'est pas entièrement documentée par Supabase
+(voir discussions GitHub officielles sur le sujet), et par prudence pour un concours encore actif,
+le projet a aussi été migré vers une **nouvelle organisation Supabase** (quota gratuit totalement
+indépendant de celle restreinte, les quotas Supabase sont par organisation et non par compte) en
+région **Paris (`eu-west-3`)** — via `pg_dump`/`pg_restore` du schéma + données, puis changement de
+`DATABASE_URL`/`DIRECT_URL` sur le même projet Vercel (même URL pour les participants, aucune
+interruption). L'ancienne organisation Supabase restreinte n'est plus utilisée et peut être
+ignorée ou supprimée.
 
 ## 1. Créer la base de données (Supabase)
 
@@ -128,8 +152,8 @@ Si `CRON_SECRET` est défini sur Vercel, celui-ci est automatiquement envoyé en
 supplémentaire n'est nécessaire.
 
 Un rafraîchissement plus fréquent (`.github/workflows/ingest-prices.yml`, toutes les 15 minutes —
-remonté de 5 min le 2026-08-13, voir "Incident du 2026-08-13" plus haut) tourne en parallèle via
-GitHub Actions — voir ce fichier pour les secrets requis (`APP_URL`, `CRON_SECRET`).
+même cadence que le reste de l'app depuis l'incident du 2026-08-13 ci-dessus) tourne en parallèle
+via GitHub Actions — voir ce fichier pour les secrets requis (`APP_URL`, `CRON_SECRET`).
 
 ## 5. Domaine
 
@@ -153,11 +177,11 @@ zéro sur un déploiement entièrement neuf.
 **Surveiller les limites du plan gratuit Supabase** (500 Mo de base, 5 Go de transfert/mois au
 moment de l'écriture — à vérifier sur supabase.com, ces chiffres évoluent) pour éviter de revivre
 l'incident du 2026-08-13 décrit plus haut, qui a nécessité une migration en urgence. Les
-mitigations déjà en place (fan-out d'avatars limité au podium dans `get-leaderboard.ts`,
-intervalles `AutoRefresh` à 5-10 min, cron d'ingestion à 15 min) devraient suffire pour cette
-échelle de concours (~10 participants) — si l'usage remonte malgré tout près du quota, créer une
-nouvelle organisation Supabase (quota gratuit indépendant, voir procédure de l'incident) est un
-levier de secours rapide, avant d'envisager un plan payant. Si ce projet grossit significativement
-(beaucoup plus de 30 participants, plusieurs promotions actives en parallèle), reposer la question
-de l'hébergement auprès de l'entreprise plutôt que de dépendre indéfiniment d'un plan gratuit
-personnel.
+mitigations déjà en place (fan-out d'avatars limité au podium dans `get-leaderboard.ts`, cache
+serveur partagé `unstable_cache` sur les 4 pages les plus visitées, intervalle `AutoRefresh` et
+cron d'ingestion unifiés à 15 min) devraient largement suffire pour cette échelle de concours (~10
+participants) — si l'usage remonte malgré tout près du quota, créer une nouvelle organisation
+Supabase (quota gratuit indépendant, voir procédure de l'incident) est un levier de secours rapide,
+avant d'envisager un plan payant. Si ce projet grossit significativement (beaucoup plus de 30
+participants, plusieurs promotions actives en parallèle), reposer la question de l'hébergement
+auprès de l'entreprise plutôt que de dépendre indéfiniment d'un plan gratuit personnel.
