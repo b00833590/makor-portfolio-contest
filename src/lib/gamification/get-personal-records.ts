@@ -78,9 +78,20 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
   };
 }
 
-/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement. */
+/**
+ * Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement.
+ *
+ * Clé "-v2" (pas juste "personal-records") : `unstable_cache` persiste ses entrées
+ * à travers les déploiements, et sa clé de cache dépend du texte source de CETTE
+ * fonction wrapper, pas du code interne de `getPersonalRecords` qu'elle appelle —
+ * changer `bestDayDate` de `Date` à `string` n'a donc pas invalidé les entrées déjà
+ * en cache. Le suffixe de version force une clé neuve, garantissant une génération
+ * fraîche avec le code corrigé dès la prochaine requête plutôt que d'attendre les
+ * 15 minutes de `revalidate`. Réutiliser ce réflexe (bump de version) à chaque futur
+ * changement de la forme des données retournées par une fonction déjà en cache.
+ */
 export const getCachedPersonalRecords = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
-  ["personal-records"],
+  ["personal-records-v2"],
   { revalidate: 900 },
 );
