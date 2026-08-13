@@ -1,8 +1,8 @@
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
-import { getLeaderboard } from "@/lib/gamification/get-leaderboard";
-import { getParticipantStats } from "@/lib/gamification/get-participant-stats";
-import { getContestStats } from "@/lib/gamification/get-contest-stats";
+import { getCachedLeaderboard } from "@/lib/gamification/get-leaderboard";
+import { getCachedParticipantStats } from "@/lib/gamification/get-participant-stats";
+import { getCachedContestStats } from "@/lib/gamification/get-contest-stats";
 import { SiteHeader } from "@/components/site-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ParticipantStatsSection } from "./participant-stats-section";
@@ -31,12 +31,12 @@ export default async function StatistiquesPage() {
     );
   }
 
-  const leaderboard = await getLeaderboard(user.promotionId);
+  const leaderboard = await getCachedLeaderboard(user.promotionId);
   const ownRow = leaderboard.find((row) => row.userId === session.user.id);
 
   const [participantStats, contestStats] = await Promise.all([
-    ownRow ? getParticipantStats(ownRow.portfolioId, ownRow) : Promise.resolve(null),
-    getContestStats(user.promotionId, leaderboard),
+    ownRow ? getCachedParticipantStats(ownRow.portfolioId, ownRow) : Promise.resolve(null),
+    getCachedContestStats(user.promotionId, leaderboard),
   ]);
 
   return (

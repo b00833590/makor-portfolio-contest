@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { buildTrades } from "./match-closing-trades";
@@ -134,3 +135,13 @@ export async function getParticipantStats(
     assetClassAllocation: buildAllocation(assetClassEntries),
   };
 }
+
+/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement. */
+export const getCachedParticipantStats = unstable_cache(
+  (
+    portfolioId: string,
+    leaderboardRow: Pick<LeaderboardRow, "cumulativeReturnPct" | "weeklyReturnPct" | "bestPosition" | "worstPosition">,
+  ) => getParticipantStats(portfolioId, leaderboardRow),
+  ["participant-stats"],
+  { revalidate: 60 },
+);

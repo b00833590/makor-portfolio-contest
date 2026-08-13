@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { buildTrades } from "./match-closing-trades";
@@ -241,3 +242,10 @@ export async function getContestStats(promotionId: string, leaderboard: Leaderbo
     totalTransactionCount,
   };
 }
+
+/** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement. */
+export const getCachedContestStats = unstable_cache(
+  (promotionId: string, leaderboard: LeaderboardRow[]) => getContestStats(promotionId, leaderboard),
+  ["contest-stats"],
+  { revalidate: 60 },
+);
