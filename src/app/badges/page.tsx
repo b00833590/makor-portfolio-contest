@@ -21,8 +21,7 @@ export default async function BadgesPage() {
 
   const header = (
     <>
-      {/* Badges/XP ne changent qu'au rythme du snapshot nocturne : pas besoin du défaut 5 min. */}
-      <AutoRefresh intervalMs={600_000} />
+      <AutoRefresh />
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
     </>
   );
