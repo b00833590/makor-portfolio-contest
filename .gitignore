@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# database backups (pg_dump output — never commit production data)
+*.dump
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
