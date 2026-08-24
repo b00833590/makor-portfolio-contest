@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { deriveMetricSeries, PERFORMANCE_METRIC_LABELS, type PerformanceMetric } from "@/lib/gamification/derive-metric-series";
 import type { PromotionPerformancePoint } from "@/lib/gamification/get-promotion-performance-series";
+import { computeTightDomain } from "@/lib/chart-domain";
 
 const CHART_COLORS = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)", "var(--color-chart-5)"];
 const METRICS: PerformanceMetric[] = ["cumulativeReturnPct", "totalValue", "gainEur", "dailyReturnPct", "rank"];
@@ -62,6 +63,19 @@ export function PromotionPerformanceChart({
 
   const data = useMemo(() => deriveMetricSeries(points, metric, initialCapital), [points, metric, initialCapital]);
 
+  const yDomain = useMemo(() => {
+    if (metric === "rank") return undefined;
+    const values: number[] = [];
+    for (const row of data) {
+      for (const name of participantNames) {
+        if (hiddenNames.has(name)) continue;
+        const value = row[name];
+        if (typeof value === "number") values.push(value);
+      }
+    }
+    return computeTightDomain(values);
+  }, [data, metric, participantNames, hiddenNames]);
+
   if (points.length < 2) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -88,14 +102,16 @@ export function PromotionPerformanceChart({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs value={metric} onValueChange={(value) => setMetric(value as PerformanceMetric)}>
-          <TabsList>
-            {METRICS.map((m) => (
-              <TabsTrigger key={m} value={m}>
-                {PERFORMANCE_METRIC_LABELS[m]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={metric} onValueChange={(value) => setMetric(value as PerformanceMetric)} className="min-w-0">
+          <div className="-mx-1 overflow-x-auto px-1">
+            <TabsList>
+              {METRICS.map((m) => (
+                <TabsTrigger key={m} value={m}>
+                  {PERFORMANCE_METRIC_LABELS[m]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </Tabs>
         {isZoomed && (
           <Button variant="outline" size="sm" onClick={() => setBrushRange({})}>
@@ -112,7 +128,7 @@ export function PromotionPerformanceChart({
               key={name}
               type="button"
               onClick={() => toggleName(name)}
-              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                 isHidden ? "border-border text-muted-foreground opacity-50" : "border-border text-foreground"
               }`}
             >
@@ -138,6 +154,7 @@ export function PromotionPerformanceChart({
             tickMargin={8}
             reversed={metric === "rank"}
             allowDecimals={metric !== "rank"}
+            domain={yDomain}
             tickFormatter={(value: number) => formatValue(metric, value)}
             width={metric === "totalValue" || metric === "gainEur" ? 72 : 48}
           />

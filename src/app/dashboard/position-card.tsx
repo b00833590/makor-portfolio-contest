@@ -56,7 +56,7 @@ export function PositionCard({ position }: { position: PositionView }) {
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <AssetLogo symbol={position.symbol} logoUrl={position.logoUrl} className="size-9" />
           <div>
@@ -104,7 +104,7 @@ export function PositionCard({ position }: { position: PositionView }) {
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setMode(mode === "increase" ? "idle" : "increase")}>
             Renforcer
           </Button>
@@ -119,18 +119,18 @@ export function PositionCard({ position }: { position: PositionView }) {
         </div>
 
         {mode === "increase" && (
-          <form action={increaseFormAction} className="flex items-end gap-2">
+          <form action={increaseFormAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="assetId" value={position.assetId} />
-            <Input name="amount" type="number" placeholder="Montant (€)" required className="w-40" />
+            <Input name="amount" type="number" placeholder="Montant (€)" required className="w-full sm:w-40" />
             <Button type="submit" size="sm" disabled={increasePending}>
               Confirmer
             </Button>
           </form>
         )}
         {mode === "sell" && (
-          <form action={sellFormAction} className="flex items-end gap-2">
+          <form action={sellFormAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="assetId" value={position.assetId} />
-            <Input name="quantity" type="number" step="any" placeholder="Quantité" required className="w-40" />
+            <Input name="quantity" type="number" step="any" placeholder="Quantité" required className="w-full sm:w-40" />
             <Button type="submit" size="sm" disabled={sellPending}>
               Confirmer
             </Button>

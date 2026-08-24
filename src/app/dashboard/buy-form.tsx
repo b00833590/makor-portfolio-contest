@@ -18,7 +18,7 @@ export function BuyForm() {
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4">
-      <div className="w-64">
+      <div className="w-full sm:w-64">
         <Label htmlFor="buy-search">Actif</Label>
         <AssetSearchCombobox onSelect={setSelected} disabled={pending} />
         <input type="hidden" name="symbol" value={selected?.symbol ?? ""} />
@@ -28,11 +28,11 @@ export function BuyForm() {
         <input type="hidden" name="currency" value={selected?.currency ?? ""} />
         <input type="hidden" name="logoUrl" value={selected?.logoUrl ?? ""} />
       </div>
-      <div>
+      <div className="w-full sm:w-auto">
         <Label htmlFor="buy-amount">Montant (€)</Label>
-        <Input id="buy-amount" name="amount" type="number" required className="w-40" />
+        <Input id="buy-amount" name="amount" type="number" required className="w-full sm:w-40" />
       </div>
-      <Button type="submit" disabled={pending || !selected}>
+      <Button type="submit" disabled={pending || !selected} className="w-full sm:w-auto">
         {pending ? "Achat..." : "Acheter"}
       </Button>
       {state.error && <p className="w-full text-sm text-destructive">{state.error}</p>}

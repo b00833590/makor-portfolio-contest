@@ -23,7 +23,7 @@ export default async function StatistiquesPage() {
     return (
       <>
         {header}
-        <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           <p className="text-sm text-muted-foreground">Vous n&apos;êtes assigné à aucune promotion pour le moment.</p>
         </div>
       </>
@@ -41,7 +41,7 @@ export default async function StatistiquesPage() {
   return (
     <>
       {header}
-      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Statistiques</h1>
 
         {participantStats ? (

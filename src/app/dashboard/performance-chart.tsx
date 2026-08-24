@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartContainer,
@@ -8,6 +9,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { PerformancePoint } from "@/lib/trading/performance-history";
+import { computeTightDomain } from "@/lib/chart-domain";
 
 const chartConfig = {
   totalValue: {
@@ -17,6 +19,8 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function PerformanceChart({ data }: { data: PerformancePoint[] }) {
+  const yDomain = useMemo(() => computeTightDomain(data.map((point) => point.totalValue)), [data]);
+
   if (data.length < 2) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -47,6 +51,7 @@ export function PerformanceChart({ data }: { data: PerformancePoint[] }) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
+          domain={yDomain}
           tickFormatter={(value: number) => `${(value / 1000).toFixed(0)}k€`}
           width={56}
         />

@@ -1,19 +1,34 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
+import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { computeAvailableCash } from "./execute-order";
 import { computeSnapshot, type ComputedSnapshot, type SnapshotPosition } from "./performance-snapshot";
 import { rankEntries } from "@/lib/gamification/ranking";
 
+/**
+ * Contrairement à get-leaderboard.ts / portfolio-view.ts / get-*-stats.ts, ce chemin ne dépendait
+ * jusqu'ici que du dernier prix déjà en base, sans jamais le rafraîchir — le seul endroit du code
+ * à ne pas suivre ce pattern. Si l'ingestion planifiée (cron/GitHub Action) échoue en silence
+ * pendant un moment (aucun log en place avant ce correctif, voir ingest.ts), le snapshot du jour
+ * fige la performance sur un prix périmé au lieu d'échouer bruyamment : totalValue stagne d'un
+ * jour à l'autre et dailyReturnPct reste proche de 0% indéfiniment. Rafraîchir ici avant de calculer
+ * garantit que le chiffre verrouillé chaque jour reflète un prix frais, peu importe l'état du reste
+ * du pipeline d'ingestion.
+ */
 async function loadSnapshotPositions(portfolioId: string): Promise<SnapshotPosition[]> {
   const positions = await db.position.findMany({
     where: { portfolioId, quantity: { gt: 0 }, closedAt: null },
     include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
   });
 
+  const distinctAssets = new Map(positions.map((position) => [position.assetId, position.asset]));
+  const refreshedPrices = await refreshAssetPricesIfStale([...distinctAssets.values()]);
+
   return positions.map((position) => ({
     quantity: Number(position.quantity),
-    currentPrice: Number(position.asset.prices[0]?.price ?? position.avgEntryPrice),
+    currentPrice:
+      refreshedPrices.get(position.assetId)?.price ?? Number(position.asset.prices[0]?.price ?? position.avgEntryPrice),
   }));
 }
 
