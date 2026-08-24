@@ -24,7 +24,7 @@ export default async function ReglementPage() {
   return (
     <>
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
-      <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         {promotion ? (
           <RulesDocument
             promotion={{

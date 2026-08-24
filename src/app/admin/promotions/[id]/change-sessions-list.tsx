@@ -73,7 +73,7 @@ function SessionCard({ promotionId, session }: { promotionId: string; session: C
 
   return (
     <Card className={isInitializationWindow ? "border-primary/50" : undefined}>
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <div>
           <CardTitle>{session.label}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">

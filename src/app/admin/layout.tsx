@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <>
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-10">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Administration
@@ -26,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Concours de portefeuille Makor
           </h1>
         </div>
-        <nav className="flex gap-1 border-b border-border pb-4 text-sm font-medium">
+        <nav className="flex flex-wrap gap-1 border-b border-border pb-4 text-sm font-medium">
           {navItems.map((item) => (
             <Link
               key={item.href}

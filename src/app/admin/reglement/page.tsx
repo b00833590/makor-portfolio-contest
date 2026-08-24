@@ -39,7 +39,7 @@ export default async function AdminReglementPage() {
         {promotions.map((promotion) => (
           <Link key={promotion.id} href={`/admin/promotions/${promotion.id}/reglement`}>
             <Card className="transition-colors hover:bg-secondary/40">
-              <CardHeader className="flex-row items-center justify-between">
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base">{promotion.name}</CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">

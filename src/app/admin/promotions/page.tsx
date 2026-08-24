@@ -50,7 +50,7 @@ export default async function PromotionsPage() {
           const upcoming = nextStatus[promotion.status];
           return (
             <Card key={promotion.id}>
-              <CardHeader className="flex-row items-center justify-between">
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
                 <div>
                   <Link href={`/admin/promotions/${promotion.id}`} className="hover:underline">
                     <CardTitle>{promotion.name}</CardTitle>

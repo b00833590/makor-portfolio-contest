@@ -109,6 +109,47 @@ function PositionsCell({ best, worst }: { best: BestWorstPosition | null; worst:
   );
 }
 
+/**
+ * Même contenu que la ligne de tableau desktop, réorganisé en carte empilée — pas un
+ * sous-ensemble masqué des colonnes, une vraie mise en page alternative pour que rien ne
+ * nécessite de défilement horizontal ni de zoom sur petit écran.
+ */
+function LeaderboardRowCard({ row, gaps, isSelf }: { row: LeaderboardRow; gaps: LeaderboardGaps; isSelf: boolean }) {
+  return (
+    <Card className={cn("gap-3 p-4", isSelf && "ring-1 ring-primary")}>
+      <div className="flex items-center gap-3">
+        <span className="w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+          <RankCell rank={row.rank} />
+        </span>
+        <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" className="shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
+        {isSelf && <Badge variant="secondary">Vous</Badge>}
+      </div>
+
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-lg font-semibold tabular-nums">{currencyFormatter.format(row.totalValue)}</span>
+        <span className={cn("text-base font-semibold tabular-nums", row.cumulativeReturnPct >= 0 ? "text-gain" : "text-loss")}>
+          {row.cumulativeReturnPct >= 0 ? "+" : ""}
+          {row.cumulativeReturnPct.toFixed(1)}%
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <GapCell gaps={gaps} />
+        <span className="flex items-center gap-1">
+          24 h <RankChangeIndicator change={row.rankChange} />
+        </span>
+      </div>
+
+      {(row.bestPosition || row.worstPosition) && (
+        <div className="border-t border-border/60 pt-2">
+          <PositionsCell best={row.bestPosition} worst={row.worstPosition} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function PodiumCard({ row, place, isSelf }: { row: LeaderboardRow; place: number; isSelf: boolean }) {
   return (
     <Card
@@ -156,7 +197,7 @@ export default async function LeaderboardPage() {
     return (
       <>
         {header}
-        <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           <p className="text-sm text-muted-foreground">
             Vous n&apos;êtes assigné à aucune promotion pour le moment.
           </p>
@@ -180,7 +221,7 @@ export default async function LeaderboardPage() {
   return (
     <>
       {header}
-      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Classement</h1>
 
         {weeklyChallengeLeader && (
@@ -224,58 +265,71 @@ export default async function LeaderboardPage() {
         </Card>
 
         {leaderboard.length > 0 && (
-          <Card className="mt-6 py-0">
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <ColHead className="w-14 text-center">Rang</ColHead>
-                  <ColHead className="w-[22%]">Participant</ColHead>
-                  <ColHead className="w-[15%] text-right">Valeur</ColHead>
-                  <ColHead className="w-[11%] text-right">Rendement</ColHead>
-                  <ColHead className="w-[13%] text-right">Écart</ColHead>
-                  <ColHead className="w-[9%] text-right">24 h</ColHead>
-                  <ColHead>Positions extrêmes</ColHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {leaderboard.map((row, index) => (
-                  <TableRow
-                    key={row.userId}
-                    className={cn(row.userId === session.user.id && "bg-muted/50 font-medium")}
-                  >
-                    <TableCell className="text-center">
-                      <RankCell rank={row.rank} />
-                    </TableCell>
-                    <TableCell className="overflow-hidden">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" className="shrink-0" />
-                        <span className="min-w-0 truncate">{row.name}</span>
-                        {row.userId === session.user.id && (
-                          <Badge variant="secondary" className="shrink-0">
-                            Vous
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{currencyFormatter.format(row.totalValue)}</TableCell>
-                    <TableCell className={cn("text-right tabular-nums", row.cumulativeReturnPct >= 0 ? "text-gain" : "text-loss")}>
-                      {row.cumulativeReturnPct >= 0 ? "+" : ""}
-                      {row.cumulativeReturnPct.toFixed(1)}%
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <GapCell gaps={gaps[index]} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RankChangeIndicator change={row.rankChange} />
-                    </TableCell>
-                    <TableCell className="overflow-hidden">
-                      <PositionsCell best={row.bestPosition} worst={row.worstPosition} />
-                    </TableCell>
+          <>
+            <div className="mt-6 flex flex-col gap-3 md:hidden">
+              {leaderboard.map((row, index) => (
+                <LeaderboardRowCard
+                  key={row.userId}
+                  row={row}
+                  gaps={gaps[index]}
+                  isSelf={row.userId === session.user.id}
+                />
+              ))}
+            </div>
+
+            <Card className="mt-6 hidden py-0 md:block">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <ColHead className="w-14 text-center">Rang</ColHead>
+                    <ColHead className="w-[22%]">Participant</ColHead>
+                    <ColHead className="w-[15%] text-right">Valeur</ColHead>
+                    <ColHead className="w-[11%] text-right">Rendement</ColHead>
+                    <ColHead className="w-[13%] text-right">Écart</ColHead>
+                    <ColHead className="w-[9%] text-right">24 h</ColHead>
+                    <ColHead>Positions extrêmes</ColHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                </TableHeader>
+                <TableBody>
+                  {leaderboard.map((row, index) => (
+                    <TableRow
+                      key={row.userId}
+                      className={cn(row.userId === session.user.id && "bg-muted/50 font-medium")}
+                    >
+                      <TableCell className="text-center">
+                        <RankCell rank={row.rank} />
+                      </TableCell>
+                      <TableCell className="overflow-hidden">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <UserAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" className="shrink-0" />
+                          <span className="min-w-0 truncate">{row.name}</span>
+                          {row.userId === session.user.id && (
+                            <Badge variant="secondary" className="shrink-0">
+                              Vous
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{currencyFormatter.format(row.totalValue)}</TableCell>
+                      <TableCell className={cn("text-right tabular-nums", row.cumulativeReturnPct >= 0 ? "text-gain" : "text-loss")}>
+                        {row.cumulativeReturnPct >= 0 ? "+" : ""}
+                        {row.cumulativeReturnPct.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <GapCell gaps={gaps[index]} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <RankChangeIndicator change={row.rankChange} />
+                      </TableCell>
+                      <TableCell className="overflow-hidden">
+                        <PositionsCell best={row.bestPosition} worst={row.worstPosition} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </>
         )}
 
         {leaderboard.length === 0 && (
