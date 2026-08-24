@@ -103,7 +103,7 @@ export function PromotionPerformanceChart({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={metric} onValueChange={(value) => setMetric(value as PerformanceMetric)} className="min-w-0">
-          <div className="-mx-1 overflow-x-auto px-1">
+          <div className="-mx-1 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList>
               {METRICS.map((m) => (
                 <TabsTrigger key={m} value={m}>
