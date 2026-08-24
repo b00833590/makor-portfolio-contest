@@ -49,6 +49,7 @@ export async function ingestAssetPrices(providers: PriceProvider[], now: Date = 
     try {
       const quote = await fetchPriceWithFallback(providers, asset);
       if (!quote) {
+        console.error(`[ingest-prices] all providers failed for ${asset.symbol} (${asset.id})`);
         results.push({ assetId: asset.id, symbol: asset.symbol, status: "failed" });
         continue;
       }
@@ -63,7 +64,8 @@ export async function ingestAssetPrices(providers: PriceProvider[], now: Date = 
       });
 
       results.push({ assetId: asset.id, symbol: asset.symbol, status: "ok", price: quote.price });
-    } catch {
+    } catch (error) {
+      console.error(`[ingest-prices] error fetching/storing price for ${asset.symbol} (${asset.id})`, error);
       results.push({ assetId: asset.id, symbol: asset.symbol, status: "failed" });
     }
   }

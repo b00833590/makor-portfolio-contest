@@ -9,7 +9,10 @@ const dbMock = {
   portfolio: { findMany: vi.fn() },
 };
 
+const refreshAssetPricesIfStaleMock = vi.fn();
+
 vi.mock("@/lib/db", () => ({ db: dbMock }));
+vi.mock("@/lib/prices/pull-through", () => ({ refreshAssetPricesIfStale: refreshAssetPricesIfStaleMock }));
 
 const { snapshotPortfolio, snapshotActivePromotions } = await import("./snapshot-service");
 
@@ -17,6 +20,8 @@ const NOW = new Date("2026-09-15T18:00:00Z");
 
 function resetMocks() {
   Object.values(dbMock).forEach((group) => Object.values(group).forEach((fn) => fn.mockReset()));
+  refreshAssetPricesIfStaleMock.mockReset();
+  refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
 }
 
 beforeEach(() => {
@@ -47,6 +52,26 @@ describe("snapshotPortfolio", () => {
         rank: null,
       },
     });
+  });
+
+  it("utilise le prix rafraîchi plutôt que le dernier prix stocké s'il était périmé", async () => {
+    dbMock.transaction.findMany.mockResolvedValue([]);
+    dbMock.position.findMany.mockResolvedValue([
+      {
+        assetId: "asset-1",
+        quantity: 400,
+        avgEntryPrice: 100,
+        asset: { id: "asset-1", prices: [{ price: 120 }] },
+      },
+    ]);
+    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+    refreshAssetPricesIfStaleMock.mockResolvedValue(new Map([["asset-1", { price: 150, isStale: false }]]));
+
+    await snapshotPortfolio("portfolio-1", 1_000_000, NOW);
+
+    expect(refreshAssetPricesIfStaleMock).toHaveBeenCalledWith([{ id: "asset-1", prices: [{ price: 120 }] }]);
+    const call = dbMock.performanceSnapshot.create.mock.calls[0][0];
+    expect(call.data.totalValue).toBe(1_000_000 + 400 * 150);
   });
 
   it("utilise le dernier snapshot pour calculer le rendement journalier", async () => {
