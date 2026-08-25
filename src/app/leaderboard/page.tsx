@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import {
@@ -180,6 +181,10 @@ function PodiumCard({ row, place, isSelf }: { row: LeaderboardRow; place: number
 
 export default async function LeaderboardPage() {
   const session = await verifySession();
+  // L'admin ne joue pas — le classement ne le concerne pas, voir dashboard/page.tsx pour le même choix.
+  if (session.user.role === "ADMIN") {
+    redirect("/admin");
+  }
   const user = await db.user.findUnique({ where: { id: session.user.id } });
 
   const header = (

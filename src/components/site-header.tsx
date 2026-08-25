@@ -33,12 +33,10 @@ const participantNavLinks: NavLink[] = [
   { href: "/reglement", label: "Règlement" },
 ];
 
-// L'admin ne joue pas — pas de portefeuille, mais garde un œil sur le classement, les statistiques et le Hall of Fame.
-const adminNavLinks: NavLink[] = [
-  { href: "/leaderboard", label: "Classement" },
-  { href: "/statistiques", label: "Statistiques" },
-  { href: "/hall-of-fame", label: "Hall of Fame" },
-];
+// L'admin ne joue pas — pas de portefeuille, pas de classement/stats personnels
+// (voir les redirections dans leaderboard/page.tsx et statistiques/page.tsx) ;
+// seul le Hall of Fame reste pertinent pour lui en dehors de l'espace admin.
+const adminNavLinks: NavLink[] = [{ href: "/hall-of-fame", label: "Hall of Fame" }];
 
 export function SiteHeader({
   name,
