@@ -80,6 +80,7 @@ export async function createTransaction(
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return {};
 }
 
@@ -133,6 +134,7 @@ export async function updateTransaction(
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return {};
 }
 
@@ -162,6 +164,7 @@ export async function deleteTransaction(portfolioId: string, transactionId: stri
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
   updateTag("portfolio-view");
+  updateTag("leaderboard");
 }
 
 export async function recalculateSnapshot(portfolioId: string) {
@@ -177,4 +180,5 @@ export async function recalculateSnapshot(portfolioId: string) {
 
   revalidatePath(`/admin/portfolios/${portfolioId}`);
   updateTag("portfolio-view");
+  updateTag("leaderboard");
 }

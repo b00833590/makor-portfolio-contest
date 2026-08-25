@@ -94,17 +94,17 @@ export async function getPersonalRecords(portfolioId: string): Promise<PersonalR
 const getCachedPersonalRecordsMorning = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
   ["personal-records-v2", "morning"],
-  { revalidate: MORNING_INTERVAL_MS / 1000 },
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedPersonalRecordsAfternoon = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
   ["personal-records-v2", "afternoon"],
-  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedPersonalRecordsNight = unstable_cache(
   (portfolioId: string) => getPersonalRecords(portfolioId),
   ["personal-records-v2", "night"],
-  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
 );
 export function getCachedPersonalRecords(portfolioId: string): Promise<PersonalRecords> {
   const tier = getRefreshTier();

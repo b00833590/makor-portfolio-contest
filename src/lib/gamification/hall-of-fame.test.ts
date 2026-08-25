@@ -4,7 +4,7 @@ import { PromotionStatus } from "@/generated/prisma/enums";
 const dbMock = {
   promotion: { findMany: vi.fn() },
   portfolio: { findMany: vi.fn() },
-  performanceSnapshot: { findFirst: vi.fn() },
+  performanceSnapshot: { findMany: vi.fn() },
 };
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
@@ -34,13 +34,10 @@ describe("getHallOfFame", () => {
       { id: "portfolio-a", user: { id: "user-a", name: "Alice" } },
       { id: "portfolio-b", user: { id: "user-b", name: "Bob" } },
     ]);
-    dbMock.performanceSnapshot.findFirst.mockImplementation(({ where }: { where: { portfolioId: string } }) =>
-      Promise.resolve(
-        where.portfolioId === "portfolio-a"
-          ? { cumulativeReturnPct: 20 }
-          : { cumulativeReturnPct: 5 },
-      ),
-    );
+    dbMock.performanceSnapshot.findMany.mockResolvedValue([
+      { portfolioId: "portfolio-a", cumulativeReturnPct: 20 },
+      { portfolioId: "portfolio-b", cumulativeReturnPct: 5 },
+    ]);
 
     const results = await getHallOfFame();
 
@@ -70,7 +67,7 @@ describe("getHallOfFame", () => {
       },
     ]);
     dbMock.portfolio.findMany.mockResolvedValue([{ id: "portfolio-a", user: { id: "user-a", name: "Alice" } }]);
-    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+    dbMock.performanceSnapshot.findMany.mockResolvedValue([]);
 
     const results = await getHallOfFame();
 

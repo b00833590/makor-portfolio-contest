@@ -48,6 +48,7 @@ export async function buyAsset(
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -77,6 +78,7 @@ export async function increasePosition(
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -106,6 +108,7 @@ export async function sellPartial(
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return newBadges.length > 0 ? { newBadges } : {};
 }
 
@@ -120,5 +123,6 @@ export async function sellFull(assetId: string): Promise<TradeFormState> {
   const newBadges = await evaluateUserBadgesForUser(session.user.id);
   revalidatePath("/dashboard");
   updateTag("portfolio-view");
+  updateTag("leaderboard");
   return newBadges.length > 0 ? { newBadges } : {};
 }

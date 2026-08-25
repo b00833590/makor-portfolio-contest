@@ -70,17 +70,17 @@ export async function getPromotionPerformanceSeries(promotionId: string): Promis
 const getCachedPromotionPerformanceSeriesMorning = unstable_cache(
   (promotionId: string) => getPromotionPerformanceSeries(promotionId),
   ["promotion-performance-series", "morning"],
-  { revalidate: MORNING_INTERVAL_MS / 1000 },
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedPromotionPerformanceSeriesAfternoon = unstable_cache(
   (promotionId: string) => getPromotionPerformanceSeries(promotionId),
   ["promotion-performance-series", "afternoon"],
-  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedPromotionPerformanceSeriesNight = unstable_cache(
   (promotionId: string) => getPromotionPerformanceSeries(promotionId),
   ["promotion-performance-series", "night"],
-  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
 );
 export function getCachedPromotionPerformanceSeries(promotionId: string): Promise<PromotionPerformanceSeries> {
   const tier = getRefreshTier();

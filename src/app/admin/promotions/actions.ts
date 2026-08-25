@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -146,6 +146,8 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
   let closeOnlyBadgesAwarded: number | undefined;
   if (status === PromotionStatus.CLOSED) {
     closeOnlyBadgesAwarded = (await awardCloseOnlyBadges(promotionId)).length;
+    updateTag("hall-of-fame");
+    revalidatePath("/hall-of-fame");
   }
 
   await logAudit({

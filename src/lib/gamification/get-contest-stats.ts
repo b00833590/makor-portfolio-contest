@@ -249,17 +249,17 @@ export async function getContestStats(promotionId: string, leaderboard: Leaderbo
 const getCachedContestStatsMorning = unstable_cache(
   (promotionId: string, leaderboard: LeaderboardRow[]) => getContestStats(promotionId, leaderboard),
   ["contest-stats", "morning"],
-  { revalidate: MORNING_INTERVAL_MS / 1000 },
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedContestStatsAfternoon = unstable_cache(
   (promotionId: string, leaderboard: LeaderboardRow[]) => getContestStats(promotionId, leaderboard),
   ["contest-stats", "afternoon"],
-  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedContestStatsNight = unstable_cache(
   (promotionId: string, leaderboard: LeaderboardRow[]) => getContestStats(promotionId, leaderboard),
   ["contest-stats", "night"],
-  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
 );
 export function getCachedContestStats(promotionId: string, leaderboard: LeaderboardRow[]): Promise<ContestStats> {
   const tier = getRefreshTier();

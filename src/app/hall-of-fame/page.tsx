@@ -1,5 +1,5 @@
 import { verifySession } from "@/lib/dal";
-import { getHallOfFame } from "@/lib/gamification/hall-of-fame";
+import { getCachedHallOfFame } from "@/lib/gamification/hall-of-fame";
 import { pickWinner } from "@/lib/gamification/pick-winner";
 import { formatParisDate } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function HallOfFamePage() {
   const session = await verifySession();
-  const seasons = await getHallOfFame();
+  const seasons = await getCachedHallOfFame();
 
   const bestEver = pickWinner(
     seasons

@@ -148,19 +148,19 @@ const getCachedParticipantStatsMorning = unstable_cache(
   (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
     getParticipantStats(portfolioId, leaderboardRow),
   ["participant-stats", "morning"],
-  { revalidate: MORNING_INTERVAL_MS / 1000 },
+  { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedParticipantStatsAfternoon = unstable_cache(
   (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
     getParticipantStats(portfolioId, leaderboardRow),
   ["participant-stats", "afternoon"],
-  { revalidate: AFTERNOON_INTERVAL_MS / 1000 },
+  { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedParticipantStatsNight = unstable_cache(
   (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
     getParticipantStats(portfolioId, leaderboardRow),
   ["participant-stats", "night"],
-  { revalidate: NIGHT_REVALIDATE_MS / 1000 },
+  { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
 );
 export function getCachedParticipantStats(
   portfolioId: string,

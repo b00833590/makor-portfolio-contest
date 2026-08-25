@@ -52,6 +52,38 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return session.user;
 }
 
+export interface SessionGate {
+  role: UserRole;
+  mustChangePassword: boolean;
+}
+
+/**
+ * Version allégée de {@link getCurrentUser}, pour `proxy.ts` uniquement :
+ * celui-ci ne rend jamais rien, il ne sert qu'à décider d'une redirection
+ * (rôle admin, mot de passe à changer) — inutile d'y faire transiter le nom
+ * et l'avatar (jusqu'à 400 Ko en base64, voir profil/schema.ts) à chaque
+ * navigation réelle alors que rien ne les affiche à cette étape.
+ */
+export async function getSessionGate(): Promise<SessionGate | null> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!sessionToken) return null;
+
+  const session = await db.session.findUnique({
+    where: { sessionToken },
+    select: { expires: true, user: { select: { role: true, mustChangePassword: true } } },
+  });
+
+  if (!session) return null;
+
+  if (session.expires < new Date()) {
+    await db.session.delete({ where: { sessionToken } }).catch(() => {});
+    return null;
+  }
+
+  return session.user;
+}
+
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getSessionGate } from "@/lib/auth/session";
 
 const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/admin", "/change-password"];
 const adminPrefixes = ["/admin"];
@@ -12,7 +12,7 @@ export default async function proxy(req: NextRequest) {
 
   if (!isProtected) return NextResponse.next();
 
-  const user = await getCurrentUser();
+  const user = await getSessionGate();
 
   if (!user) {
     const signInUrl = new URL("/login", req.nextUrl);

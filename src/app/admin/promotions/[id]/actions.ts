@@ -209,6 +209,7 @@ export async function recalculateAllSnapshots(promotionId: string) {
 
   await recalculateAllPortfolioSnapshots(promotionId);
   updateTag("portfolio-view");
+  updateTag("leaderboard");
 
   await logAudit({
     adminId: session.user.id,

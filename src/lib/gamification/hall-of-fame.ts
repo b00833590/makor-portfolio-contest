@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { pickWinner } from "./pick-winner";
@@ -38,23 +39,23 @@ export async function getHallOfFame(): Promise<SeasonResult[]> {
       where: { promotionId: promotion.id },
       include: { user: { select: { id: true, name: true } } },
     });
+    const userByPortfolioId = new Map(portfolios.map((portfolio) => [portfolio.id, portfolio.user]));
 
-    const finalEntries = await Promise.all(
-      portfolios.map(async (portfolio) => {
-        const finalSnapshot = await db.performanceSnapshot.findFirst({
-          where: { portfolioId: portfolio.id, timestamp: { lte: promotion.endDate } },
-          orderBy: { timestamp: "desc" },
-        });
-        if (!finalSnapshot) return null;
-        return {
-          userId: portfolio.user.id,
-          name: portfolio.user.name,
-          cumulativeReturnPct: Number(finalSnapshot.cumulativeReturnPct),
-        };
-      }),
-    );
+    // Un seul aller-retour pour tous les portefeuilles de la saison (au lieu
+    // d'un findFirst par portefeuille) — même pattern `distinct` que le
+    // dernier prix par actif dans ingest.ts.
+    const finalSnapshots = await db.performanceSnapshot.findMany({
+      where: { portfolioId: { in: portfolios.map((portfolio) => portfolio.id) }, timestamp: { lte: promotion.endDate } },
+      orderBy: { timestamp: "desc" },
+      distinct: ["portfolioId"],
+    });
 
-    const winner = pickWinner(finalEntries.filter((entry): entry is SeasonWinner => entry !== null));
+    const finalEntries = finalSnapshots.map((snapshot) => {
+      const user = userByPortfolioId.get(snapshot.portfolioId)!;
+      return { userId: user.id, name: user.name, cumulativeReturnPct: Number(snapshot.cumulativeReturnPct) };
+    });
+
+    const winner = pickWinner(finalEntries);
 
     results.push({
       promotionId: promotion.id,
@@ -67,3 +68,15 @@ export async function getHallOfFame(): Promise<SeasonResult[]> {
 
   return results;
 }
+
+/**
+ * Mis en cache et taggé `hall-of-fame` : ces données sont un historique figé
+ * (voir le commentaire sur {@link getHallOfFame}), invalidées uniquement
+ * quand une promotion passe à CLOSED (`setPromotionStatus`,
+ * admin/promotions/actions.ts) — jamais par le passage du temps. La fenêtre
+ * de revalidation n'est donc qu'un filet de sécurité, sa durée importe peu.
+ */
+export const getCachedHallOfFame = unstable_cache(getHallOfFame, ["hall-of-fame"], {
+  revalidate: 3600,
+  tags: ["hall-of-fame"],
+});
