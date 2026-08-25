@@ -7,11 +7,17 @@ const isDev = process.env.NODE_ENV === "development";
 // styles reste nécessaire pour Tailwind/shadcn qui injectent du CSS inline.
 // img-src autorise https: + data: : logos de tickers (FMP/CoinGecko, voir
 // src/lib/assets/ensure-asset.ts) et avatars stockés en data URL en base.
+// blob: est nécessaire pour l'aperçu de recadrage de la photo de profil
+// (URL.createObjectURL sur le fichier choisi, voir profil/avatar-editor.tsx)
+// — sans lui le <canvas> ne peut jamais charger l'image sélectionnée
+// ("Impossible de traiter cette image" à chaque tentative). Sans risque :
+// une blob: URL n'existe que côté client, dérivée d'un fichier local choisi
+// par l'utilisateur lui-même, jamais d'une source distante/injectable.
 const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: https:;
+  img-src 'self' data: https: blob:;
   font-src 'self';
   object-src 'none';
   base-uri 'self';
