@@ -34,5 +34,21 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
+  matcher: [
+    {
+      // Le prefetch Next.js (déclenché dès qu'un <Link> du header entre
+      // dans le viewport, pas seulement au clic) traverse quand même
+      // `proxy` par défaut — sans ce filtre, chaque page charge jusqu'à 6
+      // requêtes Postgres de vérification de session (une par lien de
+      // navigation jamais cliqué), en plus de celle de la page réellement
+      // visitée. Sans risque : une requête de prefetch n'affiche jamais son
+      // contenu à l'utilisateur, la vraie navigation (non-prefetch) qui
+      // suivra passera normalement par ce même proxy.
+      source: "/((?!api|_next/static|_next/image|.*\\.png$).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+  ],
 };

@@ -56,6 +56,45 @@ région **Paris (`eu-west-3`)** — via `pg_dump`/`pg_restore` du schéma + donn
 interruption). L'ancienne organisation Supabase restreinte n'est plus utilisée et peut être
 ignorée ou supprimée.
 
+**Incident du 2026-08-25** : le dashboard Supabase affichait ~2 744 requêtes Postgres sur 24h dont
+~2 604 en erreur (95% d'échec), malgré des prix rafraîchis seulement toutes les 15 min — largement
+de quoi dépasser à nouveau les limites du plan gratuit (grace period "exceeding usage limits"
+déclenchée). Deux causes distinctes, sans rapport avec le rafraîchissement des prix :
+
+- **Cause mineure mais réelle** : `src/proxy.ts` revérifie la session en base à chaque requête
+  correspondant à son `matcher` — y compris les requêtes de **prefetch** Next.js, déclenchées dès
+  qu'un `<Link>` entre dans le viewport (les 5-6 liens de `SiteHeader` affichés sur chaque page
+  protégée), pas seulement au clic. Une seule visite de page pouvait donc déclencher jusqu'à 6
+  requêtes Postgres de vérification de session pour des liens jamais cliqués, en plus de celle de
+  la page réellement visitée. Corrigé en excluant les requêtes de prefetch (headers
+  `next-router-prefetch` / `purpose: prefetch`) du `matcher` de `proxy.ts`, via le pattern
+  documenté par Next.js lui-même pour ce cas précis.
+- **Cause dominante, indépendante de l'application** : l'essentiel des 2 604 erreurs venait en
+  réalité de Supabase lui-même, pas de l'app. Confirmé via Database → Logs → Postgres Logs :
+  l'erreur `3F000 schema "pg_pgrst_no_exposed_schemas" does not exist` revenait toutes les ~32
+  secondes en continu (≈2 700/jour — quasi exactement le volume constaté). C'est un comportement
+  connu et documenté par Supabase : quand **Enable Data API** est désactivé (ce que ce projet fait
+  volontairement, voir étape 3 ci-dessous), PostgREST ne s'arrête pas complètement et continue de
+  sonder en boucle un schéma placeholder qui n'existe pas exprès — sans impact fonctionnel réel
+  ("this should not adversely affect the project", doc Supabase), mais ça gonfle artificiellement
+  les stats de requêtes/erreurs du dashboard. Neutralisé avec le correctif officiel Supabase,
+  exécuté dans le SQL Editor du projet :
+  ```sql
+  create schema pgrst_no_exposed_schemas;
+  alter role authenticator set pgrst.db_schemas = 'pgrst_no_exposed_schemas';
+  notify pgrst;
+  ```
+  (pour revenir en arrière si le Data API est réactivé un jour :
+  `alter role authenticator reset pgrst.db_schemas; notify pgrst;`)
+
+Le compte étant déjà en grace period, le projet a de nouveau été migré vers une organisation
+Supabase neuve (même procédure qu'au 2026-08-13 : `pg_dump`/`pg_restore` du schéma **`public`
+uniquement** — en excluant délibérément les schémas internes Supabase comme `auth`/`storage`,
+vides et gérés par la plateforme, pour ne pas interférer avec leur provisioning sur le nouveau
+projet — puis changement de `DATABASE_URL`/`DIRECT_URL` sur le même projet Vercel). Le correctif
+`pg_pgrst_no_exposed_schemas` ci-dessus a été appliqué dès la création du nouveau projet, avant
+toute accumulation de bruit.
+
 ## 1. Créer la base de données (Supabase)
 
 1. Créer un compte sur [supabase.com](https://supabase.com) (gratuit, pas de carte bancaire —
@@ -69,6 +108,16 @@ ignorée ou supprimée.
    - **Enable Data API** (API REST publique inutile ici)
    - **Automatically expose new tables**
    - **Enable automatic RLS**
+
+   **Important** (voir l'incident du 2026-08-25 ci-dessus) : dès le projet créé, exécuter dans le
+   **SQL Editor** le correctif du bruit `pg_pgrst_no_exposed_schemas` — sinon PostgREST génère une
+   erreur Postgres toutes les ~30 secondes en continu, qui gonfle artificiellement les stats
+   requêtes/erreurs du dashboard et peut à elle seule déclencher un dépassement de quota :
+   ```sql
+   create schema pgrst_no_exposed_schemas;
+   alter role authenticator set pgrst.db_schemas = 'pgrst_no_exposed_schemas';
+   notify pgrst;
+   ```
 4. Une fois le projet créé, dans **Project Settings → Database**, récupérer les deux chaînes de
    connexion (bouton **"Connect"** en haut du dashboard, onglet **ORM → Prisma** donne les deux
    directement formatées) :
