@@ -292,7 +292,7 @@ vi.mock("next/cache", () => ({ updateTag: updateTagMock, revalidatePath: revalid
 
 const { closePromotionIfEnded } = await import("./promotion-lifecycle");
 
-const END = new Date("2026-08-28T09:00:00Z");
+const END = new Date("2026-08-28T10:00:00Z"); // 12:00 Paris — endDate du concours
 const PROMO = {
   id: "promo-1",
   name: "Promotion Août 2026",
@@ -329,7 +329,7 @@ describe("closePromotionIfEnded", () => {
 
   it("finalise une seule fois quand la garde transitionne (count 1)", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
-    const result = await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:00:00Z"));
+    const result = await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(result).toEqual({ closed: true });
     expect(getLeaderboardMock).toHaveBeenCalledWith("promo-1", END);
     expect(awardCloseOnlyBadgesMock).toHaveBeenCalledWith("promo-1", END);
@@ -341,7 +341,7 @@ describe("closePromotionIfEnded", () => {
 
   it("écrit une entrée Hall of Fame figée par participant (upsert update:{})", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
-    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:00:00Z"));
+    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(dbMock.hallOfFameEntry.upsert).toHaveBeenCalledTimes(2);
     expect(dbMock.hallOfFameEntry.upsert).toHaveBeenCalledWith({
       where: { promotionId_userId: { promotionId: "promo-1", userId: "u1" } },
@@ -361,7 +361,7 @@ describe("closePromotionIfEnded", () => {
 
   it("invalide les caches hall-of-fame et leaderboard", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
-    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:00:00Z"));
+    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(updateTagMock).toHaveBeenCalledWith("hall-of-fame");
     expect(updateTagMock).toHaveBeenCalledWith("leaderboard");
   });
@@ -1623,7 +1623,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ## Phase 7 — Concours actuel + vérification finale
 
-### Task 15 : Déplacer la fin du concours actuel à 11:00 Paris
+### Task 15 : Déplacer la fin du concours actuel à 12:00 Paris
 
 **Files:**
 - Aucun fichier de code. Modification de données via l'UI admin (préféré) ou script ponctuel.
@@ -1631,7 +1631,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - [ ] **Step 1 : Via l'écran admin (préféré)**
 
 `npm run dev`, se connecter admin, `/admin/promotions/<id de Promotion Août 2026>/parametres`.
-Régler « Fin (date et heure) » sur **`2026-08-28T11:00`**. Soumettre. Un avertissement d'impact peut apparaître (« déclenche le gel » — déjà gelé, sans effet) → confirmer.
+Régler « Fin (date et heure) » sur **`2026-08-28T12:00`**. Soumettre. Un avertissement d'impact peut apparaître (« déclenche le gel » — déjà gelé, sans effet) → confirmer.
 Vérifier en base que `endDate` vaut `2026-08-28T09:00:00.000Z`.
 
 - [ ] **Step 2 : Alternative — script ponctuel (si pas d'accès admin immédiat)**
@@ -1645,8 +1645,8 @@ import { PrismaClient } from "./src/generated/prisma/client";
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const p = await db.promotion.findFirstOrThrow({ where: { name: "Promotion Août 2026" } });
 console.log("avant:", p.endDate.toISOString(), p.status);
-await db.promotion.update({ where: { id: p.id }, data: { endDate: new Date("2026-08-28T09:00:00Z") } });
-console.log("après: 2026-08-28T09:00:00Z");
+await db.promotion.update({ where: { id: p.id }, data: { endDate: new Date("2026-08-28T10:00:00Z") } });
+console.log("après: 2026-08-28T10:00:00Z (= 12:00 Paris)");
 process.exit(0);
 ```
 
@@ -1655,7 +1655,7 @@ Run: `npx tsx _scratch_set_end.ts` puis `rm _scratch_set_end.ts`.
 
 - [ ] **Step 3 : Vérifier la clôture automatique**
 
-Après 11:00 Paris (ou en repassant temporairement `endDate` dans le passé pour tester puis en la remettant) : charger `/dashboard` en participant → redirection `/resultats`, entrées `HallOfFameEntry` créées (3), `status = CLOSED`, sessions `CLOSED`. Recharger `/dashboard` plusieurs fois → aucune entrée en double, résultat inchangé (idempotence).
+Après 12:00 Paris (ou en repassant temporairement `endDate` dans le passé pour tester puis en la remettant) : charger `/dashboard` en participant → redirection `/resultats`, entrées `HallOfFameEntry` créées (3), `status = CLOSED`, sessions `CLOSED`. Recharger `/dashboard` plusieurs fois → aucune entrée en double, résultat inchangé (idempotence).
 
 ### Task 16 : Vérification finale complète
 
@@ -1696,7 +1696,7 @@ git status   # doit être propre, aucun _scratch_* résiduel
 | Exigence spec | Task |
 |---|---|
 | §1 analyse (fait avant le plan) | — (rapport livré) |
-| §2 concours actuel → fin 11:00 Paris | Task 15 |
+| §2 concours actuel → fin 12:00 Paris | Task 15 |
 | §2 ne pas toucher transactions/positions/perfs | Task 15 (un seul champ), contrainte globale |
 | §3 date+heure début/fin obligatoires futurs concours | Tasks 12, 13 |
 | §3 règlement affiche date+heure | Task 14 |
