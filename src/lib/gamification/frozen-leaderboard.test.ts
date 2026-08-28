@@ -19,17 +19,17 @@ describe("getFrozenLeaderboard", () => {
     });
   });
 
-  it("mappe les lignes et convertit les Decimal en nombres", async () => {
+  it("mappe les lignes (Decimal → nombres) et remonte la photo figée de chaque ligne", async () => {
     dbMock.hallOfFameEntry.findMany.mockResolvedValue([
-      { userId: "u1", userName: "Alice", finalRank: 1, finalReturnPct: "12.5", finalPnlEur: "120000.00" },
-      { userId: "u2", userName: "Bob", finalRank: 2, finalReturnPct: "-2", finalPnlEur: "-20000" },
+      { userId: "u1", userName: "Alice", finalRank: 1, finalReturnPct: "12.5", finalPnlEur: "120000.00", avatarUrl: "data:img-alice" },
+      { userId: "u2", userName: "Bob", finalRank: 2, finalReturnPct: "-2", finalPnlEur: "-20000", avatarUrl: null },
     ]);
 
     const rows = await getFrozenLeaderboard("p1");
 
     expect(rows).toEqual([
-      { userId: "u1", userName: "Alice", finalRank: 1, finalReturnPct: 12.5, finalPnlEur: 120000 },
-      { userId: "u2", userName: "Bob", finalRank: 2, finalReturnPct: -2, finalPnlEur: -20000 },
+      { userId: "u1", userName: "Alice", finalRank: 1, finalReturnPct: 12.5, finalPnlEur: 120000, avatarUrl: "data:img-alice" },
+      { userId: "u2", userName: "Bob", finalRank: 2, finalReturnPct: -2, finalPnlEur: -20000, avatarUrl: null },
     ]);
     expect(typeof rows[0].finalReturnPct).toBe("number");
   });

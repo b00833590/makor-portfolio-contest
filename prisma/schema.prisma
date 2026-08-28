@@ -357,6 +357,10 @@ model HallOfFameEntry {
   finalReturnPct Decimal  @db.Decimal(9, 6)
   finalPnlEur    Decimal  @db.Decimal(18, 2)
   finalRank      Int
+  /// Snapshot de la photo de profil (data URL) au moment de la clôture — pas
+  /// de jointure vers User à la lecture : l'historique reste identique même si
+  /// la personne change ou retire sa photo ensuite. Nul si aucune photo.
+  avatarUrl      String?  @db.Text
   closedAt       DateTime
   createdAt      DateTime @default(now())
 

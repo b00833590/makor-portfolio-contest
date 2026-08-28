@@ -1,25 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-let storedEntries: unknown[] = [];
+let storedEntries: Record<string, unknown>[] = [];
 
+interface AvatarOrCond {
+  finalRank?: { lte: number };
+  userId?: string;
+}
 interface FindManyOptions {
-  orderBy?: {
-    finalReturnPct?: "asc" | "desc";
-  };
+  orderBy?: { finalReturnPct?: "asc" | "desc" };
+  where?: { avatarUrl?: { not: null }; OR?: AvatarOrCond[] };
 }
 
+// Le mock reproduit le contrat Prisma dont dépend getHallOfFame : `orderBy`
+// (tri délégué à la base) et le `where` de la 2e requête (photos du podium +
+// du visiteur uniquement). Si l'un ou l'autre est retiré du code, les tests
+// ci-dessous doivent casser.
 const dbMock = {
   hallOfFameEntry: {
     findMany: vi.fn(async (options: FindManyOptions) => {
-      // Note: mirrors Prisma's { orderBy: { finalReturnPct: "desc" } } contract;
-      // if this sort is removed, tests below must fail to catch the regression.
-      const data = [...storedEntries];
-      if (options?.orderBy?.finalReturnPct === "desc") {
-        return data.sort((a, b) => {
-          const aVal = (a as Record<string, number>).finalReturnPct;
-          const bVal = (b as Record<string, number>).finalReturnPct;
-          return bVal - aVal;
+      let data = [...storedEntries];
+      if (options?.where) {
+        const w = options.where;
+        data = data.filter((row) => {
+          if (w.avatarUrl?.not === null && row.avatarUrl == null) return false;
+          if (w.OR) {
+            return w.OR.some((cond) => {
+              if (cond.finalRank?.lte != null) return (row.finalRank as number) <= cond.finalRank.lte;
+              if (cond.userId != null) return row.userId === cond.userId;
+              return false;
+            });
+          }
+          return true;
         });
+      }
+      if (options?.orderBy?.finalReturnPct === "desc") {
+        data.sort((a, b) => (b.finalReturnPct as number) - (a.finalReturnPct as number));
       }
       return data;
     }),
@@ -27,7 +42,6 @@ const dbMock = {
 };
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
-vi.mock("next/cache", () => ({ unstable_cache: (fn: unknown) => fn }));
 
 const { getHallOfFame } = await import("./hall-of-fame");
 
@@ -36,6 +50,7 @@ function entry(over: Partial<Record<string, unknown>>) {
     promotionId: "p1", promotionName: "Saison 1",
     userName: "Alice",
     finalReturnPct: 10, finalPnlEur: 100_000, finalRank: 1,
+    avatarUrl: null as string | null,
     closedAt: new Date("2026-01-31T00:00:00Z"),
     ...over,
   };
@@ -112,6 +127,17 @@ describe("getHallOfFame", () => {
     expect(data.seasons).toHaveLength(1);
     expect(data.seasons[0].podium.map((e) => e.finalRank)).toEqual([1, 2, 3]);
     expect(data.seasons[0].podium.map((e) => e.userName)).toEqual(["A", "B", "C"]);
+  });
+
+  it("ne renvoie la photo que pour le podium (rang ≤ 3) et pour le visiteur", async () => {
+    storedEntries = [
+      entry({ userId: "u1", userName: "A", finalRank: 1, avatarUrl: "img-a", promotionId: "p1", promotionName: "S1", finalReturnPct: 30 }),
+      entry({ userId: "u4", userName: "D", finalRank: 4, avatarUrl: "img-d", promotionId: "p1", promotionName: "S1", finalReturnPct: 5 }),
+      entry({ userId: "viewer", userName: "V", finalRank: 7, avatarUrl: "img-v", promotionId: "p1", promotionName: "S1", finalReturnPct: -8 }),
+    ];
+    const data = await getHallOfFame("viewer");
+    const byName = Object.fromEntries(data.entries.map((e) => [e.userName, e.avatarUrl]));
+    expect(byName).toEqual({ A: "img-a", D: null, V: "img-v" });
   });
 
   it("trie les participations par bestReturnPct décroissant", async () => {

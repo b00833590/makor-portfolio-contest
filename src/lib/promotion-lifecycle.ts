@@ -54,6 +54,16 @@ export async function finalizePromotionClosure(promotionId: string): Promise<voi
   // Badges de fin de concours (superlatifs + conditions "tout le concours").
   await awardCloseOnlyBadges(promotionId, asOf, finalRows);
 
+  // Snapshot des photos de profil telles qu'elles sont à la clôture — figées
+  // dans l'entrée pour que l'historique reste cohérent si la personne change
+  // sa photo ensuite. getLeaderboard ne renvoie l'avatar que pour le podium ;
+  // on charge donc tous les participants ici.
+  const avatarRows = await db.user.findMany({
+    where: { id: { in: finalRows.map((row) => row.userId) } },
+    select: { id: true, avatarUrl: true },
+  });
+  const avatarByUserId = new Map(avatarRows.map((row) => [row.id, row.avatarUrl]));
+
   // Historique figé — une entrée par participant, jamais modifiée si elle
   // existe. `createMany({ skipDuplicates: true })` est atomique : un rejeu
   // (ou une finalisation concurrente) est un no-op grâce à la contrainte
@@ -67,19 +77,20 @@ export async function finalizePromotionClosure(promotionId: string): Promise<voi
       finalReturnPct: row.cumulativeReturnPct,
       finalPnlEur: row.totalValue - initialCapital,
       finalRank: row.rank,
+      avatarUrl: avatarByUserId.get(row.userId) ?? null,
       closedAt: asOf,
     })),
     skipDuplicates: true,
   });
 
-  // Invalidation best-effort : revalidateTag fonctionne depuis une server
-  // action et un route handler, mais lève si finalizePromotionClosure tourne
-  // pendant le rendu d'une page (chemin de clôture paresseuse). Les écritures
-  // ci-dessus sont déjà committées — une invalidation manquée signifie juste
-  // que le classement / Hall of Fame se rafraîchissent à leur fenêtre de
+  // Invalidation best-effort du classement live (le Hall of Fame n'est plus
+  // caché — hall-of-fame.ts lit la table à chaque affichage). `revalidateTag`
+  // fonctionne depuis une server action et un route handler, mais lève si
+  // finalizePromotionClosure tourne pendant le rendu d'une page (clôture
+  // paresseuse). L'écriture ci-dessus est déjà committée — une invalidation
+  // manquée signifie juste que le classement se rafraîchit à sa fenêtre de
   // revalidation habituelle au lieu d'instantanément.
   try {
-    revalidateTag("hall-of-fame", "max");
     revalidateTag("leaderboard", "max");
   } catch {
     // rendu RSC : ignoré volontairement, voir ci-dessus
@@ -98,8 +109,15 @@ export async function closeEndedPromotions(now: Date = new Date()): Promise<stri
   });
   const closed: string[] = [];
   for (const candidate of candidates) {
-    const result = await closePromotionIfEnded(candidate.id, now);
-    if (result.closed) closed.push(candidate.id);
+    try {
+      const result = await closePromotionIfEnded(candidate.id, now);
+      if (result.closed) closed.push(candidate.id);
+    } catch {
+      // La transition ACTIVE → CLOSED est committée avant que la finalisation
+      // puisse lever (API de prix indisponible, timeout…) — le balayage
+      // `stuck` ci-dessous la rejoue, et on ne casse pas la page appelante
+      // (le Hall of Fame est le seul accès de l'admin aux résultats).
+    }
   }
 
   // Filet de sécurité : promotions déjà CLOSED mais dont la finalisation a été

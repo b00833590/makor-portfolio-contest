@@ -7,6 +7,7 @@ import { getFrozenLeaderboard } from "@/lib/gamification/frozen-leaderboard";
 import { finalizePromotionClosure } from "@/lib/promotion-lifecycle";
 import { formatParisDateTimeLong } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
+import { UserAvatar } from "@/components/user-avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ export default async function ResultatsPage() {
   const me = rows.find((row) => row.userId === session.user.id) ?? null;
   const podium = rows.slice(0, 3).map((row) => ({
     userName: row.userName,
+    avatarUrl: row.avatarUrl,
     finalRank: row.finalRank,
     finalReturnPct: row.finalReturnPct,
     isSelf: row.userId === session.user.id,
@@ -81,8 +83,14 @@ export default async function ResultatsPage() {
           <CardHeader>
             <CardTitle className="text-center">Vainqueur</CardTitle>
           </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-xl font-semibold">{winner.userName}</p>
+          <CardContent className="flex flex-col items-center gap-1 text-center">
+            <UserAvatar
+              name={winner.userName}
+              avatarUrl={winner.avatarUrl}
+              className="size-16"
+              fallbackClassName="text-lg"
+            />
+            <p className="mt-1 text-xl font-semibold">{winner.userName}</p>
             <p className={perfClassName(winner.finalReturnPct)}>
               {formatPct(winner.finalReturnPct)}{" "}
               <span className="text-sm font-normal text-muted-foreground">
@@ -101,10 +109,13 @@ export default async function ResultatsPage() {
             <CardHeader>
               <CardTitle>Votre résultat</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-baseline justify-between">
-              <span className="text-sm text-muted-foreground">
-                {me.finalRank}
-                <sup>{me.finalRank === 1 ? "er" : "e"}</sup> sur {rows.length}
+            <CardContent className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <UserAvatar name={me.userName} avatarUrl={me.avatarUrl} size="sm" className="shrink-0" />
+                <span>
+                  {me.finalRank}
+                  <sup>{me.finalRank === 1 ? "er" : "e"}</sup> sur {rows.length}
+                </span>
               </span>
               <span className={perfClassName(me.finalReturnPct)}>
                 {formatPct(me.finalReturnPct)}{" "}
@@ -129,9 +140,12 @@ export default async function ResultatsPage() {
                   row.userId === session.user.id && "rounded-lg bg-muted/50 font-medium",
                 )}
               >
-                <span className="flex items-center gap-2">
-                  <span className="w-5 text-center tabular-nums text-muted-foreground">{row.finalRank}</span>
-                  <span>{row.userName}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="w-5 shrink-0 text-center tabular-nums text-muted-foreground">
+                    {row.finalRank}
+                  </span>
+                  <UserAvatar name={row.userName} avatarUrl={row.avatarUrl} size="sm" className="shrink-0" />
+                  <span className="min-w-0 truncate">{row.userName}</span>
                 </span>
                 <span className={cn("tabular-nums", row.finalReturnPct >= 0 ? "text-gain" : "text-loss")}>
                   {formatPct(row.finalReturnPct)}

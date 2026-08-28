@@ -1,6 +1,9 @@
 import "server-only";
-import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+
+/** Podium = 3 premiers. Sert de coupe pour les cartes "saison" ET pour savoir
+ *  jusqu'où on remonte la photo de profil dans la vue all-time. */
+const PODIUM_RANK = 3;
 
 export interface HallOfFameEntryView {
   promotionId: string;
@@ -10,6 +13,10 @@ export interface HallOfFameEntryView {
   finalReturnPct: number;
   finalPnlEur: number;
   finalRank: number;
+  /** Photo figée à la clôture. Renvoyée seulement pour le podium (rang ≤ 3)
+   *  et pour les entrées du visiteur — les autres retombent sur les initiales,
+   *  pour ne pas transférer des dizaines de data URLs sur la page all-time. */
+  avatarUrl: string | null;
   closedAt: Date;
 }
 
@@ -36,12 +43,34 @@ export interface HallOfFameData {
 }
 
 /**
- * Historique figé : lecture unique de HallOfFameEntry (écrite une seule fois
- * à la clôture de chaque promotion — voir src/lib/promotion-lifecycle.ts).
- * Aucun recalcul, la performance n'y bouge plus.
+ * Historique figé : lecture de HallOfFameEntry (écrite une seule fois à la
+ * clôture de chaque promotion — voir src/lib/promotion-lifecycle.ts). Aucun
+ * recalcul, la performance n'y bouge plus. Pas de cache : page consultée
+ * ponctuellement (pas de polling), requête indexée légère — un `unstable_cache`
+ * ici ne faisait que servir une valeur périmée après une clôture (invalidation
+ * par tag avalée en silence pendant un rendu RSC).
+ *
+ * Les photos (data URL, jusqu'à 400 Ko chacune) NE sont PAS ramenées pour
+ * toutes les lignes — une 2e requête ciblée ne charge que le podium (rang ≤ 3)
+ * et les entrées du visiteur, pour ne pas rejouer l'incident d'egress d'août
+ * (dizaines de data URLs tirées de Postgres à chaque affichage).
  */
-export async function getHallOfFame(): Promise<HallOfFameData> {
-  const rows = await db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" } });
+export async function getHallOfFame(viewerUserId?: string): Promise<HallOfFameData> {
+  const [rows, avatarRows] = await Promise.all([
+    db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" }, omit: { avatarUrl: true } }),
+    db.hallOfFameEntry.findMany({
+      where: {
+        avatarUrl: { not: null },
+        OR: [
+          { finalRank: { lte: PODIUM_RANK } },
+          ...(viewerUserId ? [{ userId: viewerUserId }] : []),
+        ],
+      },
+      // finalRank est unique par promotion → clé stable (promotionId, finalRank).
+      select: { promotionId: true, finalRank: true, avatarUrl: true },
+    }),
+  ]);
+  const avatarByEntry = new Map(avatarRows.map((r) => [`${r.promotionId}:${r.finalRank}`, r.avatarUrl]));
 
   const entries: HallOfFameEntryView[] = rows.map((row) => ({
     promotionId: row.promotionId,
@@ -51,6 +80,7 @@ export async function getHallOfFame(): Promise<HallOfFameData> {
     finalReturnPct: Number(row.finalReturnPct),
     finalPnlEur: Number(row.finalPnlEur),
     finalRank: row.finalRank,
+    avatarUrl: avatarByEntry.get(`${row.promotionId}:${row.finalRank}`) ?? null,
     closedAt: row.closedAt,
   }));
 
@@ -66,7 +96,7 @@ export async function getHallOfFame(): Promise<HallOfFameData> {
       };
       seasonMap.set(entry.promotionId, season);
     }
-    if (entry.finalRank <= 3) season.podium.push(entry);
+    if (entry.finalRank <= PODIUM_RANK) season.podium.push(entry);
   }
   const seasons = [...seasonMap.values()]
     .map((season) => ({ ...season, podium: [...season.podium].sort((a, b) => a.finalRank - b.finalRank) }))
@@ -98,13 +128,3 @@ export async function getHallOfFame(): Promise<HallOfFameData> {
 
   return { entries, seasons, participations };
 }
-
-/**
- * Mise en cache, tag `hall-of-fame` — invalidé uniquement à la clôture d'une
- * promotion (finalizePromotionClosure). La fenêtre de revalidation n'est
- * qu'un filet.
- */
-export const getCachedHallOfFame = unstable_cache(getHallOfFame, ["hall-of-fame"], {
-  revalidate: 3600,
-  tags: ["hall-of-fame"],
-});

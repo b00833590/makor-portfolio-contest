@@ -10,6 +10,7 @@ const formatPct = (value: number): string => `${value >= 0 ? "+" : ""}${value.to
 
 export interface PodiumEntry {
   userName: string;
+  avatarUrl: string | null;
   finalRank: number;
   finalReturnPct: number;
   isSelf: boolean;
@@ -44,7 +45,12 @@ export function ResultsPodium({ promotionId, entries }: { promotionId: string; e
             )}
           >
             <span className="text-3xl">{medals[place - 1]}</span>
-            <UserAvatar name={entry.userName} avatarUrl={null} className="mt-1 size-11 text-base" />
+            <UserAvatar
+              name={entry.userName}
+              avatarUrl={entry.avatarUrl}
+              className={cn("mt-1", place === 1 ? "size-14" : "size-11")}
+              fallbackClassName="text-base"
+            />
             <p className="mt-1 text-sm font-medium">{entry.userName}</p>
             <p
               className={cn(

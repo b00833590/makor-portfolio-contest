@@ -5,6 +5,7 @@ const dbMock = {
   promotion: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn() },
   changeSession: { updateMany: vi.fn() },
   hallOfFameEntry: { createMany: vi.fn() },
+  user: { findMany: vi.fn() },
 };
 const getLeaderboardMock = vi.fn();
 const awardCloseOnlyBadgesMock = vi.fn();
@@ -38,6 +39,10 @@ function resetMocks() {
   dbMock.promotion.findMany.mockResolvedValue([]);
   dbMock.changeSession.updateMany.mockResolvedValue({ count: 0 });
   dbMock.hallOfFameEntry.createMany.mockResolvedValue({ count: 2 });
+  dbMock.user.findMany.mockResolvedValue([
+    { id: "u1", avatarUrl: "data:image/jpeg;base64,alice" },
+    { id: "u2", avatarUrl: null },
+  ]);
   awardCloseOnlyBadgesMock.mockResolvedValue([]);
   getLeaderboardMock.mockResolvedValue([
     { userId: "u1", name: "Alice", portfolioId: "p1", totalValue: 1_120_000, cumulativeReturnPct: 12, rank: 1 },
@@ -78,10 +83,14 @@ describe("closePromotionIfEnded", () => {
     });
   });
 
-  it("écrit le classement figé en un seul createMany atomique (skipDuplicates)", async () => {
+  it("écrit le classement figé en un seul createMany atomique (skipDuplicates), avec snapshot des photos", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
     await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(dbMock.hallOfFameEntry.createMany).toHaveBeenCalledTimes(1);
+    expect(dbMock.user.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["u1", "u2"] } },
+      select: { id: true, avatarUrl: true },
+    });
     expect(dbMock.hallOfFameEntry.createMany).toHaveBeenCalledWith({
       data: [
         {
@@ -92,6 +101,7 @@ describe("closePromotionIfEnded", () => {
           finalReturnPct: 12,
           finalPnlEur: 120_000,
           finalRank: 1,
+          avatarUrl: "data:image/jpeg;base64,alice",
           closedAt: END,
         },
         {
@@ -102,6 +112,7 @@ describe("closePromotionIfEnded", () => {
           finalReturnPct: -2,
           finalPnlEur: -20_000,
           finalRank: 2,
+          avatarUrl: null,
           closedAt: END,
         },
       ],
@@ -109,11 +120,11 @@ describe("closePromotionIfEnded", () => {
     });
   });
 
-  it("invalide les caches hall-of-fame et leaderboard", async () => {
+  it("invalide le cache du classement, plus le Hall of Fame (qui n'est plus caché)", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
     await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
-    expect(revalidateTagMock).toHaveBeenCalledWith("hall-of-fame", "max");
     expect(revalidateTagMock).toHaveBeenCalledWith("leaderboard", "max");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("hall-of-fame", "max");
   });
 
   it("ne casse pas si revalidateTag lève (rendu RSC hors server action)", async () => {
@@ -192,6 +203,18 @@ describe("finalizePromotionClosure", () => {
     await finalizePromotionClosure("promo-1");
     expect(dbMock.hallOfFameEntry.createMany).toHaveBeenCalledTimes(1);
     expect(dbMock.hallOfFameEntry.createMany.mock.calls[0][0]).toHaveProperty("skipDuplicates", true);
+  });
+
+  it("cohorte vide : findMany({ id: { in: [] } }) et createMany({ data: [] }) sans planter", async () => {
+    getLeaderboardMock.mockResolvedValue([]);
+
+    await expect(finalizePromotionClosure("promo-1")).resolves.toBeUndefined();
+
+    expect(dbMock.user.findMany).toHaveBeenCalledWith({
+      where: { id: { in: [] } },
+      select: { id: true, avatarUrl: true },
+    });
+    expect(dbMock.hallOfFameEntry.createMany).toHaveBeenCalledWith({ data: [], skipDuplicates: true });
   });
 
   it("clôture anticipée : asOf = now quand endDate est dans le futur (pas de date de fin future)", async () => {

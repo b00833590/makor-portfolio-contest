@@ -224,6 +224,12 @@ function FrozenStandings({
               )}
             >
               <span className="text-3xl">{medals[row.finalRank - 1] ?? row.finalRank}</span>
+              <UserAvatar
+                name={row.userName}
+                avatarUrl={row.avatarUrl}
+                className={cn("mt-1", row.finalRank === 1 ? "size-12" : "size-10")}
+                fallbackClassName="text-base"
+              />
               <p className="mt-1 font-medium">{row.userName}</p>
               <p className={cn("text-lg font-semibold tabular-nums", row.finalReturnPct >= 0 ? "text-gain" : "text-loss")}>
                 {row.finalReturnPct >= 0 ? "+" : ""}
@@ -258,6 +264,7 @@ function FrozenStandings({
                   </TableCell>
                   <TableCell className="overflow-hidden">
                     <div className="flex min-w-0 items-center gap-2">
+                      <UserAvatar name={row.userName} avatarUrl={row.avatarUrl} size="sm" className="shrink-0" />
                       <span className="min-w-0 truncate">{row.userName}</span>
                       {row.userId === selfUserId && (
                         <Badge variant="secondary" className="shrink-0">

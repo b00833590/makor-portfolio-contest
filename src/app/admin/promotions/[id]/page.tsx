@@ -2,12 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { ChangeSessionKind } from "@/generated/prisma/enums";
-import { formatParisDate } from "@/lib/timezone";
+import { formatParisDate, formatParisDateTime, toParisDateTimeLocalValue } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
-import { toParisDateTimeLocalValue, formatParisDateTime } from "@/lib/timezone";
 import { computeChangeSessionStatus } from "@/lib/trading/change-session-status";
 import { ChangeSessionForm } from "./change-session-form";
 import { ChangeSessionsList, type ChangeSessionViewModel } from "./change-sessions-list";
@@ -82,7 +81,7 @@ export default async function PromotionDetailPage({
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          {formatParisDate(promotion.startDate)} → {formatParisDate(promotion.endDate)}
+          {formatParisDateTime(promotion.startDate)} → {formatParisDateTime(promotion.endDate)} (heure de Paris)
         </p>
       </div>
 
