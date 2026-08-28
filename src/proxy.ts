@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionGate } from "@/lib/auth/session";
 
-const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/admin", "/change-password"];
+const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/resultats", "/admin", "/change-password"];
 const adminPrefixes = ["/admin"];
 const CHANGE_PASSWORD_PATH = "/change-password";
 

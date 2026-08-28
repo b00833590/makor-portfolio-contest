@@ -49,12 +49,12 @@ export function PromotionSettingsForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="startDate">Date de début</Label>
-          <Input id="startDate" name="startDate" type="date" required defaultValue={startDate} />
+          <Label htmlFor="startDate">Début (date et heure)</Label>
+          <Input id="startDate" name="startDate" type="datetime-local" required defaultValue={startDate} />
         </div>
         <div>
-          <Label htmlFor="endDate">Date de fin</Label>
-          <Input id="endDate" name="endDate" type="date" required defaultValue={endDate} />
+          <Label htmlFor="endDate">Fin (date et heure)</Label>
+          <Input id="endDate" name="endDate" type="datetime-local" required defaultValue={endDate} />
         </div>
         <div>
           <Label htmlFor="initialCapital">Capital initial (€)</Label>

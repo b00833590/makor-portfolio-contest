@@ -4,8 +4,8 @@ import { createPromotionSchema } from "./schema";
 function validInput(overrides: Record<string, unknown> = {}) {
   return {
     name: "Promotion Été 2026",
-    startDate: "2026-09-01",
-    endDate: "2026-09-30",
+    startDate: "2026-09-01T09:00",
+    endDate: "2026-09-30T18:00",
     initialCapital: "1000000",
     minPositionSize: "25000",
     maxPositionSize: "100000",
@@ -32,11 +32,19 @@ describe("createPromotionSchema", () => {
 
   it("rejects an end date before the start date", () => {
     const result = createPromotionSchema.safeParse(
-      validInput({ startDate: "2026-09-30", endDate: "2026-09-01" }),
+      validInput({ startDate: "2026-09-30T09:00", endDate: "2026-09-01T18:00" }),
     );
 
     expect(result.success).toBe(false);
     expect(result.success === false && result.error.issues[0]?.path).toEqual(["endDate"]);
+  });
+
+  it("rejects a date without a time (old date-only format)", () => {
+    const result = createPromotionSchema.safeParse(
+      validInput({ startDate: "2026-09-01", endDate: "2026-09-30T18:00" }),
+    );
+
+    expect(result.success).toBe(false);
   });
 
   it("rejects a max position size smaller than the min", () => {

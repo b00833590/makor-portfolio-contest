@@ -16,7 +16,7 @@ Concours actuel « Promotion Août 2026 » : `ACTIVE`, `endDate = 2026-08-28T00:
 
 ## Objectifs
 
-1. Concours actuel : fin aujourd'hui **28/08 à 12:00 Paris** (`endDate = 2026-08-28T10:00:00Z`), clôture automatique à cette heure.
+1. Concours actuel : fin aujourd'hui **28/08 à 13:00 Paris** (`endDate = 2026-08-28T11:00:00Z`), clôture automatique à cette heure.
 2. Clôture automatique **idempotente** de toute promotion dont `endDate` est atteinte : statut `CLOSED`, sessions fermées, trading bloqué, classement final figé, badges close-only attribués, Hall of Fame rempli.
 3. Robustesse : la clôture se produit même si personne n'est connecté à l'instant exact (au retour d'un participant, ou via le cron nocturne existant — **aucun nouveau cron**).
 4. Futurs concours : date **et heure** obligatoires (début + fin), fuseau Europe/Paris, affichées dans le règlement.
@@ -101,7 +101,7 @@ Relations inverses ajoutées sur `Promotion` (`hallOfFameEntries HallOfFameEntry
 - `userId` nullable + `SetNull` : supprimer un compte ne détruit pas l'historique ; `userName`/`promotionName` dénormalisés le rendent lisible sans jointure.
 - `@@unique([promotionId, userId])` : idempotence de l'upsert. (Note Postgres : `NULL` n'entre pas en conflit dans un index unique — non bloquant, un `userId` null ne survient qu'après suppression de compte, après écriture initiale.)
 - Migration : **création de table + FK uniquement**. Nom : `20260828xxxxxx_hall_of_fame_entry`. Appliquée en prod par `prisma migrate deploy` au build (voir note P1002 dans la mémoire projet — relancer le build si lock).
-- Backfill : aucun (0 promotion `CLOSED`). Le concours actuel remplit la table à 12:00.
+- Backfill : aucun (0 promotion `CLOSED`). Le concours actuel remplit la table à 13:00.
 
 ### 4. `src/lib/gamification/hall-of-fame.ts` — réécrit
 
@@ -151,11 +151,11 @@ Lecture unique de `HallOfFameEntry`, tri/agrégation en mémoire. `pick-winner.t
 | `src/components/rules-document.tsx` | nouvelle `SectionCard` « Calendrier du concours » en tête : **Début** `formatParisDateTimeLong(startDate)`, **Fin** `formatParisDateTimeLong(endDate)`. Badge d'en-tête : `formatParisDateTime` au lieu de `formatParisDate`. |
 | `src/lib/timezone.ts` | ajout `formatParisDateTimeLong` → `"12 septembre 2026 à 09h00"` (`Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" })` retravaillé pour le `à ...h..`) |
 
-Rétrocompat : les promotions existantes ont déjà un `endDate` `DateTime` complet — l'input `datetime-local` prérempli affichera juste l'heure (02:00 pour l'actuel, 12:00 après ajustement).
+Rétrocompat : les promotions existantes ont déjà un `endDate` `DateTime` complet — l'input `datetime-local` prérempli affichera juste l'heure (02:00 pour l'actuel, 13:00 après ajustement).
 
 ### 8. Concours actuel
 
-`endDate` → `2026-08-28T10:00:00Z` via l'écran **Paramètres** admin (un champ, chemin `updatePromotionSettings` existant, avec ses avertissements d'impact). À défaut d'accès admin immédiat : script ponctuel `tsx` en scratchpad (lecture/écriture d'un seul champ). Aucune autre donnée touchée. `closePromotionIfEnded` clôture au premier hit après 12:00.
+`endDate` → `2026-08-28T11:00:00Z` via l'écran **Paramètres** admin (un champ, chemin `updatePromotionSettings` existant, avec ses avertissements d'impact). À défaut d'accès admin immédiat : script ponctuel `tsx` en scratchpad (lecture/écriture d'un seul champ). Aucune autre donnée touchée. `closePromotionIfEnded` clôture au premier hit après 13:00.
 
 ## Idempotence — récapitulatif (§8 de la demande)
 
@@ -185,5 +185,5 @@ Rétrocompat : les promotions existantes ont déjà un `endDate` `DateTime` comp
 5. `/resultats` + `ResultsPodium` + redirection dashboard + cookie.
 6. `/leaderboard` figé quand `CLOSED`.
 7. `datetime-local` + schémas + `formatParisDateTimeLong` + règlement.
-8. Ajustement `endDate` du concours actuel à 12:00 Paris.
+8. Ajustement `endDate` du concours actuel à 13:00 Paris.
 9. `npm test`, `npm run lint`, `npx tsc --noEmit`, vérif manuelle.

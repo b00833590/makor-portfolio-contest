@@ -212,11 +212,12 @@ async function buildCloseOnlySummary(
 export async function awardCloseOnlyBadges(
   promotionId: string,
   now: Date = new Date(),
+  precomputedLeaderboard?: LeaderboardRow[],
 ): Promise<{ userId: string; code: string }[]> {
   await ensureBadgesSeeded();
 
   const [leaderboard, promotion] = await Promise.all([
-    getLeaderboard(promotionId, now),
+    precomputedLeaderboard ?? getLeaderboard(promotionId, now),
     db.promotion.findUniqueOrThrow({ where: { id: promotionId } }),
   ]);
   if (leaderboard.length === 0) return [];

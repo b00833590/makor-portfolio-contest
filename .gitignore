@@ -49,3 +49,6 @@ next-env.d.ts
 
 # harness/session artifacts (not project code)
 /.claude/
+
+# SDD workflow scaffolding (subagent-driven-development)
+.superpowers/

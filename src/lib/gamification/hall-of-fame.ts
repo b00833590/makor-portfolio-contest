@@ -1,80 +1,108 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { PromotionStatus } from "@/generated/prisma/enums";
-import { pickWinner } from "./pick-winner";
 
-export interface SeasonWinner {
-  userId: string;
-  name: string;
-  cumulativeReturnPct: number;
-}
-
-export interface SeasonResult {
+export interface HallOfFameEntryView {
   promotionId: string;
-  name: string;
-  startDate: Date;
-  endDate: Date;
-  winner: SeasonWinner | null;
+  promotionName: string;
+  userId: string | null;
+  userName: string;
+  finalReturnPct: number;
+  finalPnlEur: number;
+  finalRank: number;
+  closedAt: Date;
+}
+
+export interface HallOfFameSeason {
+  promotionId: string;
+  promotionName: string;
+  closedAt: Date;
+  podium: HallOfFameEntryView[];
+}
+
+export interface HallOfFameParticipation {
+  userName: string;
+  count: number;
+  bestReturnPct: number;
+}
+
+export interface HallOfFameData {
+  /** Toutes les participations, meilleure performance de tous les temps en tête. */
+  entries: HallOfFameEntryView[];
+  /** Podiums (rang 1-3) groupés par saison, la plus récente d'abord. */
+  seasons: HallOfFameSeason[];
+  /** Nombre de participations et meilleure perf par personne. */
+  participations: HallOfFameParticipation[];
 }
 
 /**
- * Le Hall of Fame doit rester un enregistrement historique figé : il ne doit
- * jamais dépendre de `getLeaderboard`, qui recalcule la valeur des positions
- * ENCORE OUVERTES au prix de marché ACTUEL. Pour une saison clôturée, ce
- * serait faire fluctuer indéfiniment le classement (et potentiellement
- * changer le vainqueur désigné) au gré du marché, des mois après la fin du
- * concours. On lit donc le dernier `PerformanceSnapshot` de chaque
- * portefeuille (pré-calculé au moment de la clôture), jamais un recalcul live.
+ * Historique figé : lecture unique de HallOfFameEntry (écrite une seule fois
+ * à la clôture de chaque promotion — voir src/lib/promotion-lifecycle.ts).
+ * Aucun recalcul, la performance n'y bouge plus.
  */
-export async function getHallOfFame(): Promise<SeasonResult[]> {
-  const closedPromotions = await db.promotion.findMany({
-    where: { status: PromotionStatus.CLOSED },
-    orderBy: { endDate: "desc" },
-  });
+export async function getHallOfFame(): Promise<HallOfFameData> {
+  const rows = await db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" } });
 
-  const results: SeasonResult[] = [];
-  for (const promotion of closedPromotions) {
-    const portfolios = await db.portfolio.findMany({
-      where: { promotionId: promotion.id },
-      include: { user: { select: { id: true, name: true } } },
-    });
-    const userByPortfolioId = new Map(portfolios.map((portfolio) => [portfolio.id, portfolio.user]));
+  const entries: HallOfFameEntryView[] = rows.map((row) => ({
+    promotionId: row.promotionId,
+    promotionName: row.promotionName,
+    userId: row.userId,
+    userName: row.userName,
+    finalReturnPct: Number(row.finalReturnPct),
+    finalPnlEur: Number(row.finalPnlEur),
+    finalRank: row.finalRank,
+    closedAt: row.closedAt,
+  }));
 
-    // Un seul aller-retour pour tous les portefeuilles de la saison (au lieu
-    // d'un findFirst par portefeuille) — même pattern `distinct` que le
-    // dernier prix par actif dans ingest.ts.
-    const finalSnapshots = await db.performanceSnapshot.findMany({
-      where: { portfolioId: { in: portfolios.map((portfolio) => portfolio.id) }, timestamp: { lte: promotion.endDate } },
-      orderBy: { timestamp: "desc" },
-      distinct: ["portfolioId"],
-    });
-
-    const finalEntries = finalSnapshots.map((snapshot) => {
-      const user = userByPortfolioId.get(snapshot.portfolioId)!;
-      return { userId: user.id, name: user.name, cumulativeReturnPct: Number(snapshot.cumulativeReturnPct) };
-    });
-
-    const winner = pickWinner(finalEntries);
-
-    results.push({
-      promotionId: promotion.id,
-      name: promotion.name,
-      startDate: promotion.startDate,
-      endDate: promotion.endDate,
-      winner,
-    });
+  const seasonMap = new Map<string, HallOfFameSeason>();
+  for (const entry of entries) {
+    let season = seasonMap.get(entry.promotionId);
+    if (!season) {
+      season = {
+        promotionId: entry.promotionId,
+        promotionName: entry.promotionName,
+        closedAt: entry.closedAt,
+        podium: [],
+      };
+      seasonMap.set(entry.promotionId, season);
+    }
+    if (entry.finalRank <= 3) season.podium.push(entry);
   }
+  const seasons = [...seasonMap.values()]
+    .map((season) => ({ ...season, podium: [...season.podium].sort((a, b) => a.finalRank - b.finalRank) }))
+    .sort((a, b) => b.closedAt.getTime() - a.closedAt.getTime());
 
-  return results;
+  // Clé d'agrégation = identité du compte (userId), pas le nom affiché : le
+  // nom d'un compte supprimé peut être réattribué à une autre personne, deux
+  // participations distinctes ne doivent pas fusionner. `userName` reste
+  // exposé pour l'affichage.
+  const participationMap = new Map<string, HallOfFameParticipation>();
+  for (const entry of entries) {
+    const key = entry.userId ?? entry.userName;
+    const current = participationMap.get(key);
+    if (!current) {
+      participationMap.set(key, {
+        userName: entry.userName,
+        count: 1,
+        bestReturnPct: entry.finalReturnPct,
+      });
+    } else {
+      participationMap.set(key, {
+        userName: current.userName,
+        count: current.count + 1,
+        bestReturnPct: Math.max(current.bestReturnPct, entry.finalReturnPct),
+      });
+    }
+  }
+  const participations = [...participationMap.values()].sort((a, b) => b.bestReturnPct - a.bestReturnPct);
+
+  return { entries, seasons, participations };
 }
 
 /**
- * Mis en cache et taggé `hall-of-fame` : ces données sont un historique figé
- * (voir le commentaire sur {@link getHallOfFame}), invalidées uniquement
- * quand une promotion passe à CLOSED (`setPromotionStatus`,
- * admin/promotions/actions.ts) — jamais par le passage du temps. La fenêtre
- * de revalidation n'est donc qu'un filet de sécurité, sa durée importe peu.
+ * Mise en cache, tag `hall-of-fame` — invalidé uniquement à la clôture d'une
+ * promotion (finalizePromotionClosure). La fenêtre de revalidation n'est
+ * qu'un filet.
  */
 export const getCachedHallOfFame = unstable_cache(getHallOfFame, ["hall-of-fame"], {
   revalidate: 3600,

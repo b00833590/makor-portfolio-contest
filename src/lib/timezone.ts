@@ -91,6 +91,30 @@ export function formatParisDate(date: Date): string {
   }).format(date);
 }
 
+/**
+ * Date longue + heure au format français « 12 septembre 2026 à 09h00 »,
+ * en heure de Paris quel que soit le fuseau du serveur — pour le règlement.
+ */
+export function formatParisDateTimeLong(date: Date): string {
+  const day = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: PARIS_TIME_ZONE,
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+  const time = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: PARIS_TIME_ZONE,
+      hourCycle: "h23",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${day} à ${time.hour}h${time.minute}`;
+}
+
 /** Heure et minute courantes en heure de Paris (été/hiver géré automatiquement par Intl),
  * quel que soit le fuseau du processus qui exécute ce code — utilisé pour toute logique qui
  * doit varier selon l'heure locale française (ex. fréquence de rafraîchissement). Ne dépend

@@ -1,13 +1,13 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { provisionPortfolios } from "@/lib/portfolio-provisioning";
 import { ensureInitializationWindow } from "@/lib/initialization-window";
-import { awardCloseOnlyBadges } from "@/lib/gamification/award-close-only-badges";
+import { finalizePromotionClosure } from "@/lib/promotion-lifecycle";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { createPromotionSchema, updatePromotionBasicsSchema } from "./schema";
 
@@ -143,11 +143,11 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
     initializationWindowOpened = (await ensureInitializationWindow(promotionId)) !== null;
   }
 
-  let closeOnlyBadgesAwarded: number | undefined;
   if (status === PromotionStatus.CLOSED) {
-    closeOnlyBadgesAwarded = (await awardCloseOnlyBadges(promotionId)).length;
-    updateTag("hall-of-fame");
-    revalidatePath("/hall-of-fame");
+    // Clôture manuelle par l'admin : même chemin exact que la clôture
+    // automatique (voir src/lib/promotion-lifecycle.ts). Le `update`
+    // ci-dessus a déjà passé le statut à CLOSED ; on lance la finalisation.
+    await finalizePromotionClosure(promotionId);
   }
 
   await logAudit({
@@ -159,7 +159,6 @@ export async function setPromotionStatus(promotionId: string, status: PromotionS
       status: promotion.status,
       provisionedPortfolios: provisionedCount,
       initializationWindowOpened,
-      closeOnlyBadgesAwarded,
     },
   });
 

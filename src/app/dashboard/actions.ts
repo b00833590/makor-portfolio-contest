@@ -2,9 +2,11 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { verifySession } from "@/lib/dal";
+import { db } from "@/lib/db";
 import { executeOrder } from "@/lib/trading/execute-order";
 import { ensureAssetForPurchase } from "@/lib/assets/ensure-asset";
 import { evaluateUserBadgesForUser, type AwardedBadge } from "@/lib/gamification/evaluate-badges";
+import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { amountOrderSchema, dynamicBuySchema, sellPartialSchema } from "./schema";
 
 export interface TradeFormState {
@@ -12,11 +14,19 @@ export interface TradeFormState {
   newBadges?: AwardedBadge[];
 }
 
+/** Constate une éventuelle fin de concours avant d'exécuter un ordre —
+ *  garantit que executeOrder/validateOrder verront le statut CLOSED et refuseront proprement. */
+async function ensureContestFreshness(userId: string): Promise<void> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { promotionId: true } });
+  if (user?.promotionId) await closePromotionIfEnded(user.promotionId);
+}
+
 export async function buyAsset(
   _prevState: TradeFormState,
   formData: FormData,
 ): Promise<TradeFormState> {
   const session = await verifySession();
+  await ensureContestFreshness(session.user.id);
   const parsed = dynamicBuySchema.safeParse({
     symbol: formData.get("symbol"),
     name: formData.get("name"),
@@ -57,6 +67,7 @@ export async function increasePosition(
   formData: FormData,
 ): Promise<TradeFormState> {
   const session = await verifySession();
+  await ensureContestFreshness(session.user.id);
   const parsed = amountOrderSchema.safeParse({
     assetId: formData.get("assetId"),
     amount: formData.get("amount"),
@@ -87,6 +98,7 @@ export async function sellPartial(
   formData: FormData,
 ): Promise<TradeFormState> {
   const session = await verifySession();
+  await ensureContestFreshness(session.user.id);
   const parsed = sellPartialSchema.safeParse({
     assetId: formData.get("assetId"),
     quantity: formData.get("quantity"),
@@ -114,6 +126,7 @@ export async function sellPartial(
 
 export async function sellFull(assetId: string): Promise<TradeFormState> {
   const session = await verifySession();
+  await ensureContestFreshness(session.user.id);
   const result = await executeOrder(session.user.id, { type: "SELL_FULL", assetId });
   if (!result.ok) {
     revalidatePath("/dashboard");

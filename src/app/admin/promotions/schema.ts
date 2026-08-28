@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { parisDateTimeLocalSchema } from "@/lib/timezone";
+
 const promotionFieldsSchema = z.object({
   name: z.string().trim().min(1, "Le nom est obligatoire"),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  startDate: parisDateTimeLocalSchema,
+  endDate: parisDateTimeLocalSchema,
   initialCapital: z.coerce.number().positive(),
   minPositionSize: z.coerce.number().positive(),
   maxPositionSize: z.coerce.number().positive(),

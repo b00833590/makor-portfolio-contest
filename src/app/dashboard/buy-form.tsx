@@ -11,10 +11,14 @@ import type { AssetSearchResult } from "@/lib/assets/search-providers";
 
 const initialState: TradeFormState = {};
 
-export function BuyForm() {
+export function BuyForm({ contestClosed = false }: { contestClosed?: boolean }) {
   const [state, formAction, pending] = useActionState(buyAsset, initialState);
   const [selected, setSelected] = useState<AssetSearchResult | null>(null);
   useBadgeToast(state);
+
+  if (contestClosed) {
+    return null;
+  }
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-4">

@@ -1,79 +1,107 @@
 import { verifySession } from "@/lib/dal";
 import { getCachedHallOfFame } from "@/lib/gamification/hall-of-fame";
-import { pickWinner } from "@/lib/gamification/pick-winner";
 import { formatParisDate } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const pctFmt = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+const medals = ["🥇", "🥈", "🥉"];
+
 export default async function HallOfFamePage() {
   const session = await verifySession();
-  const seasons = await getCachedHallOfFame();
-
-  const bestEver = pickWinner(
-    seasons
-      .filter((season) => season.winner !== null)
-      .map((season) => ({ ...season.winner!, promotionName: season.name })),
-  );
+  const { entries, seasons, participations } = await getCachedHallOfFame();
+  const record = entries[0] ?? null;
 
   return (
     <>
-      <SiteHeader
-        name={session.user.name}
-        role={session.user.role}
-        avatarUrl={session.user.avatarUrl}
-      />
+      <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Hall of Fame</h1>
 
-        {bestEver && (
+        {record && (
           <Card className="mt-6 border-primary/40 bg-primary/5">
-            <CardHeader>
-              <CardTitle>Record historique</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Meilleure performance jamais enregistrée :{" "}
-                <span className="font-semibold text-foreground">{bestEver.name}</span> avec{" "}
-                <span className="font-semibold text-gain">
-                  +{bestEver.cumulativeReturnPct.toFixed(1)}%
-                </span>{" "}
-                lors de la saison &laquo;&nbsp;{bestEver.promotionName}&nbsp;&raquo;.
-              </p>
+            <CardHeader><CardTitle>Record historique</CardTitle></CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Meilleure performance jamais enregistrée :{" "}
+              <span className="font-semibold text-foreground">{record.userName}</span> avec{" "}
+              <span className="font-semibold text-gain">{pctFmt(record.finalReturnPct)}</span>{" "}
+              lors de «&nbsp;{record.promotionName}&nbsp;».
             </CardContent>
           </Card>
         )}
 
-        <div className="mt-6 flex flex-col gap-4">
-          {seasons.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Aucune saison terminée pour le moment — revenez à la fin du concours en cours.
-            </p>
-          )}
-          {seasons.map((season) => (
-            <Card key={season.promotionId}>
-              <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-                <div>
-                  <CardTitle>{season.name}</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {formatParisDate(season.startDate)} →{" "}
-                    {formatParisDate(season.endDate)}
-                  </p>
-                </div>
-                {season.winner ? (
-                  <div className="text-right">
-                    <Badge>🏆 {season.winner.name}</Badge>
-                    <p className="mt-1 text-sm text-gain">
-                      +{season.winner.cumulativeReturnPct.toFixed(1)}%
-                    </p>
+        {entries.length === 0 && (
+          <p className="mt-6 text-sm text-muted-foreground">
+            Aucune saison terminée pour le moment — revenez à la fin du concours en cours.
+          </p>
+        )}
+
+        {seasons.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold">Podiums par saison</h2>
+            <div className="mt-4 flex flex-col gap-4">
+              {seasons.map((season) => (
+                <Card key={season.promotionId}>
+                  <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <CardTitle>{season.promotionName}</CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">{formatParisDate(season.closedAt)}</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-1.5">
+                    {season.podium.map((e) => (
+                      <div key={e.finalRank} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+                        <span className="flex items-center gap-2">
+                          <span>{medals[e.finalRank - 1]}</span>
+                          <span className="font-medium">{e.userName}</span>
+                        </span>
+                        <span className={e.finalReturnPct >= 0 ? "text-gain tabular-nums" : "text-loss tabular-nums"}>
+                          {pctFmt(e.finalReturnPct)}
+                        </span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {entries.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold">Meilleures performances de tous les temps</h2>
+            <Card className="mt-4">
+              <CardContent className="flex flex-col gap-1.5 pt-6">
+                {entries.map((e, i) => (
+                  <div key={`${e.promotionId}-${e.finalRank}`} className="flex items-center justify-between gap-3 border-b border-border/50 py-2 last:border-0">
+                    <span className="w-6 shrink-0 text-sm tabular-nums text-muted-foreground">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      <span className="font-medium">{e.userName}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{e.promotionName}</span>
+                    </span>
+                    <span className={e.finalReturnPct >= 0 ? "text-gain tabular-nums" : "text-loss tabular-nums"}>
+                      {pctFmt(e.finalReturnPct)}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Aucun participant</p>
-                )}
-              </CardHeader>
+                ))}
+              </CardContent>
             </Card>
-          ))}
-        </div>
+          </section>
+        )}
+
+        {participations.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold">Participations</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {participations.map((p) => (
+                <Badge key={p.userName} variant="secondary">
+                  {p.userName} · {p.count} concours · record {pctFmt(p.bestReturnPct)}
+                </Badge>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </>
   );

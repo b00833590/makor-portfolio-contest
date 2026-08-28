@@ -7,7 +7,14 @@ import {
   type LeaderboardRow,
 } from "@/lib/gamification/get-leaderboard";
 import { getCachedPromotionPerformanceSeries } from "@/lib/gamification/get-promotion-performance-series";
+import {
+  getFrozenLeaderboard,
+  type FrozenLeaderboardRow,
+} from "@/lib/gamification/frozen-leaderboard";
+import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { computeLeaderboardGaps, type LeaderboardGaps } from "@/lib/gamification/leaderboard-gaps";
+import { PromotionStatus } from "@/generated/prisma/enums";
+import { formatParisDateTimeLong } from "@/lib/timezone";
 import { SiteHeader } from "@/components/site-header";
 import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +186,106 @@ function PodiumCard({ row, place, isSelf }: { row: LeaderboardRow; place: number
   );
 }
 
+/**
+ * Vue « classement final » d'un concours clôturé : lue une seule fois depuis
+ * HallOfFameEntry, sans recalcul ni polling. Volontairement plus simple que le
+ * tableau live — pas d'écart, de variation 24 h ni de positions extrêmes sur un
+ * classement qui ne bouge plus.
+ */
+function FrozenStandings({
+  rows,
+  endDate,
+  selfUserId,
+}: {
+  rows: FrozenLeaderboardRow[];
+  endDate: Date;
+  selfUserId: string;
+}) {
+  const podium = rows.slice(0, 3);
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Classement</h1>
+        <Badge>Classement final</Badge>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Concours clôturé le {formatParisDateTimeLong(endDate)}. La performance n&apos;évolue plus.
+      </p>
+
+      {podium.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {podium.map((row) => (
+            <Card
+              key={row.finalRank}
+              className={cn(
+                "flex flex-col items-center gap-1 py-6 text-center",
+                row.finalRank === 1 && "border-primary/40 bg-primary/5",
+                row.userId === selfUserId && "ring-1 ring-primary",
+              )}
+            >
+              <span className="text-3xl">{medals[row.finalRank - 1] ?? row.finalRank}</span>
+              <p className="mt-1 font-medium">{row.userName}</p>
+              <p className={cn("text-lg font-semibold tabular-nums", row.finalReturnPct >= 0 ? "text-gain" : "text-loss")}>
+                {row.finalReturnPct >= 0 ? "+" : ""}
+                {row.finalReturnPct.toFixed(1)}%
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {currencyFormatter.format(row.finalPnlEur)}
+              </p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {rows.length > 0 ? (
+        <Card className="mt-6 py-0">
+          <Table className="table-fixed">
+            <TableHeader>
+              <TableRow>
+                <ColHead className="w-14 text-center">Rang</ColHead>
+                <ColHead>Participant</ColHead>
+                <ColHead className="w-[22%] text-right">Rendement</ColHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow
+                  key={row.finalRank}
+                  className={cn(row.userId === selfUserId && "bg-muted/50 font-medium")}
+                >
+                  <TableCell className="text-center">
+                    <RankCell rank={row.finalRank} />
+                  </TableCell>
+                  <TableCell className="overflow-hidden">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 truncate">{row.userName}</span>
+                      {row.userId === selfUserId && (
+                        <Badge variant="secondary" className="shrink-0">
+                          Vous
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell
+                    className={cn("text-right tabular-nums", row.finalReturnPct >= 0 ? "text-gain" : "text-loss")}
+                  >
+                    {row.finalReturnPct >= 0 ? "+" : ""}
+                    {row.finalReturnPct.toFixed(1)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Aucun classement figé pour cette promotion.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default async function LeaderboardPage() {
   const session = await verifySession();
   // L'admin ne joue pas — le classement ne le concerne pas, voir dashboard/page.tsx pour le même choix.
@@ -211,10 +318,31 @@ export default async function LeaderboardPage() {
     );
   }
 
-  const [leaderboard, performanceSeries, promotion] = await Promise.all([
+  await closePromotionIfEnded(user.promotionId);
+
+  const promotion = await db.promotion.findUniqueOrThrow({
+    where: { id: user.promotionId },
+    select: { initialCapital: true, status: true, endDate: true },
+  });
+
+  if (promotion.status === PromotionStatus.CLOSED) {
+    // Concours clôturé : classement figé, aucun recalcul live, pas de <AutoRefresh />.
+    const frozenRows = await getFrozenLeaderboard(user.promotionId);
+    return (
+      <>
+        <SiteHeader
+          name={session.user.name}
+          role={session.user.role}
+          avatarUrl={session.user.avatarUrl}
+        />
+        <FrozenStandings rows={frozenRows} endDate={promotion.endDate} selfUserId={session.user.id} />
+      </>
+    );
+  }
+
+  const [leaderboard, performanceSeries] = await Promise.all([
     getCachedLeaderboard(user.promotionId),
     getCachedPromotionPerformanceSeries(user.promotionId),
-    db.promotion.findUniqueOrThrow({ where: { id: user.promotionId }, select: { initialCapital: true } }),
   ]);
   const podium = leaderboard.slice(0, 3);
   const gaps = computeLeaderboardGaps(leaderboard);

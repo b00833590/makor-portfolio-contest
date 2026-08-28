@@ -27,12 +27,12 @@ export function PromotionFormFields({ idPrefix = "", defaults }: { idPrefix?: st
         <Input id={id("name")} name="name" required placeholder="Promotion Été 2026" defaultValue={defaults.name} />
       </div>
       <div>
-        <Label htmlFor={id("startDate")}>Date de début</Label>
-        <Input id={id("startDate")} name="startDate" type="date" required defaultValue={defaults.startDate} />
+        <Label htmlFor={id("startDate")}>Début du concours (date et heure)</Label>
+        <Input id={id("startDate")} name="startDate" type="datetime-local" required defaultValue={defaults.startDate} />
       </div>
       <div>
-        <Label htmlFor={id("endDate")}>Date de fin</Label>
-        <Input id={id("endDate")} name="endDate" type="date" required defaultValue={defaults.endDate} />
+        <Label htmlFor={id("endDate")}>Fin du concours (date et heure)</Label>
+        <Input id={id("endDate")} name="endDate" type="datetime-local" required defaultValue={defaults.endDate} />
       </div>
       <div>
         <Label htmlFor={id("initialCapital")}>Capital initial (€)</Label>

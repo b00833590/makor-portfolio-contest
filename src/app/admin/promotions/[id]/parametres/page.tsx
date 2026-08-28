@@ -2,11 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { toParisDateTimeLocalValue } from "@/lib/timezone";
 import { PromotionSettingsForm } from "./promotion-settings-form";
-
-function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 export default async function PromotionSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,8 +31,8 @@ export default async function PromotionSettingsPage({ params }: { params: Promis
 
       <PromotionSettingsForm
         promotionId={id}
-        startDate={toDateInputValue(promotion.startDate)}
-        endDate={toDateInputValue(promotion.endDate)}
+        startDate={toParisDateTimeLocalValue(promotion.startDate)}
+        endDate={toParisDateTimeLocalValue(promotion.endDate)}
         initialCapital={Number(promotion.initialCapital)}
         rules={rules}
         capitalLocked={transactionCount > 0}

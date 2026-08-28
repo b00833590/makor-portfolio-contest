@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseParisDateTimeLocal, toParisDateTimeLocalValue, formatParisDateTime, parisDateTimeLocalSchema } from "./timezone";
+import { parseParisDateTimeLocal, toParisDateTimeLocalValue, formatParisDateTime, formatParisDateTimeLong, parisDateTimeLocalSchema } from "./timezone";
 
 describe("parseParisDateTimeLocal", () => {
   it("interprets a summer (CEST, UTC+2) datetime-local value as Paris time", () => {
@@ -66,5 +66,15 @@ describe("parisDateTimeLocalSchema", () => {
   it("rejects a malformed value", () => {
     const result = parisDateTimeLocalSchema.safeParse("not-a-date");
     expect(result.success).toBe(false);
+  });
+});
+
+describe("formatParisDateTimeLong", () => {
+  it("formate un instant UTC en date longue + heure de Paris (été, UTC+2)", () => {
+    expect(formatParisDateTimeLong(new Date("2026-09-12T07:00:00Z"))).toBe("12 septembre 2026 à 09h00");
+  });
+
+  it("formate en hiver (UTC+1)", () => {
+    expect(formatParisDateTimeLong(new Date("2026-01-15T17:30:00Z"))).toBe("15 janvier 2026 à 18h30");
   });
 });

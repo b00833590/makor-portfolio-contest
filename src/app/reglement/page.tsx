@@ -1,6 +1,7 @@
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
+import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { computeChangeSessionStatus } from "@/lib/trading/change-session-status";
 import { SiteHeader } from "@/components/site-header";
 import { RulesDocument } from "@/components/rules-document";
@@ -12,6 +13,10 @@ export default async function ReglementPage() {
     where: { id: session.user.id },
     select: { promotionId: true },
   });
+
+  if (user.promotionId) {
+    await closePromotionIfEnded(user.promotionId);
+  }
 
   const promotion = user.promotionId
     ? await db.promotion.findUnique({

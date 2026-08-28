@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
+import { closeEndedPromotions } from "@/lib/promotion-lifecycle";
 import { snapshotActivePromotions } from "@/lib/trading/snapshot-service";
 import { evaluateAndAwardBadges } from "@/lib/gamification/evaluate-badges";
 
@@ -20,6 +21,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Filet de sécurité : si aucun participant ne s'est connecté après la fin
+  // d'un concours, la clôture n'a pas eu lieu au fil de l'eau — on la
+  // rattrape ici avant le snapshot du soir. Idempotent.
+  const autoClosed = await closeEndedPromotions();
+
   const snapshotResults = await snapshotActivePromotions();
 
   // Les badges dépendent des snapshots qui viennent d'être créés (rendement, rang) —
@@ -33,5 +39,5 @@ export async function GET(request: NextRequest) {
     activePromotions.map((promotion) => evaluateAndAwardBadges(promotion.id)),
   );
 
-  return NextResponse.json({ snapshotResults, badgeResults: badgeResults.flat() });
+  return NextResponse.json({ autoClosed, snapshotResults, badgeResults: badgeResults.flat() });
 }

@@ -16,7 +16,7 @@ import {
 import type { ChangeSessionKind } from "@/generated/prisma/enums";
 import type { PromotionRules } from "@/lib/promotion-rules";
 import type { ChangeSessionEffectiveStatus } from "@/lib/trading/change-session-status";
-import { formatParisDate, formatParisDateTime } from "@/lib/timezone";
+import { formatParisDate, formatParisDateTime, formatParisDateTimeLong } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -125,7 +125,7 @@ export function RulesDocument({
         <h1 className="text-2xl font-semibold tracking-tight">{promotion.name}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="secondary">
-            {formatParisDate(promotion.startDate)} → {formatParisDate(promotion.endDate)}
+            {formatParisDateTimeLong(promotion.startDate)} → {formatParisDateTimeLong(promotion.endDate)}
           </Badge>
           <Badge variant="secondary">{formatDurationDays(durationDays)}</Badge>
           <Badge variant="secondary">Capital initial : {currencyFormatter.format(promotion.initialCapital)}</Badge>
@@ -133,6 +133,24 @@ export function RulesDocument({
       </div>
 
       <p className="text-sm leading-relaxed text-foreground">{promotion.rulesIntro || defaultIntro}</p>
+
+      <SectionCard icon={<CalendarClock className="size-4.5" />} title="Calendrier du concours">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Début du concours</p>
+            <p className="text-foreground">{formatParisDateTimeLong(promotion.startDate)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fin du concours</p>
+            <p className="text-foreground">{formatParisDateTimeLong(promotion.endDate)}</p>
+          </div>
+        </div>
+        <p>
+          À l&apos;heure exacte de fin, le concours passe automatiquement en statut «&nbsp;terminé&nbsp;» : plus aucune
+          transaction n&apos;est possible, le classement final est figé et publié, et les performances rejoignent le
+          Hall of Fame. Toutes les heures sont exprimées en heure de Paris.
+        </p>
+      </SectionCard>
 
       <SectionCard icon={<Trophy className="size-4.5" />} title="Objectif et conditions de victoire">
         <p>

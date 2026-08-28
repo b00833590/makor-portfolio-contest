@@ -65,6 +65,7 @@ model User {
   changeUsage ChangeUsage[]
   badges      UserBadge[]
   auditLogs   AuditLog[]
+  hallOfFameEntries HallOfFameEntry[]
 }
 
 enum PromotionStatus {
@@ -98,6 +99,7 @@ model Promotion {
   portfolios     Portfolio[]
   changeSessions ChangeSession[]
   userBadges     UserBadge[]
+  hallOfFameEntries HallOfFameEntry[]
 }
 
 enum AssetType {
@@ -336,4 +338,31 @@ model AuditLog {
   admin User @relation(fields: [adminId], references: [id])
 
   @@index([adminId, createdAt])
+}
+
+/// Historique figé des concours terminés — une ligne par participation à une
+/// promotion CLOSED, écrite une seule fois à la clôture (voir
+/// src/lib/promotion-lifecycle.ts). Jamais recalculée : contrairement à
+/// getLeaderboard, la performance n'y bouge plus au gré du marché. Une même
+/// personne apparaît autant de fois qu'elle a participé à des concours
+/// terminés — les entrées ne sont jamais fusionnées.
+model HallOfFameEntry {
+  id             String   @id @default(cuid())
+  promotionId    String
+  /// SetNull : supprimer un compte ne détruit pas l'historique. userName /
+  /// promotionName sont dénormalisés pour rester lisibles sans jointure.
+  userId         String?
+  userName       String
+  promotionName  String
+  finalReturnPct Decimal  @db.Decimal(9, 6)
+  finalPnlEur    Decimal  @db.Decimal(18, 2)
+  finalRank      Int
+  closedAt       DateTime
+  createdAt      DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([promotionId, userId])
+  @@index([finalReturnPct])
 }
