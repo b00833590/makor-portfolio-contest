@@ -1632,7 +1632,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 `npm run dev`, se connecter admin, `/admin/promotions/<id de Promotion Août 2026>/parametres`.
 Régler « Fin (date et heure) » sur **`2026-08-28T12:00`**. Soumettre. Un avertissement d'impact peut apparaître (« déclenche le gel » — déjà gelé, sans effet) → confirmer.
-Vérifier en base que `endDate` vaut `2026-08-28T09:00:00.000Z`.
+Vérifier en base que `endDate` vaut `2026-08-28T10:00:00.000Z`.
 
 - [ ] **Step 2 : Alternative — script ponctuel (si pas d'accès admin immédiat)**
 

@@ -151,7 +151,7 @@ Lecture unique de `HallOfFameEntry`, tri/agrégation en mémoire. `pick-winner.t
 | `src/components/rules-document.tsx` | nouvelle `SectionCard` « Calendrier du concours » en tête : **Début** `formatParisDateTimeLong(startDate)`, **Fin** `formatParisDateTimeLong(endDate)`. Badge d'en-tête : `formatParisDateTime` au lieu de `formatParisDate`. |
 | `src/lib/timezone.ts` | ajout `formatParisDateTimeLong` → `"12 septembre 2026 à 09h00"` (`Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" })` retravaillé pour le `à ...h..`) |
 
-Rétrocompat : les promotions existantes ont déjà un `endDate` `DateTime` complet — l'input `datetime-local` prérempli affichera juste l'heure (02:00 pour l'actuel, 11:00 après ajustement).
+Rétrocompat : les promotions existantes ont déjà un `endDate` `DateTime` complet — l'input `datetime-local` prérempli affichera juste l'heure (02:00 pour l'actuel, 12:00 après ajustement).
 
 ### 8. Concours actuel
 
