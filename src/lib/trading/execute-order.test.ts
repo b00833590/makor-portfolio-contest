@@ -81,6 +81,23 @@ describe("buildTradeContext", () => {
     }
   });
 
+  it("traite DECREASE comme une entrée de trésorerie (symétrique d'INCREASE)", async () => {
+    mockHappyPath();
+    dbMock.transaction.findMany.mockResolvedValue([
+      { type: TransactionType.BUY, amount: 100_000 },
+      { type: TransactionType.INCREASE, amount: 20_000 },
+      { type: TransactionType.DECREASE, amount: 30_000 },
+      { type: TransactionType.SELL_PARTIAL, amount: 10_000 },
+    ]);
+
+    const result = await buildTradeContext("user-1", "asset-aapl", NOW);
+
+    expect("context" in result).toBe(true);
+    if ("context" in result) {
+      expect(result.context.availableCash).toBe(1_000_000 - 100_000 - 20_000 + 30_000 + 10_000);
+    }
+  });
+
   it("retourne une erreur si l'utilisateur n'a pas de promotion", async () => {
     dbMock.user.findUnique.mockResolvedValue({ id: "user-1", promotionId: null });
 

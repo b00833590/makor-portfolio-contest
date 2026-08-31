@@ -73,6 +73,13 @@ function refreshWithDedupe(asset: AssetForRefresh, providers: PriceProvider[]): 
 export async function refreshAssetPricesIfStale(
   assets: AssetForRefresh[],
   now: Date = new Date(),
+  /**
+   * Actifs à rafraîchir même s'ils ne sont détenus que dans des concours clos
+   * (raccourci "figé" ci-dessous ignoré). Utilisé pour la cible d'un ordre
+   * d'achat : sans ça, acheter un actif qu'un concours terminé est le seul à
+   * détenir s'exécuterait sur une cotation périmée depuis la clôture.
+   */
+  forceRefreshAssetIds: ReadonlySet<string> = new Set(),
 ): Promise<Map<string, RefreshedPrice>> {
   const result = new Map<string, RefreshedPrice>();
   if (assets.length === 0) return result;
@@ -104,6 +111,7 @@ export async function refreshAssetPricesIfStale(
     select: { id: true },
   });
   const frozenAssetIds = new Set(frozenRows.map((row) => row.id));
+  for (const id of forceRefreshAssetIds) frozenAssetIds.delete(id);
 
   const staleAssets = assets.filter(
     (asset) => !frozenAssetIds.has(asset.id) && isPriceStale(latestByAsset.get(asset.id)?.timestamp, asset.type, now),
@@ -143,7 +151,12 @@ export async function refreshAssetPricesIfStale(
   return result;
 }
 
-/** Variante mono-actif de {@link refreshAssetPricesIfStale}, pour l'achat dynamique d'un seul ticker. */
+/**
+ * Variante mono-actif de {@link refreshAssetPricesIfStale}, pour l'achat
+ * dynamique d'un seul ticker. Force toujours le rafraîchissement de cet actif,
+ * même s'il n'est encore détenu que dans un concours clos : l'ordre d'achat
+ * doit s'exécuter sur une cotation à jour.
+ */
 export async function refreshAssetPriceIfStale(asset: AssetForRefresh, now: Date = new Date()): Promise<void> {
-  await refreshAssetPricesIfStale([asset], now);
+  await refreshAssetPricesIfStale([asset], now, new Set([asset.id]));
 }

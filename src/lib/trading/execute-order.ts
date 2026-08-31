@@ -21,7 +21,13 @@ export async function computeAvailableCash(
 
   return transactions.reduce((cash, transaction) => {
     const amount = Number(transaction.amount);
-    const isInflow = transaction.type === TransactionType.SELL_FULL || transaction.type === TransactionType.SELL_PARTIAL;
+    // Toute sortie de titres rend du cash (vente totale/partielle + DECREASE,
+    // la "diminution" saisie par l'admin, symétrique d'INCREASE côté positions
+    // comme côté trésorerie) ; tout le reste (BUY, INCREASE) en consomme.
+    const isInflow =
+      transaction.type === TransactionType.SELL_FULL ||
+      transaction.type === TransactionType.SELL_PARTIAL ||
+      transaction.type === TransactionType.DECREASE;
     return isInflow ? cash + amount : cash - amount;
   }, initialCapital);
 }

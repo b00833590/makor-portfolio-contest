@@ -5,8 +5,10 @@ Ce guide couvre les opérations qu'un administrateur (rôle `ADMIN`) effectue de
 
 ## Se connecter en tant qu'administrateur
 
-Identifiant `Makor`, mot de passe `makor2023` par défaut (créé par `npm run db:seed`). Changer ce
-mot de passe dès la première connexion :
+Identifiant `Makor` par défaut (ou `ADMIN_INITIAL_NAME` si défini). Le mot de passe est celui
+fourni via `ADMIN_INITIAL_PASSWORD` au moment du `npm run db:seed` (voir
+[DEPLOIEMENT.md](DEPLOIEMENT.md)) — il n'y a pas de valeur par défaut. Le changement de mot de
+passe est imposé automatiquement à la première connexion ; pour le refaire plus tard :
 
 1. Aller sur `/admin/participants`.
 2. Repérer la ligne du compte `Makor`, cliquer sur **Modifier**.

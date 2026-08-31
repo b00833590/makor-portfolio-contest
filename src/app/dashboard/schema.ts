@@ -6,14 +6,19 @@ export const amountOrderSchema = z.object({
   amount: z.coerce.number().positive("Le montant doit être positif"),
 });
 
-/** Achat dynamique : l'actif vient de la recherche de ticker, pas d'une liste pré-créée. */
+/**
+ * Achat dynamique : l'actif vient de la recherche de ticker, pas d'une liste
+ * pré-créée. Les champs texte sont bornés — ils sont persistés dans le catalogue
+ * partagé et affichés à tous les participants dès qu'un actif est détenu, donc
+ * pas de chaîne libre non contrainte via une requête forgée.
+ */
 export const dynamicBuySchema = z.object({
-  symbol: z.string().trim().min(1, "Choisissez un actif"),
-  name: z.string().trim().min(1, "Choisissez un actif"),
+  symbol: z.string().trim().min(1, "Choisissez un actif").max(20),
+  name: z.string().trim().min(1, "Choisissez un actif").max(120),
   type: z.enum(AssetType),
-  externalId: z.string().trim().optional(),
-  currency: z.string().trim().optional(),
-  logoUrl: z.string().trim().optional(),
+  externalId: z.string().trim().max(64).optional(),
+  currency: z.string().trim().max(10).optional(),
+  logoUrl: z.string().trim().max(500).optional(),
   amount: z.coerce.number().positive("Le montant doit être positif"),
 });
 

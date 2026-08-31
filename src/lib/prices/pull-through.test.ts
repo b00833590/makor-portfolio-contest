@@ -212,4 +212,19 @@ describe("refreshAssetPriceIfStale", () => {
 
     expect(priceCreateMock).toHaveBeenCalled();
   });
+
+  it("forces a refresh for the purchase target even when it is only held in closed contests", async () => {
+    const now = new Date("2026-01-01T12:00:00Z");
+    const timestamp = new Date(now.getTime() - STOCK_PRICE_STALE_MS - 60_000); // périmé
+    priceFindManyMock.mockResolvedValue([{ assetId: "asset-1", price: 100, timestamp }]);
+    assetFindManyMock.mockResolvedValue([{ id: "asset-1" }]); // figé (concours clos)
+    const quote = { price: 175, timestamp: now, source: "test-provider" };
+    getPriceProvidersMock.mockReturnValue([makeProvider({ fetchPrice: async () => quote })]);
+
+    await refreshAssetPriceIfStale(makeAsset(), now);
+
+    expect(priceCreateMock).toHaveBeenCalledWith({
+      data: { assetId: "asset-1", timestamp: now, price: 175, source: "test-provider" },
+    });
+  });
 });

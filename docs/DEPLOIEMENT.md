@@ -166,13 +166,15 @@ Supabase :
 
 ```bash
 DATABASE_URL="<transaction pooler>" DIRECT_URL="<session pooler>" npx prisma migrate deploy
-DATABASE_URL="<transaction pooler>" DIRECT_URL="<session pooler>" npm run db:seed
+DATABASE_URL="<transaction pooler>" DIRECT_URL="<session pooler>" ADMIN_INITIAL_PASSWORD="<mot de passe fort>" npm run db:seed
 ```
 
-La deuxième commande crée le compte administrateur par défaut (`Makor` / `makor2023`) — sûre à
-relancer, elle ne fait rien si le compte existe déjà. **Ne jamais lancer `npm run db:seed:demo`
-contre la base de production** : il crée des comptes de démonstration avec un mot de passe
-prévisible.
+La deuxième commande crée le compte administrateur (identifiant `Makor` par défaut, ou
+`ADMIN_INITIAL_NAME` si défini). Le mot de passe **doit** être fourni via `ADMIN_INITIAL_PASSWORD`
+(8 caractères minimum) — il n'y a pas de valeur par défaut, et le changement est imposé dès la
+première connexion. La commande est sûre à relancer : elle ne fait rien si le compte existe déjà.
+**Ne jamais lancer `npm run db:seed:demo` contre la base de production** : il crée des comptes de
+démonstration avec un mot de passe prévisible.
 
 Redéployer sur Vercel (ou simplement re-déclencher le build) une fois le schéma appliqué.
 

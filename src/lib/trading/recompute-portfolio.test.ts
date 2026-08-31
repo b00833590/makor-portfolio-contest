@@ -46,6 +46,7 @@ describe("recomputePortfolioPositions", () => {
           quantity: 10,
           avgEntryPrice: 100,
           openedAt: new Date("2026-01-01"),
+          closedAt: null,
         },
       ],
     });
@@ -77,7 +78,7 @@ describe("recomputePortfolioPositions", () => {
     expect(data[0].avgEntryPrice).toBe(100); // le prix moyen ne change pas lors d'une vente
   });
 
-  it("excludes a fully closed position (SELL_FULL) from the rebuilt positions", async () => {
+  it("keeps a fully closed position (SELL_FULL) as a closed line, not an open one", async () => {
     dbMock.transaction.findMany.mockResolvedValue([
       makeTx({ type: TransactionType.BUY, quantity: 10, price: 100, createdAt: new Date("2026-01-01") }),
       makeTx({ type: TransactionType.SELL_FULL, quantity: 10, price: 120, createdAt: new Date("2026-01-02") }),
@@ -85,10 +86,31 @@ describe("recomputePortfolioPositions", () => {
 
     await recomputePortfolioPositions("portfolio-1");
 
-    expect(dbMock.position.createMany).not.toHaveBeenCalled();
+    const [{ data }] = dbMock.position.createMany.mock.calls[0];
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({
+      assetId: "asset-1",
+      quantity: 0,
+      avgEntryPrice: 100,
+      openedAt: new Date("2026-01-01"),
+      closedAt: new Date("2026-01-02"),
+    });
   });
 
-  it("reopens a position when a later BUY follows a full sell of the same asset", async () => {
+  it("closes the line on a SELL_PARTIAL that drains the position to zero", async () => {
+    dbMock.transaction.findMany.mockResolvedValue([
+      makeTx({ type: TransactionType.BUY, quantity: 10, price: 100, createdAt: new Date("2026-01-01") }),
+      makeTx({ type: TransactionType.SELL_PARTIAL, quantity: 10, price: 120, createdAt: new Date("2026-01-02") }),
+    ]);
+
+    await recomputePortfolioPositions("portfolio-1");
+
+    const [{ data }] = dbMock.position.createMany.mock.calls[0];
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({ quantity: 0, closedAt: new Date("2026-01-02") });
+  });
+
+  it("reopens a position when a later BUY follows a full sell, keeping the closed line", async () => {
     dbMock.transaction.findMany.mockResolvedValue([
       makeTx({ type: TransactionType.BUY, quantity: 10, price: 100, createdAt: new Date("2026-01-01") }),
       makeTx({ type: TransactionType.SELL_FULL, quantity: 10, price: 120, createdAt: new Date("2026-01-02") }),
@@ -98,8 +120,9 @@ describe("recomputePortfolioPositions", () => {
     await recomputePortfolioPositions("portfolio-1");
 
     const [{ data }] = dbMock.position.createMany.mock.calls[0];
-    expect(data).toHaveLength(1);
-    expect(data[0]).toMatchObject({ quantity: 5, avgEntryPrice: 90, openedAt: new Date("2026-01-03") });
+    expect(data).toHaveLength(2);
+    expect(data[0]).toMatchObject({ quantity: 0, openedAt: new Date("2026-01-01"), closedAt: new Date("2026-01-02") });
+    expect(data[1]).toMatchObject({ quantity: 5, avgEntryPrice: 90, openedAt: new Date("2026-01-03"), closedAt: null });
   });
 
   it("ignores an INCREASE or SELL_PARTIAL with no prior position rather than throwing", async () => {

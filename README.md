@@ -36,13 +36,13 @@ npm install
 cp .env.example .env          # puis remplir les variables si besoin (voir ci-dessous)
 npx prisma migrate deploy     # applique toutes les migrations
 npx prisma generate           # génère le client Prisma
-npm run db:seed               # crée le compte admin par défaut (Makor / makor2023)
+ADMIN_INITIAL_PASSWORD="<mot de passe fort>" npm run db:seed   # crée le compte admin (identifiant Makor)
 npm run dev
 ```
 
 L'app tourne sur http://localhost:3000. Connectez-vous avec l'identifiant **Makor** et le mot de
-passe **makor2023**, puis changez ce mot de passe dès la première connexion (voir
-[docs/ADMINISTRATION.md](docs/ADMINISTRATION.md)).
+passe que vous avez fourni via `ADMIN_INITIAL_PASSWORD` ; le changement de mot de passe est imposé
+dès la première connexion (voir [docs/ADMINISTRATION.md](docs/ADMINISTRATION.md)).
 
 Pour explorer l'interface avec des données réalistes (promotion active, participants, positions,
 historique de performance, saison passée pour le Hall of Fame) :
@@ -76,8 +76,9 @@ compte — jamais d'auto-inscription. C'est ce qui garantit qu'un stagiaire qui 
 peut plus jamais se reconnecter à un futur concours : il suffit que l'admin ne le réinscrive pas
 dans la nouvelle promotion (voir [docs/ADMINISTRATION.md](docs/ADMINISTRATION.md)).
 
-Un compte administrateur par défaut existe après `npm run db:seed` : identifiant `Makor`, mot de
-passe `makor2023`. À changer immédiatement depuis `/admin/participants` une fois connecté.
+Un compte administrateur est créé par `ADMIN_INITIAL_PASSWORD="…" npm run db:seed` : identifiant
+`Makor` (ou `ADMIN_INITIAL_NAME`), mot de passe = `ADMIN_INITIAL_PASSWORD`. Aucun mot de passe par
+défaut ; le changement est imposé à la première connexion.
 
 ## Scripts
 
