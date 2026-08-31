@@ -1,11 +1,59 @@
 import type { BadgeSpec } from "./types";
 
-const FUSEE_MIN_DAILY_RETURN_PCT = 8;
+const REGNE_DAYS = 5;
 const REMONTADA_MIN_RANK_GAIN = 5;
-const DOMINATION_MIN_GAP_PTS = 10;
-const INVINCIBLE_DAYS = 14;
+const DOMINATION_MIN_GAP_PTS = 8;
+const FUSEE_MIN_DAILY_RETURN_PCT = 8;
+const PODIUM_MIN_PARTICIPANTS = 4;
+
+/** Vrai si les `days` points de rang les plus récents (le plus récent en premier) valent tous 1. */
+export function isLeaderForConsecutiveDays(ctx: { rankHistory: { rank: number | null }[] }, days: number): boolean {
+  if (ctx.rankHistory.length < days) return false;
+  return ctx.rankHistory.slice(0, days).every((point) => point.rank === 1);
+}
 
 export const rankingBadges: BadgeSpec[] = [
+  {
+    code: "SUR_LE_PODIUM",
+    name: "Sur le podium",
+    description: "Vous avez atteint le Top 3 du classement.",
+    condition: "Atteindre le Top 3 du classement au moins une fois",
+    category: "RANKING",
+    rarity: "RARE",
+    icon: "🥉",
+    evaluate: (ctx) =>
+      ctx.currentRank !== null && ctx.currentRank <= 3 && ctx.participantCount >= PODIUM_MIN_PARTICIPANTS,
+  },
+  {
+    code: "SUR_LE_TOIT",
+    name: "Sur le toit",
+    description: "Vous avez atteint la 1ère place du classement.",
+    condition: "Atteindre la 1ère place du classement au moins une fois",
+    category: "RANKING",
+    rarity: "EPIC",
+    icon: "🥇",
+    evaluate: (ctx) => ctx.currentRank === 1 && ctx.participantCount >= 3,
+  },
+  {
+    code: "CHASSEUR_DE_TETE",
+    name: "Chasseur de tête",
+    description: "Vous avez repris la 1ère place après l'avoir perdue.",
+    condition: "Reprendre la 1ère place après l'avoir perdue au moins un jour",
+    category: "RANKING",
+    rarity: "RARE",
+    icon: "🎯",
+    evaluate: (ctx) => ctx.regainedFirstPlace,
+  },
+  {
+    code: "MEILLEURE_SEMAINE",
+    name: "Meilleure semaine",
+    description: "Vous avez signé le meilleur rendement de tous les participants sur 7 jours.",
+    condition: "Avoir le meilleur rendement sur 7 jours de tous les participants",
+    category: "RANKING",
+    rarity: "EPIC",
+    icon: "📅",
+    evaluate: (ctx) => ctx.hasBestWeeklyReturn,
+  },
   {
     code: "FUSEE",
     name: "Fusée",
@@ -32,8 +80,8 @@ export const rankingBadges: BadgeSpec[] = [
   {
     code: "DOMINATION",
     name: "Domination",
-    description: "Vous êtes 1er du classement avec au moins 10 points d'avance sur le 2e.",
-    condition: "Être 1er du classement avec au moins 10 points d'avance sur le 2e",
+    description: "Vous êtes 1er du classement avec au moins 8 points d'avance sur le 2e.",
+    condition: "Être 1er du classement avec au moins 8 points d'avance sur le 2e",
     category: "RANKING",
     rarity: "EPIC",
     icon: "👊",
@@ -41,31 +89,13 @@ export const rankingBadges: BadgeSpec[] = [
       ctx.currentRank === 1 && ctx.gapToSecondPts !== null && ctx.gapToSecondPts >= DOMINATION_MIN_GAP_PTS,
   },
   {
-    code: "INVINCIBLE",
-    name: "Invincible",
-    description: "Vous êtes resté(e) en tête du classement 14 jours consécutifs.",
-    condition: "Rester en tête du classement 14 jours consécutifs",
+    code: "REGNE",
+    name: "Règne",
+    description: "Vous êtes resté(e) en tête du classement 5 jours consécutifs.",
+    condition: "Rester en tête du classement 5 jours consécutifs",
     category: "RANKING",
-    rarity: "LEGENDARY",
-    icon: "🛡️",
-    evaluate: (ctx) => {
-      if (ctx.rankHistory.length < INVINCIBLE_DAYS) return false;
-      return ctx.rankHistory.slice(0, INVINCIBLE_DAYS).every((point) => point.rank === 1);
-    },
+    rarity: "EPIC",
+    icon: "👑",
+    evaluate: (ctx) => isLeaderForConsecutiveDays(ctx, REGNE_DAYS),
   },
 ];
-
-/**
- * Close-only : "avoir été dernier PUIS terminer sur le podium final" ne peut être confirmé
- * qu'à la clôture (le classement final n'est définitif qu'à ce moment) — voir
- * award-close-only-badges.ts.
- */
-export const LE_PHENIX: BadgeSpec = {
-  code: "LE_PHENIX",
-  name: "Le Phénix",
-  description: "Vous avez été dernier du classement à un moment donné, puis avez terminé sur le podium final.",
-  condition: "Avoir été dernier à un moment donné puis terminer sur le podium (Top 3) final",
-  category: "RANKING",
-  rarity: "LEGENDARY",
-  icon: "🔥",
-};
