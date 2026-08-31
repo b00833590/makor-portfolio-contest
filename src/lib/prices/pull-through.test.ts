@@ -6,11 +6,13 @@ import { STOCK_PRICE_STALE_MS, CRYPTO_PRICE_STALE_MS } from "@/lib/prices/stalen
 
 const priceFindManyMock = vi.fn();
 const priceCreateMock = vi.fn();
+const assetFindManyMock = vi.fn();
 const getPriceProvidersMock = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
     price: { findMany: priceFindManyMock, create: priceCreateMock },
+    asset: { findMany: assetFindManyMock },
   },
 }));
 
@@ -48,7 +50,10 @@ function makeProvider(overrides: Partial<PriceProvider> = {}): PriceProvider {
 beforeEach(() => {
   priceFindManyMock.mockReset();
   priceCreateMock.mockReset();
+  assetFindManyMock.mockReset();
   getPriceProvidersMock.mockReset();
+  // Par défaut : aucun actif figé (concours clos).
+  assetFindManyMock.mockResolvedValue([]);
 });
 
 describe("refreshAssetPricesIfStale", () => {
@@ -68,6 +73,19 @@ describe("refreshAssetPricesIfStale", () => {
 
     expect(getPriceProvidersMock).not.toHaveBeenCalled();
     expect(result.get("asset-1")).toEqual({ price: 150, timestamp, isStale: false });
+  });
+
+  it("never calls a provider for an asset held only in closed contests — returns its last known price", async () => {
+    const now = new Date("2026-01-01T12:00:00Z");
+    const timestamp = new Date(now.getTime() - STOCK_PRICE_STALE_MS - 60_000); // périmé
+    priceFindManyMock.mockResolvedValue([{ assetId: "asset-1", price: 100, timestamp }]);
+    assetFindManyMock.mockResolvedValue([{ id: "asset-1" }]); // figé
+
+    const result = await refreshAssetPricesIfStale([makeAsset()], now);
+
+    expect(getPriceProvidersMock).not.toHaveBeenCalled();
+    expect(priceCreateMock).not.toHaveBeenCalled();
+    expect(result.get("asset-1")).toEqual({ price: 100, timestamp, isStale: false });
   });
 
   it("fetches and stores a fresh quote when the latest price is stale", async () => {

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
-import { getCachedLeaderboard } from "@/lib/gamification/get-leaderboard";
+import { PromotionStatus } from "@/generated/prisma/enums";
+import { getCachedLeaderboard, getLeaderboard } from "@/lib/gamification/get-leaderboard";
 import { getCachedParticipantStats } from "@/lib/gamification/get-participant-stats";
 import { getCachedContestStats } from "@/lib/gamification/get-contest-stats";
 import { SiteHeader } from "@/components/site-header";
@@ -17,9 +18,15 @@ export default async function StatistiquesPage() {
     redirect("/admin");
   }
   const user = await db.user.findUnique({ where: { id: session.user.id } });
+  const promotion = user?.promotionId
+    ? await db.promotion.findUnique({ where: { id: user.promotionId }, select: { status: true, endDate: true } })
+    : null;
+  const contestClosed = promotion?.status === PromotionStatus.CLOSED;
+
   const header = (
     <>
-      <AutoRefresh />
+      {/* Concours terminé : tout est figé, aucun intérêt à repoller. */}
+      {!contestClosed && <AutoRefresh />}
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
     </>
   );
@@ -35,7 +42,11 @@ export default async function StatistiquesPage() {
     );
   }
 
-  const leaderboard = await getCachedLeaderboard(user.promotionId);
+  // Concours clos : classement valorisé au dernier cours <= endDate (aucun
+  // rafraîchissement fournisseur), cohérent avec /resultats et le Hall of Fame.
+  const leaderboard = contestClosed
+    ? await getLeaderboard(user.promotionId, promotion!.endDate, { frozen: true })
+    : await getCachedLeaderboard(user.promotionId);
   const ownRow = leaderboard.find((row) => row.userId === session.user.id);
 
   const [participantStats, contestStats] = await Promise.all([

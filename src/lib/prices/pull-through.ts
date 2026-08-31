@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { PromotionStatus } from "@/generated/prisma/enums";
 import { getPriceProviders } from "@/lib/prices";
 import { isPriceStale } from "@/lib/prices/staleness";
 import { fetchPriceWithFallback } from "@/lib/prices/provider-fallback";
@@ -83,12 +84,45 @@ export async function refreshAssetPricesIfStale(
     distinct: ["assetId"],
   });
   const latestByAsset = new Map(latestRows.map((row) => [row.assetId, row]));
-  const staleAssets = assets.filter((asset) => isPriceStale(latestByAsset.get(asset.id)?.timestamp, asset.type, now));
+
+  // Actifs détenus UNIQUEMENT dans des concours terminés : leur prix est figé à
+  // la clôture (voir finalizePromotionClosure / getPortfolioView). On ne rappelle
+  // jamais le fournisseur pour eux — inutile, et ça consommait des crédits à
+  // chaque affichage d'une page qui les valorise (stats, tableau de bord d'un
+  // concours clos…). Un ticker "frais" (encore sans position) reste rafraîchi
+  // normalement : il n'a aucune position, donc il n'est pas dans cette liste.
+  const frozenRows = await db.asset.findMany({
+    where: {
+      id: { in: assetIds },
+      positions: { some: { closedAt: null, quantity: { gt: 0 } } },
+      NOT: {
+        positions: {
+          some: { closedAt: null, quantity: { gt: 0 }, portfolio: { promotion: { status: PromotionStatus.ACTIVE } } },
+        },
+      },
+    },
+    select: { id: true },
+  });
+  const frozenAssetIds = new Set(frozenRows.map((row) => row.id));
+
+  const staleAssets = assets.filter(
+    (asset) => !frozenAssetIds.has(asset.id) && isPriceStale(latestByAsset.get(asset.id)?.timestamp, asset.type, now),
+  );
   const providers = staleAssets.length > 0 ? getPriceProviders() : [];
 
   await Promise.all(
     assets.map(async (asset) => {
       const latest = latestByAsset.get(asset.id);
+
+      // Actif figé (concours clos) : on renvoie le dernier cours connu tel quel,
+      // jamais d'appel fournisseur ni d'écriture.
+      if (frozenAssetIds.has(asset.id)) {
+        if (latest) {
+          result.set(asset.id, { price: Number(latest.price), timestamp: latest.timestamp, isStale: false });
+        }
+        return;
+      }
+
       const isStale = isPriceStale(latest?.timestamp, asset.type, now);
 
       if (!isStale) {
