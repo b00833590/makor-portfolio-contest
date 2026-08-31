@@ -96,10 +96,6 @@ export default async function ContactPage() {
             <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">src/lib/site-contact.ts</code>.
           </p>
         )}
-
-        <p className="mt-8 text-xs text-muted-foreground/80">
-          Pour toute urgence liée au déroulement du concours, privilégiez le téléphone ou l&apos;e-mail.
-        </p>
       </div>
     </>
   );
