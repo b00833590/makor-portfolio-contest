@@ -1,11 +1,13 @@
 import { TransactionType } from "@/generated/prisma/enums";
 import type { BadgeSpec } from "./types";
 
-const MAIN_CHAUDE_STREAK = 5;
-const COUP_DOUBLE_GAIN_PCT = 10;
+const MAIN_CHAUDE_STREAK = 4;
+const BEAU_MOVE_GAIN_PCT = 12;
+const GROS_COUP_GAIN_PCT = 25;
+const LE_BON_INSTINCT_GAIN_PCT = 15;
 
 /** Vrai si les `count` trades clôturés les plus récents (chronologiquement) sont tous gagnants. */
-function hasWinningStreak(trades: { pnlEur: number }[], count: number): boolean {
+export function hasWinningStreak(trades: { pnlEur: number }[], count: number): boolean {
   if (trades.length < count) return false;
   return trades.slice(-count).every((trade) => trade.pnlEur >= 0);
 }
@@ -69,6 +71,46 @@ export const tradingBadges: BadgeSpec[] = [
     evaluate: (ctx) => ctx.transactionCount >= 1,
   },
   {
+    code: "PREMIERE_VICTOIRE",
+    name: "Première prise",
+    description: "Vous avez réalisé votre première vente gagnante.",
+    condition: "Réaliser sa première vente gagnante",
+    category: "TRADING",
+    rarity: "COMMON",
+    icon: "✅",
+    evaluate: (ctx) => ctx.closedTradesChronological.some((trade) => trade.pnlEur >= 0),
+  },
+  {
+    code: "BEAU_MOVE",
+    name: "Beau move",
+    description: "Vous avez réalisé une vente avec plus de 12% de gain.",
+    condition: "Réaliser une vente avec au moins +12% de gain",
+    category: "TRADING",
+    rarity: "RARE",
+    icon: "💰",
+    evaluate: (ctx) => ctx.closedTradesChronological.some((trade) => trade.pnlPct >= BEAU_MOVE_GAIN_PCT),
+  },
+  {
+    code: "GROS_COUP",
+    name: "Gros coup",
+    description: "Vous avez réalisé une vente avec plus de 25% de gain.",
+    condition: "Réaliser une vente avec au moins +25% de gain",
+    category: "TRADING",
+    rarity: "EPIC",
+    icon: "🎆",
+    evaluate: (ctx) => ctx.closedTradesChronological.some((trade) => trade.pnlPct >= GROS_COUP_GAIN_PCT),
+  },
+  {
+    code: "MAIN_CHAUDE",
+    name: "Main chaude",
+    description: "Vous avez enchaîné 4 ventes gagnantes consécutives.",
+    condition: "Enchaîner 4 ventes gagnantes consécutives",
+    category: "TRADING",
+    rarity: "EPIC",
+    icon: "🔥",
+    evaluate: (ctx) => hasWinningStreak(ctx.closedTradesChronological, MAIN_CHAUDE_STREAK),
+  },
+  {
     code: "ARBITRAGISTE",
     name: "Arbitragiste",
     description: "Vous avez vendu une position puis racheté une autre, aujourd'hui gagnante, dans la même session de changement.",
@@ -79,33 +121,13 @@ export const tradingBadges: BadgeSpec[] = [
     evaluate: (ctx) => ctx.hasSuccessfulArbitrage,
   },
   {
-    code: "PREMIERE_VICTOIRE",
-    name: "Première victoire",
-    description: "Vous avez réalisé votre première vente gagnante.",
-    condition: "Réaliser sa première vente gagnante",
-    category: "TRADING",
-    rarity: "COMMON",
-    icon: "✅",
-    evaluate: (ctx) => ctx.closedTradesChronological.some((trade) => trade.pnlEur >= 0),
-  },
-  {
-    code: "COUP_DOUBLE",
-    name: "Coup double",
-    description: "Vous avez réalisé une vente avec plus de 10% de gain.",
-    condition: "Réaliser une vente avec plus de 10% de gain",
-    category: "TRADING",
-    rarity: "RARE",
-    icon: "💰",
-    evaluate: (ctx) => ctx.closedTradesChronological.some((trade) => trade.pnlPct > COUP_DOUBLE_GAIN_PCT),
-  },
-  {
-    code: "MAIN_CHAUDE",
-    name: "Main chaude",
-    description: "Vous avez enchaîné 5 ventes gagnantes consécutives.",
-    condition: "Enchaîner 5 ventes gagnantes consécutives",
+    code: "LE_BON_INSTINCT",
+    name: "Le bon instinct",
+    description: "Vous avez acheté un actif juste avant une hausse d'au moins 15% dans les 5 jours suivants.",
+    condition: "Acheter un actif qui prend au moins +15% dans les 5 jours suivant l'achat",
     category: "TRADING",
     rarity: "EPIC",
-    icon: "🔥",
-    evaluate: (ctx) => hasWinningStreak(ctx.closedTradesChronological, MAIN_CHAUDE_STREAK),
+    icon: "🔮",
+    evaluate: (ctx) => ctx.postBuyMaxGainPct !== null && ctx.postBuyMaxGainPct >= LE_BON_INSTINCT_GAIN_PCT,
   },
 ];
