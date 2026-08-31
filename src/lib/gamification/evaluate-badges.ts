@@ -6,10 +6,9 @@ import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { BADGE_CATALOG, evaluateBadgeCatalog } from "./badges/catalog";
 import type { BadgeEvaluationContext, ChangeWindowUsage, RankHistoryPoint } from "./badges/types";
 import { computeHasSuccessfulArbitrage } from "./badges/trading";
-import { computeMaxPostBuyGainPct } from "./badges/conviction";
+import { computeMaxPostBuyGainPct } from "./badges/post-buy-gain";
 import { getLeaderboard, type LeaderboardRow } from "./get-leaderboard";
 import { buildTrades } from "./match-closing-trades";
-import { buildAllocation } from "./get-participant-stats";
 
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -17,6 +16,8 @@ export interface AwardedBadge {
   code: string;
   name: string;
   rarity: BadgeRarity;
+  icon: string;
+  description: string;
 }
 
 export async function ensureBadgesSeeded(): Promise<void> {
@@ -49,7 +50,7 @@ async function buildEvaluationContext(
   const [allPositions, transactions, snapshots, closedWeeklySessions, user, existingBadges] = await Promise.all([
     db.position.findMany({
       where: { portfolioId },
-      include: { asset: { select: { sector: true, currency: true, prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
+      include: { asset: { select: { type: true, prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
     }),
     db.transaction.findMany({
       where: { portfolioId },
@@ -150,14 +151,54 @@ async function buildEvaluationContext(
     changesUsed: session.usages[0]?.changesUsed ?? 0,
   }));
 
-  const sectorEntries = openPositions.map((position) => ({
-    key: position.asset.sector ?? "Non renseigné",
-    value: currentPriceByAsset.get(position.assetId)! * Number(position.quantity),
-  }));
-  const currencyEntries = openPositions.map((position) => ({
-    key: position.asset.currency,
-    value: currentPriceByAsset.get(position.assetId)! * Number(position.quantity),
-  }));
+  const fieldAverageReturnPct =
+    leaderboard.length > 0
+      ? leaderboard.reduce((sum, entry) => sum + entry.cumulativeReturnPct, 0) / leaderboard.length
+      : 0;
+
+  const weeklyValues = leaderboard
+    .map((entry) => entry.weeklyReturnPct)
+    .filter((value): value is number => value !== null);
+  const bestWeekly = weeklyValues.length > 0 ? Math.max(...weeklyValues) : null;
+  const hasBestWeeklyReturn =
+    weeklyValues.length >= 2 && row.weeklyReturnPct !== null && bestWeekly !== null && row.weeklyReturnPct >= bestWeekly;
+
+  const distinctAssetsTradedCount = new Set(transactions.map((transaction) => transaction.assetId)).size;
+
+  const openAssetTypes = new Set(openPositions.map((position) => position.asset.type));
+  const holdsStockAndCrypto = openAssetTypes.has("STOCK") && openAssetTypes.has("CRYPTO");
+
+  const totalMarketValue = positionSnapshots.reduce((total, position) => total + position.marketValue, 0);
+  const maxPositionConcentrationPct =
+    positionSnapshots.length > 0 && totalMarketValue > 0
+      ? (Math.max(...positionSnapshots.map((position) => position.marketValue)) / totalMarketValue) * 100
+      : null;
+
+  const ANCHOR_MIN_AGE_MS = 21 * 24 * 60 * 60 * 1000;
+  const ANCHOR_MIN_GAIN_PCT = 10;
+  const touchedAssetIds = new Set(
+    transactions
+      .filter(
+        (transaction) =>
+          transaction.type === TransactionType.INCREASE ||
+          transaction.type === TransactionType.SELL_PARTIAL ||
+          transaction.type === TransactionType.DECREASE,
+      )
+      .map((transaction) => transaction.assetId),
+  );
+  const hasAnchorPosition = openPositions.some((position) => {
+    if (now.getTime() - position.openedAt.getTime() < ANCHOR_MIN_AGE_MS) return false;
+    if (touchedAssetIds.has(position.assetId)) return false;
+    const avgEntryPrice = Number(position.avgEntryPrice);
+    const currentPrice = currentPriceByAsset.get(position.assetId) ?? avgEntryPrice;
+    const pnlPct = avgEntryPrice > 0 ? ((currentPrice - avgEntryPrice) / avgEntryPrice) * 100 : 0;
+    return pnlPct >= ANCHOR_MIN_GAIN_PCT;
+  });
+
+  const historyRanks = rankHistory.map((point) => point.rank); // le plus récent en premier
+  const lostLeadIndex = historyRanks.findIndex((rank) => rank !== null && rank > 1);
+  const regainedFirstPlace =
+    row.rank === 1 && lostLeadIndex !== -1 && historyRanks.slice(lostLeadIndex + 1).some((rank) => rank === 1);
 
   return {
     now,
@@ -178,8 +219,13 @@ async function buildEvaluationContext(
     gapToSecondPts,
     rankHistory,
     participantCount: leaderboard.length,
-    sectorAllocation: buildAllocation(sectorEntries),
-    currencyAllocation: buildAllocation(currencyEntries),
+    fieldAverageReturnPct,
+    hasBestWeeklyReturn,
+    distinctAssetsTradedCount,
+    holdsStockAndCrypto,
+    maxPositionConcentrationPct,
+    hasAnchorPosition,
+    regainedFirstPlace,
     weeklyChangeWindows,
     currentStreakDays: user?.currentStreakDays ?? 0,
     longestStreakDays: user?.longestStreakDays ?? 0,
@@ -197,12 +243,12 @@ async function awardBadgesForContext(
   const newCodes = earnedCodes.filter((code) => !context.alreadyOwnedCodes.has(code));
   if (newCodes.length === 0) return [];
 
-  // PIONNIER est exclusif (un seul gagnant par promotion) — l'état DB au moment de
+  // LEVE_TOT est exclusif (un seul gagnant par promotion) — l'état DB au moment de
   // l'attribution est la seule source fiable, pas dérivable du contexte pur d'un utilisateur.
   const filteredCodes: string[] = [];
   for (const code of newCodes) {
-    if (code === "PIONNIER") {
-      const alreadyAwarded = await db.userBadge.count({ where: { promotionId, badge: { code: "PIONNIER" } } });
+    if (code === "LEVE_TOT") {
+      const alreadyAwarded = await db.userBadge.count({ where: { promotionId, badge: { code: "LEVE_TOT" } } });
       if (alreadyAwarded > 0) continue;
     }
     filteredCodes.push(code);
@@ -217,7 +263,7 @@ async function awardBadgesForContext(
       update: {},
       create: { userId, badgeId: badge.id, promotionId },
     });
-    awarded.push({ code: badge.code, name: badge.name, rarity: badge.rarity });
+    awarded.push({ code: badge.code, name: badge.name, rarity: badge.rarity, icon: badge.icon, description: badge.description });
   }
   return awarded;
 }

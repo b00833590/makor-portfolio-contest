@@ -60,7 +60,7 @@ function resetMocks() {
     Promise.resolve(
       where.code.in.map((code) => {
         const spec = BADGE_CATALOG.find((b) => b.code === code)!;
-        return { id: `badge-${code}`, code, name: spec.name, rarity: spec.rarity };
+        return { id: `badge-${code}`, code, name: spec.name, rarity: spec.rarity, icon: spec.icon, description: spec.description };
       }),
     ),
   );
@@ -122,7 +122,7 @@ describe("evaluateAndAwardBadges", () => {
     expect(dbMock.userBadge.upsert).not.toHaveBeenCalled();
   });
 
-  it("n'attribue PIONNIER qu'à un seul participant par promotion", async () => {
+  it("n'attribue LEVE_TOT qu'à un seul participant par promotion", async () => {
     dbMock.position.findMany.mockResolvedValue(
       Array.from({ length: 20 }, (_, i) => ({
         id: `pos-${i}`,
@@ -131,15 +131,33 @@ describe("evaluateAndAwardBadges", () => {
         avgEntryPrice: 100,
         openedAt: NOW,
         closedAt: null,
-        asset: { sector: "Tech", currency: "EUR", prices: [{ price: 100 }] },
+        asset: { type: "STOCK", prices: [{ price: 100 }] },
       })),
     );
     dbMock.promotion.findUniqueOrThrow.mockResolvedValue({ id: "promo-1", rules: PROMOTION_RULES });
-    dbMock.userBadge.count.mockResolvedValue(1); // un autre participant a déjà obtenu PIONNIER
+    dbMock.userBadge.count.mockResolvedValue(1); // un autre participant a déjà obtenu LEVE_TOT
 
     const results = await evaluateAndAwardBadges("promo-1", NOW);
 
-    expect(results[0].awarded).not.toContain("PIONNIER");
+    expect(results[0].awarded).not.toContain("LEVE_TOT");
+  });
+});
+
+describe("buildEvaluationContext (champs dérivés)", () => {
+  it("attribue ALPHA au participant qui surperforme la moyenne de +12 pts", async () => {
+    getLeaderboardMock.mockResolvedValue([
+      { ...EMPTY_ROW, userId: "user-a", portfolioId: "portfolio-a", rank: 1, cumulativeReturnPct: 20 },
+      { ...EMPTY_ROW, userId: "user-b", portfolioId: "portfolio-b", rank: 2, cumulativeReturnPct: 2 },
+      { ...EMPTY_ROW, userId: "user-c", portfolioId: "portfolio-c", rank: 3, cumulativeReturnPct: 1 },
+    ]);
+    dbMock.user.findUnique.mockResolvedValue({ promotionId: "promo-1", currentStreakDays: 0, longestStreakDays: 0 });
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    const a = results.find((r) => r.userId === "user-a");
+    expect(a?.awarded).toContain("ALPHA");
+    const b = results.find((r) => r.userId === "user-b");
+    expect(b?.awarded ?? []).not.toContain("ALPHA");
   });
 });
 
@@ -161,7 +179,9 @@ describe("evaluateUserBadgesForUser", () => {
 
     const results = await evaluateUserBadgesForUser("user-a", NOW);
 
-    expect(results).toEqual([{ code: "PREMIER_PAS", name: "Premier pas", rarity: "COMMON" }]);
+    expect(results).toEqual([
+      { code: "PREMIER_PAS", name: "Premier pas", rarity: "COMMON", icon: "🐣", description: expect.any(String) },
+    ]);
     expect(dbMock.userBadge.updateMany).toHaveBeenCalledWith({
       where: { userId: "user-a", promotionId: "promo-1", seenAt: null, badge: { code: { in: ["PREMIER_PAS"] } } },
       data: { seenAt: expect.any(Date) },
