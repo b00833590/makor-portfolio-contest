@@ -15,7 +15,7 @@ aucun badge ne doit récompenser un comportement qui nuit à sa propre performan
 
 ### Phase 1 — maintenant (ce document), **zéro migration de schéma**
 
-- Réécriture complète du catalogue (34 badges) : suppressions, recalibrages, nouveaux.
+- Réécriture complète du catalogue (40 badges) : suppressions, recalibrages, nouveaux.
 - Corrections du moteur d'évaluation + nouveaux champs de contexte (tous dérivés).
 - Refonte visuelle de `/badges` (vitrine de collection).
 - Refonte des notifications de déblocage (toast personnalisé, gestion multi-badges).
@@ -121,7 +121,7 @@ Diversification, Exploits, Fun. `RISK_MANAGEMENT` reprend le libellé « Sang-fr
 XP / paliers de niveau (`xp.ts`) : **conservés tels quels**. L'affichage XP/niveau
 devient secondaire dans l'UI (§7).
 
-## 6. Catalogue complet (39 badges)
+## 6. Catalogue complet (40 badges)
 
 Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou « close-only »).
 
@@ -212,8 +212,11 @@ Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou
 
 - `FIDELE_AU_POSTE` — Fidèle au poste — *Épique* — garder une position ouverte du
   début à la fin du concours — **close-only** *(enum `DISTINCTION`, anciennement `CONVICTION`)*
+- `SANS_FAUTE` — Sans faute — *Légendaire* — aucune position n'a jamais dépassé -10%
+  de perte, du début à la fin du concours — **close-only** *(enum `DISTINCTION`,
+  anciennement `RISK_MANAGEMENT` ; logique `neverExceededMaxLossPct` inchangée)*
 
-→ Exploits contient donc **8** entrées.
+→ Exploits contient donc **9** entrées.
 
 ### 😄 Fun (`SPECIAL_EVENT`) — 4
 
@@ -239,17 +242,17 @@ Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou
 | Trading (`TRADING`) | 7 |
 | Sang-froid (`RISK_MANAGEMENT`) | 3 |
 | Diversification (`DIVERSIFICATION`) | 4 |
-| Exploits (`DISTINCTION`) | 8 |
+| Exploits (`DISTINCTION`) | 9 |
 | Fun (`SPECIAL_EVENT`) | 4 |
-| **Total** | **39** |
+| **Total** | **40** |
 
-Répartition rareté : Commun 7, Rare 11, Épique 13, Légendaire 8 (dont 5 close-only
+Répartition rareté : Commun 7, Rare 11, Épique 13, Légendaire 9 (dont 5 close-only
 « superlatif » à 1–2 gagnants : `CHAMPION_DU_CONCOURS`, `LE_PHENIX`,
 `MEILLEUR_STOCK_PICKER`, `MEILLEUR_TACTICIEN`, `OEIL_DE_LYNX`).
 `CLOSE_ONLY_CODES` = { CHAMPION_DU_CONCOURS, LE_PHENIX, MEILLEUR_STOCK_PICKER,
-MEILLEUR_TACTICIEN, OEIL_DE_LYNX, FIDELE_AU_POSTE, STRATEGE_ASSIDU } — 7.
+MEILLEUR_TACTICIEN, OEIL_DE_LYNX, FIDELE_AU_POSTE, SANS_FAUTE, STRATEGE_ASSIDU } — 8.
 
-> La présentation annonçait ~34 ; le détail par badge a porté le total à **39**
+> La présentation annonçait ~34 ; le détail par badge a porté le total à **40**
 > (chaque badge a une condition distincte et atteignable). Candidats à retirer si l'on
 > veut resserrer : `SURPERFORMANCE` (échelle de perf déjà dense), `CHASSEUR_DE_TETE`
 > (proche de `LE_PHENIX`), `MEILLEURE_SEMAINE` (calcul glissant approximatif).
@@ -288,7 +291,7 @@ Fichiers : `src/app/badges/page.tsx`, `progress-header.tsx`, `xp-level-panel.tsx
 
 ### 7.1 Bloc d'en-tête unique (remplace `ProgressHeader` + `XpLevelPanel`)
 
-- Grand compteur `12 / 39`.
+- Grand compteur `12 / 40`.
 - Barre de progression **segmentée par rareté** (largeur de chaque segment ∝ nombre
   de badges de cette rareté ; portion obtenue en couleur pleine, reste en creux).
 - Chip niveau + XP (`Niveau 3 · Stratège · 320 XP · +180 → niveau suivant`) en discret.
@@ -381,7 +384,7 @@ inchangées. `initializationWindowHours` reste `4` (l'admin ajustera).
 - `src/lib/gamification/badges/*.test.ts` : réécrits pour le nouveau catalogue —
   1 cas « obtient » + 1 cas « n'obtient pas » par badge évaluable, via `baseContext`.
 - `badge-test-context.ts` : `baseContext` mis à jour avec les nouveaux champs +
-  `totalBadgeCount: 39`.
+  `totalBadgeCount: 40`.
 - `evaluate-badges.test.ts` : `buildEvaluationContext` — vérifier le calcul des
   nouveaux champs dérivés (fixtures DB mockées).
 - `award-close-only-badges.test.ts` : renommages `MEILLEUR_TRADER` →
@@ -421,7 +424,7 @@ place après l'avoir perdue). Renommages : cf. §6.3. Recatégorisation : cf. §
 (+ `CHASSEUR_DE_TETE` réécrit à partir de `LE_RETOUR`, comptabilisé en « modifié ».)
 
 ### Nouvelle expérience utilisateur
-Onglet Badges = vitrine de collection : en-tête unique `X / 41` + barre segmentée par
+Onglet Badges = vitrine de collection : en-tête unique `X / 40` + barre segmentée par
 rareté, filtres (Tous / Débloqués / À débloquer / rareté), une section par catégorie
 avec son compteur, cartes où la condition et (pour ~10 badges) une barre de
 progression sont **visibles même verrouillées**, liseré coloré par rareté. Au
