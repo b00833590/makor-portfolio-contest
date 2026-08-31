@@ -5,6 +5,7 @@ const dbMock = {
   portfolio: { findMany: vi.fn() },
   performanceSnapshot: { findFirst: vi.fn() },
   position: { findMany: vi.fn() },
+  price: { findMany: vi.fn() },
   user: { findMany: vi.fn() },
 };
 
@@ -25,6 +26,7 @@ function resetMocks() {
   computeAvailableCashMock.mockReset();
   refreshAssetPricesIfStaleMock.mockReset();
   dbMock.position.findMany.mockResolvedValue([]);
+  dbMock.price.findMany.mockResolvedValue([]);
   dbMock.user.findMany.mockResolvedValue([]);
   computeAvailableCashMock.mockResolvedValue(0);
   refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
@@ -136,5 +138,37 @@ describe("getLeaderboard", () => {
 
     expect(leaderboard[0].totalValue).toBe(1_500);
     expect(leaderboard[0].bestPosition?.pnlPct).toBeCloseTo(50, 5);
+  });
+
+  it("en mode figé, valorise au dernier cours ≤ asOf sans jamais appeler le fournisseur", async () => {
+    const AS_OF = new Date("2026-08-28T11:00:00Z");
+    dbMock.promotion.findUniqueOrThrow.mockResolvedValue({ id: "promo-1", initialCapital: 1_000_000 });
+    dbMock.portfolio.findMany.mockResolvedValue([{ id: "portfolio-a", user: { id: "user-a", name: "Alice" } }]);
+    dbMock.performanceSnapshot.findFirst.mockResolvedValue(null);
+    computeAvailableCashMock.mockResolvedValue(0);
+    dbMock.position.findMany.mockResolvedValue([
+      {
+        portfolioId: "portfolio-a",
+        assetId: "asset-aapl",
+        quantity: 10,
+        avgEntryPrice: 100,
+        // prix "actuel" (postérieur à asOf) : ne doit PAS être utilisé.
+        asset: { id: "asset-aapl", symbol: "AAPL", name: "Apple Inc.", prices: [{ price: 999 }] },
+      },
+    ]);
+    // Dernier cours ≤ asOf.
+    dbMock.price.findMany.mockResolvedValue([{ assetId: "asset-aapl", price: 120 }]);
+
+    const leaderboard = await getLeaderboard("promo-1", AS_OF, { frozen: true });
+
+    expect(refreshAssetPricesIfStaleMock).not.toHaveBeenCalled();
+    expect(dbMock.price.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { assetId: { in: ["asset-aapl"] }, timestamp: { lte: AS_OF } },
+        distinct: ["assetId"],
+      }),
+    );
+    expect(leaderboard[0].totalValue).toBe(1_200);
+    expect(leaderboard[0].bestPosition?.pnlPct).toBeCloseTo(20, 5);
   });
 });

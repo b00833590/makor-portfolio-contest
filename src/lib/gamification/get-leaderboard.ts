@@ -42,8 +42,18 @@ interface EnrichedPosition extends BestWorstPosition {
  * actifs distincts détenus (cache pull-through), plutôt qu'une fois par
  * participant, pour que le classement reste réellement "temps réel" sans
  * multiplier les appels aux API de marché.
+ *
+ * `frozen` : concours clôturé — chaque position est valorisée au dernier cours
+ * connu **≤ asOf** (aucun rafraîchissement fournisseur, aucun prix postérieur à
+ * la fin officielle ne peut fausser le résultat). Le classement final est alors
+ * déterministe et rejouable à l'identique indéfiniment. En mode normal (`asOf`
+ * ≈ maintenant), `price ≤ asOf` = dernier prix connu, donc rien ne change.
  */
-async function getPositionsByPortfolio(portfolioIds: string[]): Promise<Map<string, EnrichedPosition[]>> {
+async function getPositionsByPortfolio(
+  portfolioIds: string[],
+  asOf: Date,
+  frozen: boolean,
+): Promise<Map<string, EnrichedPosition[]>> {
   const result = new Map<string, EnrichedPosition[]>();
   if (portfolioIds.length === 0) return result;
 
@@ -53,13 +63,26 @@ async function getPositionsByPortfolio(portfolioIds: string[]): Promise<Map<stri
   });
 
   const distinctAssets = new Map(positions.map((position) => [position.assetId, position.asset]));
-  const refreshedPrices = await refreshAssetPricesIfStale([...distinctAssets.values()]);
+
+  const frozenPrices = new Map<string, number>();
+  let refreshedPrices = new Map<string, { price: number }>();
+  if (frozen) {
+    const rows = await db.price.findMany({
+      where: { assetId: { in: [...distinctAssets.keys()] }, timestamp: { lte: asOf } },
+      orderBy: { timestamp: "desc" },
+      distinct: ["assetId"],
+    });
+    for (const row of rows) frozenPrices.set(row.assetId, Number(row.price));
+  } else {
+    refreshedPrices = await refreshAssetPricesIfStale([...distinctAssets.values()], asOf);
+  }
 
   for (const position of positions) {
     const quantity = Number(position.quantity);
     const avgEntryPrice = Number(position.avgEntryPrice);
-    const currentPrice =
-      refreshedPrices.get(position.assetId)?.price ?? Number(position.asset.prices[0]?.price ?? avgEntryPrice);
+    const currentPrice = frozen
+      ? (frozenPrices.get(position.assetId) ?? Number(position.asset.prices[0]?.price ?? avgEntryPrice))
+      : (refreshedPrices.get(position.assetId)?.price ?? Number(position.asset.prices[0]?.price ?? avgEntryPrice));
     const pnlPct = avgEntryPrice > 0 ? ((currentPrice - avgEntryPrice) / avgEntryPrice) * 100 : 0;
 
     const entry: EnrichedPosition = {
@@ -82,7 +105,11 @@ function pickBestWorst(positions: EnrichedPosition[]): { best: BestWorstPosition
   return { best: sorted[0], worst: sorted[sorted.length - 1] };
 }
 
-export async function getLeaderboard(promotionId: string, now: Date = new Date()): Promise<LeaderboardRow[]> {
+export async function getLeaderboard(
+  promotionId: string,
+  now: Date = new Date(),
+  { frozen = false }: { frozen?: boolean } = {},
+): Promise<LeaderboardRow[]> {
   const promotion = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
   const initialCapital = Number(promotion.initialCapital);
 
@@ -111,7 +138,7 @@ export async function getLeaderboard(promotionId: string, now: Date = new Date()
         return [portfolio.id, { dayAgo, weekAgo }] as const;
       }),
     ).then((entries) => new Map(entries)),
-    getPositionsByPortfolio(portfolioIds),
+    getPositionsByPortfolio(portfolioIds, now, frozen),
     Promise.all(
       portfolios.map(
         async (portfolio) => [portfolio.id, await computeAvailableCash(portfolio.id, initialCapital)] as const,

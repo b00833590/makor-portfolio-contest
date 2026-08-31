@@ -5,6 +5,7 @@ const dbMock = {
   promotion: { updateMany: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn() },
   changeSession: { updateMany: vi.fn() },
   hallOfFameEntry: { createMany: vi.fn() },
+  performanceSnapshot: { findMany: vi.fn(), createMany: vi.fn() },
   user: { findMany: vi.fn() },
 };
 const getLeaderboardMock = vi.fn();
@@ -39,6 +40,8 @@ function resetMocks() {
   dbMock.promotion.findMany.mockResolvedValue([]);
   dbMock.changeSession.updateMany.mockResolvedValue({ count: 0 });
   dbMock.hallOfFameEntry.createMany.mockResolvedValue({ count: 2 });
+  dbMock.performanceSnapshot.findMany.mockResolvedValue([]);
+  dbMock.performanceSnapshot.createMany.mockResolvedValue({ count: 2 });
   dbMock.user.findMany.mockResolvedValue([
     { id: "u1", avatarUrl: "data:image/jpeg;base64,alice" },
     { id: "u2", avatarUrl: null },
@@ -75,7 +78,7 @@ describe("closePromotionIfEnded", () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
     const result = await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(result).toEqual({ closed: true });
-    expect(getLeaderboardMock).toHaveBeenCalledWith("promo-1", END);
+    expect(getLeaderboardMock).toHaveBeenCalledWith("promo-1", END, { frozen: true });
     expect(awardCloseOnlyBadgesMock).toHaveBeenCalledWith("promo-1", END, expect.any(Array));
     expect(dbMock.changeSession.updateMany).toHaveBeenCalledWith({
       where: { promotionId: "promo-1", status: { not: ChangeSessionStatus.CLOSED } },
@@ -120,11 +123,38 @@ describe("closePromotionIfEnded", () => {
     });
   });
 
-  it("invalide le cache du classement, plus le Hall of Fame (qui n'est plus caché)", async () => {
+  it("invalide le cache du classement et du tableau de bord (bascule en valorisation figée)", async () => {
     dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
     await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
     expect(revalidateTagMock).toHaveBeenCalledWith("leaderboard", "max");
+    expect(revalidateTagMock).toHaveBeenCalledWith("portfolio-view", "max");
     expect(revalidateTagMock).not.toHaveBeenCalledWith("hall-of-fame", "max");
+  });
+
+  it("écrit un PerformanceSnapshot terminal par portefeuille, horodaté à l'endDate", async () => {
+    dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
+    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
+    expect(dbMock.performanceSnapshot.findMany).toHaveBeenCalledWith({
+      where: { portfolioId: { in: ["p1", "p2"] }, timestamp: END },
+      select: { portfolioId: true },
+    });
+    expect(dbMock.performanceSnapshot.createMany).toHaveBeenCalledWith({
+      data: [
+        { portfolioId: "p1", timestamp: END, totalValue: 1_120_000, dailyReturnPct: 0, cumulativeReturnPct: 12, rank: 1 },
+        { portfolioId: "p2", timestamp: END, totalValue: 980_000, dailyReturnPct: 0, cumulativeReturnPct: -2, rank: 2 },
+      ],
+    });
+  });
+
+  it("ne réécrit pas un PerformanceSnapshot terminal déjà présent (rejouable)", async () => {
+    dbMock.promotion.updateMany.mockResolvedValue({ count: 1 });
+    dbMock.performanceSnapshot.findMany.mockResolvedValue([{ portfolioId: "p1" }]);
+    await closePromotionIfEnded("promo-1", new Date("2026-08-28T10:30:00Z"));
+    expect(dbMock.performanceSnapshot.createMany).toHaveBeenCalledWith({
+      data: [
+        { portfolioId: "p2", timestamp: END, totalValue: 980_000, dailyReturnPct: 0, cumulativeReturnPct: -2, rank: 2 },
+      ],
+    });
   });
 
   it("ne casse pas si revalidateTag lève (rendu RSC hors server action)", async () => {
@@ -223,7 +253,7 @@ describe("finalizePromotionClosure", () => {
 
     await finalizePromotionClosure("promo-1");
 
-    expect(getLeaderboardMock).toHaveBeenCalledWith("promo-1", NOW);
+    expect(getLeaderboardMock).toHaveBeenCalledWith("promo-1", NOW, { frozen: true });
     expect(awardCloseOnlyBadgesMock).toHaveBeenCalledWith("promo-1", NOW, expect.any(Array));
     const data = dbMock.hallOfFameEntry.createMany.mock.calls[0][0].data as { closedAt: Date }[];
     expect(data.every((row) => row.closedAt.getTime() === NOW.getTime())).toBe(true);

@@ -48,8 +48,12 @@ export async function finalizePromotionClosure(promotionId: string): Promise<voi
   });
 
   // Classement final, calculé une fois, avec la même logique de rang que
-  // partout ailleurs (rankEntries via getLeaderboard).
-  const finalRows = await getLeaderboard(promotionId, asOf);
+  // partout ailleurs (rankEntries via getLeaderboard). `frozen: true` : chaque
+  // position est valorisée au dernier cours connu ≤ asOf — aucun prix postérieur
+  // à la fin officielle ne peut fausser le résultat, et un rejeu de cette
+  // finalisation (self-heal /resultats, balayage `stuck`) recalcule exactement
+  // les mêmes chiffres, même des mois plus tard.
+  const finalRows = await getLeaderboard(promotionId, asOf, { frozen: true });
 
   // Badges de fin de concours (superlatifs + conditions "tout le concours").
   await awardCloseOnlyBadges(promotionId, asOf, finalRows);
@@ -83,6 +87,31 @@ export async function finalizePromotionClosure(promotionId: string): Promise<voi
     skipDuplicates: true,
   });
 
+  // Snapshot de performance terminal, horodaté exactement à `asOf` : point final
+  // de la courbe du portefeuille et référence figée pour les vues historiques.
+  // `PerformanceSnapshot` n'a pas de contrainte unique — on n'écrit que pour les
+  // portefeuilles qui n'ont pas déjà une ligne à cet instant précis (rejouable
+  // sans effet). Le cron de snapshot ne tourne plus pour ce concours (filtre
+  // status ACTIVE, voir snapshot-service.ts).
+  const existingFinal = await db.performanceSnapshot.findMany({
+    where: { portfolioId: { in: finalRows.map((row) => row.portfolioId) }, timestamp: asOf },
+    select: { portfolioId: true },
+  });
+  const alreadySnapshotted = new Set(existingFinal.map((row) => row.portfolioId));
+  const finalSnapshots = finalRows
+    .filter((row) => !alreadySnapshotted.has(row.portfolioId))
+    .map((row) => ({
+      portfolioId: row.portfolioId,
+      timestamp: asOf,
+      totalValue: row.totalValue,
+      dailyReturnPct: 0,
+      cumulativeReturnPct: row.cumulativeReturnPct,
+      rank: row.rank,
+    }));
+  if (finalSnapshots.length > 0) {
+    await db.performanceSnapshot.createMany({ data: finalSnapshots });
+  }
+
   // Invalidation best-effort du classement live (le Hall of Fame n'est plus
   // caché — hall-of-fame.ts lit la table à chaque affichage). `revalidateTag`
   // fonctionne depuis une server action et un route handler, mais lève si
@@ -92,6 +121,11 @@ export async function finalizePromotionClosure(promotionId: string): Promise<voi
   // revalidation habituelle au lieu d'instantanément.
   try {
     revalidateTag("leaderboard", "max");
+    // Le tableau de bord bascule en valorisation figée (prix ≤ endDate, aucun
+    // rafraîchissement) dès que la promotion est CLOSED — invalider son cache
+    // pour que le participant voie le résultat officiel sans attendre la
+    // fenêtre de revalidation.
+    revalidateTag("portfolio-view", "max");
   } catch {
     // rendu RSC : ignoré volontairement, voir ci-dessus
   }
