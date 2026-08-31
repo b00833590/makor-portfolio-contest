@@ -1,6 +1,7 @@
 import "server-only";
 import type { BadgeCategory, BadgeRarity } from "@/generated/prisma/enums";
 import { BADGE_CATALOG } from "./badges/catalog";
+import { CATEGORY_ORDER, CATEGORY_LABEL, CATEGORY_ICON, RARITY_ORDER } from "./badge-display";
 import { getUserBadges } from "./get-user-badges";
 import { computeXp, computeLevel, type LevelInfo } from "./xp";
 
@@ -16,6 +17,21 @@ export interface BadgeBoardEntry {
   awardedAt: Date | null;
 }
 
+export interface BadgeCategoryGroup {
+  category: BadgeCategory;
+  label: string;
+  icon: string;
+  earned: number;
+  total: number;
+  entries: BadgeBoardEntry[];
+}
+
+export interface BadgeRarityCount {
+  rarity: BadgeRarity;
+  earned: number;
+  total: number;
+}
+
 export interface BadgeBoard {
   entries: BadgeBoardEntry[];
   earnedCount: number;
@@ -23,6 +39,8 @@ export interface BadgeBoard {
   completionPct: number;
   rareOwnedCount: number;
   mostRecentBadge: BadgeBoardEntry | null;
+  byCategory: BadgeCategoryGroup[];
+  byRarity: BadgeRarityCount[];
   xp: number;
   level: LevelInfo;
 }
@@ -59,6 +77,23 @@ export async function getBadgeBoard(userId: string, promotionId: string): Promis
 
   const xp = computeXp(earned);
 
+  const byCategory: BadgeCategoryGroup[] = CATEGORY_ORDER.map((category) => {
+    const catEntries = entries.filter((entry) => entry.category === category);
+    return {
+      category,
+      label: CATEGORY_LABEL[category],
+      icon: CATEGORY_ICON[category],
+      earned: catEntries.filter((entry) => entry.earned).length,
+      total: catEntries.length,
+      entries: catEntries,
+    };
+  }).filter((group) => group.total > 0);
+
+  const byRarity: BadgeRarityCount[] = RARITY_ORDER.map((rarity) => {
+    const rarEntries = entries.filter((entry) => entry.rarity === rarity);
+    return { rarity, earned: rarEntries.filter((entry) => entry.earned).length, total: rarEntries.length };
+  });
+
   return {
     entries,
     earnedCount: earnedEntries.length,
@@ -66,6 +101,8 @@ export async function getBadgeBoard(userId: string, promotionId: string): Promis
     completionPct: BADGE_CATALOG.length > 0 ? (earnedEntries.length / BADGE_CATALOG.length) * 100 : 0,
     rareOwnedCount: earnedEntries.filter((entry) => RARE_RARITIES.has(entry.rarity)).length,
     mostRecentBadge,
+    byCategory,
+    byRarity,
     xp,
     level: computeLevel(xp),
   };

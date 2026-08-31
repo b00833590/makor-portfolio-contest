@@ -6,6 +6,8 @@ export interface UnseenBadge {
   code: string;
   name: string;
   rarity: BadgeRarity;
+  icon: string;
+  description: string;
 }
 
 /** Badges attribués mais jamais encore affichés à l'utilisateur (voir UserBadge.seenAt) — ce sont
@@ -14,7 +16,7 @@ export interface UnseenBadge {
 export async function getUnseenBadges(userId: string, promotionId: string): Promise<UnseenBadge[]> {
   const unseen = await db.userBadge.findMany({
     where: { userId, promotionId, seenAt: null },
-    include: { badge: { select: { code: true, name: true, rarity: true } } },
+    include: { badge: { select: { code: true, name: true, rarity: true, icon: true, description: true } } },
     orderBy: { awardedAt: "asc" },
   });
 
@@ -22,5 +24,7 @@ export async function getUnseenBadges(userId: string, promotionId: string): Prom
     code: userBadge.badge.code,
     name: userBadge.badge.name,
     rarity: userBadge.badge.rarity,
+    icon: userBadge.badge.icon,
+    description: userBadge.badge.description,
   }));
 }
