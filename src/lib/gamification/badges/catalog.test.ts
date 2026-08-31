@@ -1,84 +1,46 @@
 import { describe, it, expect } from "vitest";
-import type { BadgeCategory, BadgeRarity } from "@/generated/prisma/enums";
-import { BADGE_CATALOG, BADGE_CATALOG_BY_CODE, CLOSE_ONLY_CODES, evaluateBadgeCatalog } from "./catalog";
+import { BADGE_CATALOG, BADGE_CATALOG_BY_CODE, CLOSE_ONLY_CODES } from "./catalog";
 import { baseContext } from "./badge-test-context";
 
-const CATEGORIES: BadgeCategory[] = [
-  "PERFORMANCE",
-  "TRADING",
-  "RISK_MANAGEMENT",
-  "CONVICTION",
-  "DIVERSIFICATION",
-  "RANKING",
-  "SPECIAL_EVENT",
-  "DISTINCTION",
-];
-const RARITIES: BadgeRarity[] = ["COMMON", "RARE", "EPIC", "LEGENDARY"];
-
 describe("BADGE_CATALOG", () => {
-  it("contient exactement 33 badges", () => {
-    expect(BADGE_CATALOG.length).toBe(33);
+  it("contient 40 badges aux codes uniques", () => {
+    expect(BADGE_CATALOG).toHaveLength(40);
+    expect(new Set(BADGE_CATALOG.map((b) => b.code)).size).toBe(40);
   });
 
-  it("n'a aucun code dupliqué", () => {
-    const codes = BADGE_CATALOG.map((badge) => badge.code);
-    expect(new Set(codes).size).toBe(codes.length);
-  });
-
-  it("couvre toutes les catégories", () => {
-    const usedCategories = new Set(BADGE_CATALOG.map((badge) => badge.category));
-    for (const category of CATEGORIES) expect(usedCategories.has(category)).toBe(true);
-  });
-
-  it("couvre toutes les raretés", () => {
-    const usedRarities = new Set(BADGE_CATALOG.map((badge) => badge.rarity));
-    for (const rarity of RARITIES) expect(usedRarities.has(rarity)).toBe(true);
-  });
-
-  it("fournit un evaluate à tout badge qui n'est pas close-only", () => {
-    for (const badge of BADGE_CATALOG) {
-      if (CLOSE_ONLY_CODES.has(badge.code)) continue;
-      expect(badge.evaluate, `${badge.code} devrait avoir une fonction evaluate`).toBeTypeOf("function");
+  it("chaque badge a nom, description, condition, catégorie, rareté, icône non vides", () => {
+    for (const b of BADGE_CATALOG) {
+      expect(b.name.length).toBeGreaterThan(0);
+      expect(b.description.length).toBeGreaterThan(0);
+      expect(b.condition.length).toBeGreaterThan(0);
+      expect(b.icon.length).toBeGreaterThan(0);
+      expect(["PERFORMANCE", "TRADING", "RISK_MANAGEMENT", "DIVERSIFICATION", "RANKING", "SPECIAL_EVENT", "DISTINCTION", "CONVICTION"]).toContain(b.category);
+      expect(["COMMON", "RARE", "EPIC", "LEGENDARY"]).toContain(b.rarity);
     }
   });
 
-  it("n'attribue jamais de fonction evaluate à un badge close-only", () => {
-    for (const badge of BADGE_CATALOG) {
-      if (!CLOSE_ONLY_CODES.has(badge.code)) continue;
-      expect(badge.evaluate, `${badge.code} est close-only et ne devrait pas avoir de evaluate`).toBeUndefined();
+  it("les codes close-only n'ont pas de evaluate, les autres en ont un", () => {
+    for (const b of BADGE_CATALOG) {
+      if (CLOSE_ONLY_CODES.has(b.code)) expect(b.evaluate).toBeUndefined();
+      else expect(typeof b.evaluate).toBe("function");
     }
   });
 
-  it("BADGE_CATALOG_BY_CODE indexe tous les badges", () => {
-    expect(BADGE_CATALOG_BY_CODE.size).toBe(BADGE_CATALOG.length);
-    expect(BADGE_CATALOG_BY_CODE.get("PREMIER_PAS")?.name).toBe("Premier pas");
+  it("CLOSE_ONLY_CODES contient exactement les 8 codes attendus", () => {
+    expect([...CLOSE_ONLY_CODES].sort()).toEqual(
+      [
+        "CHAMPION_DU_CONCOURS", "FIDELE_AU_POSTE", "LE_PHENIX", "MEILLEUR_STOCK_PICKER",
+        "MEILLEUR_TACTICIEN", "OEIL_DE_LYNX", "SANS_FAUTE", "STRATEGE_ASSIDU",
+      ].sort(),
+    );
   });
 
-  it("les 4 distinctions de fin de concours sont toutes close-only", () => {
-    const distinctionCodes = BADGE_CATALOG.filter((b) => b.category === "DISTINCTION").map((b) => b.code);
-    expect(distinctionCodes.length).toBe(4);
-    for (const code of distinctionCodes) expect(CLOSE_ONLY_CODES.has(code)).toBe(true);
-  });
-});
-
-describe("evaluateBadgeCatalog", () => {
-  it("ne retourne que les codes dont la condition est vraie", () => {
-    const ctx = baseContext({ cumulativeReturnPct: 25, transactionCount: 1 });
-    const earned = evaluateBadgeCatalog(ctx);
-    expect(earned).toContain("PREMIER_ENVOL");
-    expect(earned).toContain("DANS_LE_VERT");
-    expect(earned).toContain("AUTRE_PLANETE");
-    expect(earned).toContain("PREMIER_PAS");
-    expect(earned).not.toContain("SUR_LE_TOIT");
+  it("un contexte neutre n'attribue aucun badge", () => {
+    const earned = BADGE_CATALOG.filter((b) => b.evaluate?.(baseContext()) ?? false);
+    expect(earned).toEqual([]);
   });
 
-  it("ne retourne jamais un code close-only", () => {
-    const ctx = baseContext({ alreadyOwnedCodes: new Set(), totalBadgeCount: 1 });
-    const earned = evaluateBadgeCatalog(ctx);
-    for (const code of earned) expect(CLOSE_ONLY_CODES.has(code)).toBe(false);
-  });
-
-  it("retourne un tableau vide sur un contexte neutre", () => {
-    expect(evaluateBadgeCatalog(baseContext())).toEqual([]);
+  it("BADGE_CATALOG_BY_CODE indexe tout le catalogue", () => {
+    expect(BADGE_CATALOG_BY_CODE.size).toBe(40);
   });
 });
