@@ -1,5 +1,4 @@
 import type { BadgeCategory, BadgeRarity } from "@/generated/prisma/enums";
-import type { AllocationSlice } from "../get-participant-stats";
 
 export interface BadgePositionSnapshot {
   marketValue: number;
@@ -47,11 +46,23 @@ export interface BadgeEvaluationContext {
   /** Le plus récent en premier. */
   rankHistory: RankHistoryPoint[];
   participantCount: number;
-  sectorAllocation: AllocationSlice[];
-  currencyAllocation: AllocationSlice[];
   weeklyChangeWindows: ChangeWindowUsage[];
   currentStreakDays: number;
   longestStreakDays: number;
+  /** Moyenne de `cumulativeReturnPct` sur tous les participants du classement. */
+  fieldAverageReturnPct: number;
+  /** Ce participant a le meilleur rendement 7 jours glissants de tous les participants (min 2 valeurs). */
+  hasBestWeeklyReturn: boolean;
+  /** Nombre d'actifs distincts jamais tradés (transactions), ouverts ou non. */
+  distinctAssetsTradedCount: number;
+  /** Détient au moins une action ET au moins une crypto en position ouverte. */
+  holdsStockAndCrypto: boolean;
+  /** Poids (%) de la plus grosse position ouverte dans la valeur investie ; `null` si aucune position. */
+  maxPositionConcentrationPct: number | null;
+  /** Existe une position ouverte : âge >= 21 j, P&L latent >= +10%, jamais renforcée ni allégée. */
+  hasAnchorPosition: boolean;
+  /** A été 1er, l'a perdu au moins un snapshot, et est 1er à nouveau maintenant. */
+  regainedFirstPlace: boolean;
   /** Codes déjà obtenus par l'utilisateur (avant cette évaluation) — pour le méta-badge PERFECTION. */
   alreadyOwnedCodes: Set<string>;
   /** Nombre total de badges du catalogue — pour le méta-badge PERFECTION. */
