@@ -10,8 +10,8 @@
  *
  *  - Laisser une chaîne vide ("") masque simplement la ligne sur la page.
  *  - `email` et `phone` deviennent des liens cliquables (mailto: / tel:).
- *  - `linkedinUrl` / `instagramUrl` : coller l'URL complète du profil
- *    (https://www.linkedin.com/in/…, https://www.instagram.com/…).
+ *  - `linkedinUrl` : coller l'URL complète du profil
+ *    (https://www.linkedin.com/in/…).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export interface SiteContact {
@@ -23,8 +23,6 @@ export interface SiteContact {
   email: string;
   /** URL complète du profil LinkedIn. Vide = ligne masquée. */
   linkedinUrl: string;
-  /** URL complète du compte Instagram. Vide = ligne masquée. */
-  instagramUrl: string;
   /** Numéro de téléphone, format lisible (ex. « +33 6 12 34 56 78 »). Vide = ligne masquée. */
   phone: string;
 }
@@ -32,15 +30,13 @@ export interface SiteContact {
 export const SITE_CONTACT: SiteContact = {
   name: "Adam Rouas",
   role: "Gestion de la plateforme Makor Concours",
-  // TODO — renseigner ces 4 valeurs (voir le commentaire en haut du fichier).
-  email: "",
+  email: "adam.rouas@essec.edu",
   linkedinUrl: "",
-  instagramUrl: "",
-  phone: "",
+  phone: "+33 6 40 28 03 85",
 };
 
 export interface ContactMethod {
-  kind: "email" | "linkedin" | "instagram" | "phone";
+  kind: "email" | "linkedin" | "phone";
   label: string;
   /** Texte affiché (e-mail, numéro, ou URL nettoyée de son protocole). */
   display: string;
@@ -77,15 +73,6 @@ export function getContactMethods(contact: SiteContact = SITE_CONTACT): ContactM
       label: "LinkedIn",
       display: tidyUrl(contact.linkedinUrl.trim()),
       href: contact.linkedinUrl.trim(),
-      external: true,
-    });
-  }
-  if (contact.instagramUrl.trim()) {
-    methods.push({
-      kind: "instagram",
-      label: "Instagram",
-      display: tidyUrl(contact.instagramUrl.trim()),
-      href: contact.instagramUrl.trim(),
       external: true,
     });
   }
