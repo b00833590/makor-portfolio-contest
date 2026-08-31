@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { AssetType, type PromotionStatus } from "@/generated/prisma/enums";
+import { AssetType, PromotionStatus } from "@/generated/prisma/enums";
 import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
@@ -95,17 +95,28 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
 
   const initialCapital = Number(promotion.initialCapital);
   const openPositions = portfolio.positions;
+  const assetIds = openPositions.map((position) => position.assetId);
 
-  const [availableCash, referencePrices, refreshedPrices] = await Promise.all([
+  // Concours clôturé : tout est figé à `endDate`. On ne rafraîchit plus les prix
+  // (l'ingestion s'arrête aussi à la clôture, voir ingest.ts) et on valorise
+  // chaque position au dernier cours connu ≤ endDate — le portefeuille affiche
+  // alors exactement le résultat officiel et ne bouge plus, quelle que soit
+  // l'évolution du marché ensuite. Pas de variation 24 h sur un concours figé.
+  const isClosed = promotion.status === PromotionStatus.CLOSED;
+
+  const [availableCash, referencePrices, refreshedPrices, frozenPrices] = await Promise.all([
     computeAvailableCash(portfolio.id, initialCapital),
-    getDailyReferencePrices(
-      openPositions.map((position) => position.assetId),
-      new Date(Date.now() - DAY_MS),
-    ),
-    refreshAssetPricesIfStale(openPositions.map((position) => position.asset)),
+    isClosed
+      ? Promise.resolve(new Map<string, number>())
+      : getDailyReferencePrices(assetIds, new Date(Date.now() - DAY_MS)),
+    refreshAssetPricesIfStale(isClosed ? [] : openPositions.map((position) => position.asset)),
+    isClosed ? getDailyReferencePrices(assetIds, promotion.endDate) : Promise.resolve(new Map<string, number>()),
   ]);
 
   function resolveCurrentPrice(position: (typeof openPositions)[number]): number {
+    if (isClosed) {
+      return frozenPrices.get(position.assetId) ?? Number(position.asset.prices[0]?.price ?? position.avgEntryPrice);
+    }
     const refreshed = refreshedPrices.get(position.assetId);
     if (refreshed) return refreshed.price;
     return Number(position.asset.prices[0]?.price ?? position.avgEntryPrice);

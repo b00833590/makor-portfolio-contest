@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AssetType } from "@/generated/prisma/enums";
+import { AssetType, PromotionStatus } from "@/generated/prisma/enums";
 import type { Asset } from "@/generated/prisma/client";
 import type { PriceProvider, FetchedPrice } from "@/lib/prices/types";
 
@@ -106,12 +106,37 @@ describe("ingestAssetPrices", () => {
     expect(results).toEqual([{ assetId: asset.id, symbol: asset.symbol, status: "failed" }]);
   });
 
-  it("only queries active assets", async () => {
+  it("only queries active assets held in an active promotion", async () => {
     findManyMock.mockResolvedValue([]);
 
     await ingestAssetPrices([makeProvider()]);
 
-    expect(findManyMock).toHaveBeenCalledWith({ where: { isActive: true } });
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: {
+        isActive: true,
+        positions: {
+          some: {
+            closedAt: null,
+            quantity: { gt: 0 },
+            portfolio: { promotion: { status: PromotionStatus.ACTIVE } },
+          },
+        },
+      },
+    });
+  });
+
+  it("makes no provider calls when no asset is held in an active promotion", async () => {
+    // Le filtre `where` (concours ACTIVE uniquement) ne renvoie rien : un actif
+    // détenu seulement dans un concours clôturé est déjà figé, inutile de
+    // rappeler le fournisseur — et donc de consommer un crédit — pour lui.
+    findManyMock.mockResolvedValue([]);
+
+    const provider = makeProvider({ fetchPrice: vi.fn() });
+    const results = await ingestAssetPrices([provider]);
+
+    expect(results).toEqual([]);
+    expect(provider.fetchPrice).not.toHaveBeenCalled();
+    expect(createMock).not.toHaveBeenCalled();
   });
 
   it("skips calling the provider when the latest price is still fresh", async () => {

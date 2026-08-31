@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { PromotionStatus } from "@/generated/prisma/enums";
 import { isPriceStale } from "@/lib/prices/staleness";
 import { fetchPriceWithFallback } from "@/lib/prices/provider-fallback";
 import type { PriceProvider } from "@/lib/prices/types";
@@ -19,9 +20,27 @@ export interface IngestResult {
  * consultation récente. C'est ce qui permet de planifier ce job bien plus
  * souvent qu'une fois par jour sans dépasser le quota gratuit des
  * fournisseurs (voir .github/workflows/ingest-prices.yml).
+ *
+ * Ne rafraîchit que les actifs détenus (position ouverte) dans une promotion
+ * ACTIVE : les prix des concours terminés sont figés à la clôture (voir
+ * finalizePromotionClosure), inutile de continuer à appeler les fournisseurs —
+ * et donc de consommer des crédits — pour eux. S'il n'y a aucune promotion
+ * active, ce job ne fait plus aucun appel. Multi-concours : union des actifs
+ * de tous les concours actifs.
  */
 export async function ingestAssetPrices(providers: PriceProvider[], now: Date = new Date()): Promise<IngestResult[]> {
-  const assets = await db.asset.findMany({ where: { isActive: true } });
+  const assets = await db.asset.findMany({
+    where: {
+      isActive: true,
+      positions: {
+        some: {
+          closedAt: null,
+          quantity: { gt: 0 },
+          portfolio: { promotion: { status: PromotionStatus.ACTIVE } },
+        },
+      },
+    },
+  });
   if (assets.length === 0) return [];
 
   const latestRows = await db.price.findMany({

@@ -165,6 +165,47 @@ describe("getPortfolioView", () => {
     expect(view!.positions[0].actualValue).toBe(2_000);
   });
 
+  it("freezes prices at endDate and skips the refresh when the promotion is closed", async () => {
+    dbMock.user.findUnique.mockResolvedValue({ promotionId: "promo-1" });
+    dbMock.promotion.findUnique.mockResolvedValue({
+      id: "promo-1",
+      name: "Promotion Test",
+      status: PromotionStatus.CLOSED,
+      endDate: new Date("2026-08-28T11:00:00Z"),
+      rules: PROMOTION_RULES,
+      initialCapital: 1_000_000,
+    });
+    dbMock.portfolio.findUnique.mockResolvedValue({
+      id: "portfolio-1",
+      positions: [
+        {
+          assetId: "asset-aapl",
+          quantity: 100,
+          avgEntryPrice: 150,
+          openedAt: new Date("2026-08-06T13:00:00Z"),
+          // prices[0] = cours actuel (post-clôture) : ne doit PAS être utilisé.
+          asset: { symbol: "AAPL", name: "Apple Inc.", type: AssetType.STOCK, logoUrl: null, prices: [{ price: 999 }] },
+        },
+      ],
+    });
+    dbMock.transaction.findMany.mockResolvedValue([{ type: "BUY", amount: 15_000 }]);
+    // Dernier cours connu ≤ endDate.
+    dbMock.price.findMany.mockResolvedValue([{ assetId: "asset-aapl", price: 170 }]);
+
+    const view = await getPortfolioView("user-1");
+
+    expect(refreshAssetPricesIfStaleMock).toHaveBeenCalledWith([]);
+    expect(dbMock.price.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { assetId: { in: ["asset-aapl"] }, timestamp: { lte: new Date("2026-08-28T11:00:00Z") } },
+      }),
+    );
+    expect(view!.positions[0].currentPrice).toBe(170);
+    expect(view!.positions[0].actualValue).toBe(17_000);
+    expect(view!.positions[0].dailyChangePct).toBeNull();
+    expect(view!.totalValue).toBe(1_002_000);
+  });
+
   it("returns null when there is no matching portfolio", async () => {
     dbMock.user.findUnique.mockResolvedValue({ promotionId: "promo-1" });
     dbMock.portfolio.findUnique.mockResolvedValue(null);
