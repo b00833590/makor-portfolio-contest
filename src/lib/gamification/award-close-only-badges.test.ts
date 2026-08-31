@@ -55,29 +55,29 @@ describe("computeCloseOnlyWinners", () => {
     expect(winners.filter((w) => w.code === "MEILLEUR_STOCK_PICKER")).toHaveLength(1);
   });
 
-  it("attribue MEILLEUR_TRADER au meilleur taux de réussite parmi ceux ayant au moins 5 trades clôturés", () => {
+  it("attribue MEILLEUR_TACTICIEN au meilleur taux de réussite parmi ceux ayant au moins 5 trades clôturés", () => {
     const winners = computeCloseOnlyWinners([
       summary({ userId: "user-a", winRatePct: 80 }),
       summary({ userId: "user-b", winRatePct: null }), // moins de 5 trades clôturés
     ]);
-    expect(winners).toContainEqual({ userId: "user-a", code: "MEILLEUR_TRADER" });
-    expect(winners.filter((w) => w.code === "MEILLEUR_TRADER")).toHaveLength(1);
+    expect(winners).toContainEqual({ userId: "user-a", code: "MEILLEUR_TACTICIEN" });
+    expect(winners.filter((w) => w.code === "MEILLEUR_TACTICIEN")).toHaveLength(1);
   });
 
   it("n'attribue aucun superlatif si personne n'a de valeur exploitable", () => {
     const winners = computeCloseOnlyWinners([summary(), summary({ userId: "user-b" })]);
     expect(winners.some((w) => w.code === "MEILLEUR_STOCK_PICKER")).toBe(false);
-    expect(winners.some((w) => w.code === "MEILLEUR_TRADER")).toBe(false);
-    expect(winners.some((w) => w.code === "MEILLEUR_TIMING")).toBe(false);
+    expect(winners.some((w) => w.code === "MEILLEUR_TACTICIEN")).toBe(false);
+    expect(winners.some((w) => w.code === "OEIL_DE_LYNX")).toBe(false);
   });
 
-  it("attribue MEILLEUR_TIMING à tous les ex-aequo du meilleur gain post-achat", () => {
+  it("attribue OEIL_DE_LYNX à tous les ex-aequo du meilleur gain post-achat", () => {
     const winners = computeCloseOnlyWinners([
       summary({ userId: "user-a", bestPostBuyGainPct: 25 }),
       summary({ userId: "user-b", bestPostBuyGainPct: 25 }),
       summary({ userId: "user-c", bestPostBuyGainPct: 10 }),
     ]);
-    expect(winners.filter((w) => w.code === "MEILLEUR_TIMING")).toHaveLength(2);
+    expect(winners.filter((w) => w.code === "OEIL_DE_LYNX")).toHaveLength(2);
   });
 
   it("retourne un tableau vide si aucun résumé n'est fourni", () => {

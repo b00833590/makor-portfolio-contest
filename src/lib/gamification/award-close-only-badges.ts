@@ -5,7 +5,7 @@ import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { ensureBadgesSeeded } from "./evaluate-badges";
 import { getLeaderboard, type LeaderboardRow } from "./get-leaderboard";
 import { buildTrades } from "./match-closing-trades";
-import { computeMaxPostBuyGainPct } from "./badges/conviction";
+import { computeMaxPostBuyGainPct } from "./badges/post-buy-gain";
 
 const MAX_LOSS_PCT_THRESHOLD = -10;
 const MIN_TRADES_FOR_MEILLEUR_TRADER = 5;
@@ -47,10 +47,10 @@ export function computeCloseOnlyWinners(summaries: CloseOnlySummary[]): { userId
   pushBestOf(
     summaries.filter((s) => s.winRatePct !== null),
     (s) => s.winRatePct,
-    "MEILLEUR_TRADER",
+    "MEILLEUR_TACTICIEN",
     winners,
   );
-  pushBestOf(summaries, (s) => s.bestPostBuyGainPct, "MEILLEUR_TIMING", winners);
+  pushBestOf(summaries, (s) => s.bestPostBuyGainPct, "OEIL_DE_LYNX", winners);
 
   return winners;
 }
