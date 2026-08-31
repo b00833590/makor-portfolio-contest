@@ -300,6 +300,12 @@ export function RulesDocument({
           « Portefeuille », Hall of Fame) est l&apos;écart en pourcentage entre cette valeur totale et le capital
           initial de {currencyFormatter.format(promotion.initialCapital)}.
         </p>
+        <p>
+          Chaque position est valorisée au cours de sa place de cotation, dans la devise de cette place —{" "}
+          <strong className="text-foreground">aucune conversion de change n&apos;est appliquée</strong>. Le capital
+          et les bornes de position sont exprimés en euros ; les variations de taux de change entre devises ne sont
+          pas prises en compte dans le classement.
+        </p>
       </SectionCard>
 
       <SectionCard icon={<Users className="size-4.5" />} title="Équité entre participants">

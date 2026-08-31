@@ -28,7 +28,7 @@ function makeAsset(overrides: Partial<Asset> = {}): Asset {
     name: "Apple Inc.",
     type: AssetType.STOCK,
     sector: null,
-    currency: "EUR",
+    currency: "USD",
     isActive: true,
     createdAt: new Date(),
     externalId: null,
@@ -94,28 +94,6 @@ describe("ensureAssetForPurchase", () => {
     expect(findFirstMock).not.toHaveBeenCalled();
     expect(createMock).toHaveBeenCalled();
     expect(result).toEqual({ ok: true, asset: created });
-  });
-
-  it("rejects a candidate quoted in a currency other than EUR without creating it", async () => {
-    const result = await ensureAssetForPurchase({
-      symbol: "aapl",
-      name: "Apple Inc.",
-      type: AssetType.STOCK,
-      currency: "USD",
-    });
-
-    expect(result).toEqual({ ok: false, error: expect.stringContaining("euros") });
-    expect(findUniqueMock).not.toHaveBeenCalled();
-    expect(createMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects an existing catalog asset that is not quoted in EUR", async () => {
-    findUniqueMock.mockResolvedValue(makeAsset({ currency: "GBP" }));
-
-    const result = await ensureAssetForPurchase({ symbol: "aapl", name: "Apple Inc.", type: AssetType.STOCK });
-
-    expect(result).toEqual({ ok: false, error: expect.stringContaining("euros") });
-    expect(refreshAssetPriceIfStaleMock).not.toHaveBeenCalled();
   });
 
   it("rejects an asset that has been deactivated by the admin", async () => {

@@ -16,16 +16,6 @@ export interface AssetCandidate {
 export type EnsureAssetResult = { ok: true; asset: Asset } | { ok: false; error: string };
 
 /**
- * Devise unique du concours. Le capital, les bornes de position (min/max) et le
- * classement sont tous exprimés en euros : un actif coté dans une autre devise
- * serait valorisé en devise native (aucune conversion FX n'est faite), ce qui
- * mélangerait au classement des rendements libellés différemment. On refuse donc
- * l'achat côté serveur plutôt que de laisser passer un actif non-EUR.
- */
-const CONTEST_CURRENCY = "EUR";
-const NON_EUR_ERROR = "Seuls les actifs cotés en euros (EUR) sont négociables dans ce concours.";
-
-/**
  * `logoUrl` arrive tel quel depuis un formulaire (recherche de ticker côté
  * participant, ou saisie admin) et est ensuite affiché sans échappement en
  * `<img src>` pour TOUS les participants dès que quelqu'un détient cet actif
@@ -92,19 +82,9 @@ export async function ensureAssetExists(candidate: AssetCandidate): Promise<Ensu
  * qu'un achat juste après création dispose d'une cotation valide.
  */
 export async function ensureAssetForPurchase(candidate: AssetCandidate): Promise<EnsureAssetResult> {
-  // Vérifié avant `ensureAssetExists` pour ne pas créer d'actif non-EUR orphelin
-  // dans le catalogue partagé.
-  if (candidate.currency && candidate.currency.trim().toUpperCase() !== CONTEST_CURRENCY) {
-    return { ok: false, error: NON_EUR_ERROR };
-  }
-
   const result = await ensureAssetExists(candidate);
   if (!result.ok) return result;
   const { asset } = result;
-
-  if (asset.currency.toUpperCase() !== CONTEST_CURRENCY) {
-    return { ok: false, error: NON_EUR_ERROR };
-  }
 
   if (!asset.isActive) {
     return { ok: false, error: "Cet actif n'est plus disponible à l'achat." };
