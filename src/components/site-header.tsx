@@ -31,12 +31,16 @@ const participantNavLinks: NavLink[] = [
   { href: "/statistiques", label: "Statistiques" },
   { href: "/hall-of-fame", label: "Hall of Fame" },
   { href: "/reglement", label: "Règlement" },
+  { href: "/contact", label: "Contact" },
 ];
 
 // L'admin ne joue pas — pas de portefeuille, pas de classement/stats personnels
 // (voir les redirections dans leaderboard/page.tsx et statistiques/page.tsx) ;
-// seul le Hall of Fame reste pertinent pour lui en dehors de l'espace admin.
-const adminNavLinks: NavLink[] = [{ href: "/hall-of-fame", label: "Hall of Fame" }];
+// seuls le Hall of Fame et le Contact restent pertinents hors espace admin.
+const adminNavLinks: NavLink[] = [
+  { href: "/hall-of-fame", label: "Hall of Fame" },
+  { href: "/contact", label: "Contact" },
+];
 
 export function SiteHeader({
   name,
