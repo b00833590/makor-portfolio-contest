@@ -24,8 +24,8 @@ export const defaultPromotionRules: PromotionRules = {
   maxPositionSize: 100_000,
   maxPositions: 20,
   maxCryptoPositions: 1,
-  changeSessionsPerWeek: 2,
-  maxChangesPerSession: 4,
+  changeSessionsPerWeek: 1,
+  maxChangesPerSession: 6,
   freezeHoursBeforeEnd: 48,
   initializationWindowHours: 4,
 };

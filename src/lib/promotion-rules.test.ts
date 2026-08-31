@@ -69,3 +69,14 @@ describe("promotionRulesSchema", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("defaultPromotionRules", () => {
+  it("propose 1 session de changement par semaine et 6 changements par session", () => {
+    expect(defaultPromotionRules.changeSessionsPerWeek).toBe(1);
+    expect(defaultPromotionRules.maxChangesPerSession).toBe(6);
+  });
+
+  it("reste un jeu de règles valide au regard du schéma", () => {
+    expect(() => promotionRulesSchema.parse(defaultPromotionRules)).not.toThrow();
+  });
+});
