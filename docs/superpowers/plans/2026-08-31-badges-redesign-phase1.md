@@ -1517,6 +1517,7 @@ git commit -m "feat: rewrite exploits (9) and fun (4) badges, assemble 40-badge 
 
 **Files:**
 - Modify: `src/lib/gamification/evaluate-badges.ts`
+- Modify: `prisma/seed-demo.ts`
 - Test: `src/lib/gamification/evaluate-badges.test.ts`
 
 **Interfaces:**
@@ -1524,6 +1525,24 @@ git commit -m "feat: rewrite exploits (9) and fun (4) badges, assemble 40-badge 
 - Produces: `AwardedBadge` gagne `icon: string` et `description: string`.
 - Produces: `buildEvaluationContext` renseigne les 7 nouveaux champs et ne renseigne plus `sectorAllocation` / `currencyAllocation`.
 - Produces: l'exclusivité gérée pour le code `LEVE_TOT` (remplace `PIONNIER`).
+- Produces: `prisma/seed-demo.ts` `demoContext` aligné sur la nouvelle forme du contexte (compile).
+
+### Step 0 : `prisma/seed-demo.ts` — aligner `demoContext`
+
+Dans `prisma/seed-demo.ts`, fonction `demoContext` (vers la ligne 286) :
+- Supprimer les lignes `sectorAllocation: [],` et `currencyAllocation: [],`.
+- Ajouter, au même endroit que dans `baseContext` (avant `alreadyOwnedCodes`) :
+  ```ts
+      fieldAverageReturnPct: 0,
+      hasBestWeeklyReturn: false,
+      distinctAssetsTradedCount: 0,
+      holdsStockAndCrypto: false,
+      maxPositionConcentrationPct: null,
+      hasAnchorPosition: false,
+      regainedFirstPlace: false,
+  ```
+- `totalBadgeCount: BADGE_CATALOG.length` est déjà correct (dérivé du catalogue) — ne pas toucher.
+- Ce script est dev/démo uniquement (`npm run db:seed:demo`), jamais lancé en prod — il doit simplement compiler. Ne pas chercher à y enrichir la logique d'attribution des badges.
 
 - [ ] **Step 1 : Adapter les imports et le `select` position**
 
