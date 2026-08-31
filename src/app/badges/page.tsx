@@ -8,8 +8,7 @@ import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenBadgeToaster } from "@/components/badges/unseen-badge-toaster";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { ProgressHeader } from "./progress-header";
-import { XpLevelPanel } from "./xp-level-panel";
+import { BadgesHeader } from "./badges-header";
 import { PersonalRecordsSection } from "./personal-records-section";
 import { BadgeGrid } from "./badge-grid";
 
@@ -74,11 +73,12 @@ export default async function BadgesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Badges</h1>
 
         <div className="mt-6">
-          <ProgressHeader board={board} />
+          <BadgesHeader board={board} />
         </div>
-        <XpLevelPanel board={board} />
-        <PersonalRecordsSection records={records} />
-        <BadgeGrid entries={board.entries} justUnlockedCodes={justUnlockedCodes} />
+        <BadgeGrid board={board} justUnlockedCodes={justUnlockedCodes} />
+        <div className="mt-10">
+          <PersonalRecordsSection records={records} />
+        </div>
       </div>
     </>
   );

@@ -1,45 +1,42 @@
-import { Lock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Lock, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { RARITY_LABEL, RARITY_CLASSNAME } from "@/lib/gamification/badge-display";
+import { RARITY_LABEL, RARITY_CLASSNAME, RARITY_CARD_ACCENT } from "@/lib/gamification/badge-display";
 import { cn } from "@/lib/utils";
 import type { BadgeBoardEntry } from "@/lib/gamification/get-badge-board";
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
 
-export function BadgeCard({ entry, justUnlocked }: { entry: BadgeBoardEntry; justUnlocked: boolean }) {
+type Props = { entry: BadgeBoardEntry; justUnlocked: boolean };
+
+export function BadgeCard({ entry, justUnlocked }: Props) {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Card
-            className={cn(
-              "flex flex-col items-center gap-2 p-4 text-center transition-all",
-              !entry.earned && "grayscale opacity-50",
-              justUnlocked && "animate-in zoom-in-95 fade-in duration-500",
-            )}
-          />
-        }
-      >
-        <div className="relative">
-          <span className="text-4xl">{entry.icon}</span>
-          {!entry.earned && (
-            <Lock className="absolute -right-1 -bottom-1 size-4 rounded-full bg-background p-0.5 text-muted-foreground" />
-          )}
-        </div>
-        <p className="text-sm font-medium">{entry.name}</p>
-        <Badge variant="outline" className={RARITY_CLASSNAME[entry.rarity]}>
-          {RARITY_LABEL[entry.rarity]}
-        </Badge>
-        {entry.earned && entry.awardedAt && (
-          <p className="text-xs text-muted-foreground">{dateFormatter.format(entry.awardedAt)}</p>
+    <Card
+      className={cn(
+        "flex flex-col gap-2 border p-3 transition-all",
+        entry.earned ? RARITY_CARD_ACCENT[entry.rarity] : "border-border/60 bg-muted/30",
+        justUnlocked && "animate-in zoom-in-95 fade-in duration-500",
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <span className={cn("text-3xl", !entry.earned && "opacity-40 grayscale")}>{entry.icon}</span>
+        {entry.earned ? (
+          <Check className="size-4 text-emerald-500" />
+        ) : (
+          <Lock className="size-4 text-muted-foreground" />
         )}
-      </TooltipTrigger>
-      <TooltipContent side="top" className="flex max-w-56 flex-col gap-1 text-center">
-        <p className="font-medium">{entry.earned ? entry.description : entry.condition}</p>
-        {!entry.earned && <p className="text-muted-foreground">Non débloqué</p>}
-      </TooltipContent>
-    </Tooltip>
+      </div>
+      <div>
+        <p className="text-sm font-semibold leading-tight">{entry.name}</p>
+        <span className={cn("mt-1 inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium", RARITY_CLASSNAME[entry.rarity])}>
+          {RARITY_LABEL[entry.rarity]}
+        </span>
+      </div>
+      <p className="text-xs leading-snug text-muted-foreground">
+        {entry.earned ? entry.description : entry.condition}
+      </p>
+      {entry.earned && entry.awardedAt && (
+        <p className="mt-auto text-[11px] text-muted-foreground">Obtenu le {dateFormatter.format(entry.awardedAt)}</p>
+      )}
+    </Card>
   );
 }
