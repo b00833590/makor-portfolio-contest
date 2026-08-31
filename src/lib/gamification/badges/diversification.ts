@@ -1,12 +1,13 @@
 import type { BadgeSpec } from "./types";
 
-const MULTI_SECTEURS_MIN_SECTORS = 5;
-const TOUR_DU_MONDE_MIN_CURRENCIES = 2;
+const RIEN_DANS_UN_PANIER_MIN_POSITIONS = 8;
+const RIEN_DANS_UN_PANIER_MAX_CONCENTRATION_PCT = 12;
+const COLLECTIONNEUR_MIN_ASSETS = 25;
 
 export const diversificationBadges: BadgeSpec[] = [
   {
     code: "PORTEFEUILLE_COMPLET",
-    name: "Portefeuille complet",
+    name: "Portefeuille garni",
     description: "Vous avez atteint le nombre maximal de positions autorisées.",
     condition: "Atteindre le nombre maximal de positions autorisées",
     category: "DIVERSIFICATION",
@@ -15,23 +16,36 @@ export const diversificationBadges: BadgeSpec[] = [
     evaluate: (ctx) => ctx.maxPositions > 0 && ctx.openPositionCount >= ctx.maxPositions,
   },
   {
-    code: "MULTI_SECTEURS",
-    name: "Multi-secteurs",
-    description: "Vous investissez simultanément dans au moins 5 secteurs différents.",
-    condition: "Investir simultanément dans au moins 5 secteurs différents",
+    code: "RIEN_DANS_UN_PANIER",
+    name: "Rien dans un seul panier",
+    description: "Aucune de vos positions ne pèse plus de 12% de votre portefeuille.",
+    condition: "Aucune position ne dépasse 12% du portefeuille (au moins 8 positions)",
     category: "DIVERSIFICATION",
     rarity: "RARE",
-    icon: "🧭",
-    evaluate: (ctx) => ctx.sectorAllocation.length >= MULTI_SECTEURS_MIN_SECTORS,
+    icon: "⚖️",
+    evaluate: (ctx) =>
+      ctx.openPositionCount >= RIEN_DANS_UN_PANIER_MIN_POSITIONS &&
+      ctx.maxPositionConcentrationPct !== null &&
+      ctx.maxPositionConcentrationPct <= RIEN_DANS_UN_PANIER_MAX_CONCENTRATION_PCT,
   },
   {
-    code: "TOUR_DU_MONDE",
-    name: "Tour du monde",
-    description: "Vous détenez des positions libellées dans au moins 2 devises différentes.",
-    condition: "Détenir des positions dans au moins 2 devises différentes",
+    code: "TOUCHE_A_TOUT",
+    name: "Touche-à-tout",
+    description: "Vous détenez des actions et de la crypto en même temps.",
+    condition: "Détenir simultanément au moins une action et une cryptomonnaie",
+    category: "DIVERSIFICATION",
+    rarity: "COMMON",
+    icon: "🪙",
+    evaluate: (ctx) => ctx.holdsStockAndCrypto,
+  },
+  {
+    code: "COLLECTIONNEUR",
+    name: "Collectionneur",
+    description: "Vous avez détenu au moins 25 actifs différents au fil du concours.",
+    condition: "Avoir détenu au moins 25 actifs différents au cours du concours",
     category: "DIVERSIFICATION",
     rarity: "RARE",
-    icon: "🌍",
-    evaluate: (ctx) => ctx.currencyAllocation.length >= TOUR_DU_MONDE_MIN_CURRENCIES,
+    icon: "🗂️",
+    evaluate: (ctx) => ctx.distinctAssetsTradedCount >= COLLECTIONNEUR_MIN_ASSETS,
   },
 ];
