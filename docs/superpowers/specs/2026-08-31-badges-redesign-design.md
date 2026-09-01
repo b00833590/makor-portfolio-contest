@@ -146,8 +146,8 @@ Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou
   → `ctx.currentRank === 1 && ctx.participantCount >= 3`
 - `CHASSEUR_DE_TETE` — Chasseur de tête — *Rare* — reprendre la 1ère place après
   l'avoir perdue au moins un jour → `ctx.regainedFirstPlace`
-- `MEILLEURE_SEMAINE` — Meilleure semaine — *Épique* — meilleure perf 7 j glissants
-  de tous les participants → `ctx.hasBestWeeklyReturn`
+- `MEILLEURE_SEMAINE` — Meilleure semaine — *Épique* — meilleur rendement 7 j de tous
+  les participants, semaine positive, min 3 participants → `ctx.hasBestWeeklyReturn`
 - `FUSEE` — Fusée — *Épique* — +8% en une seule journée
   → `ctx.dailyReturnPct !== null && ctx.dailyReturnPct >= 8`
 - `REMONTADA` — Remontada — *Épique* — gagner ≥ 5 places au classement en une journée
@@ -188,8 +188,9 @@ Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou
 - `PORTEFEUILLE_COMPLET` — Portefeuille garni — *Commun* — atteindre le nombre max
   de positions → `ctx.maxPositions > 0 && ctx.openPositionCount >= ctx.maxPositions`
 - `RIEN_DANS_UN_PANIER` — Rien dans un seul panier — *Rare* — aucune position ne
-  pèse plus de 12% du portefeuille (min 8 positions)
-  → `ctx.openPositionCount >= 8 && ctx.maxPositionConcentrationPct !== null && ctx.maxPositionConcentrationPct <= 12`
+  pèse plus de 12% du portefeuille (min 9 positions — 8 positions égales plafonnent à
+  12.5%, donc inatteignable au seuil « min 8 »)
+  → `ctx.openPositionCount >= 9 && ctx.maxPositionConcentrationPct !== null && ctx.maxPositionConcentrationPct <= 12`
 - `TOUCHE_A_TOUT` — Touche-à-tout — *Commun* — détenir actions ET crypto simultanément
   → `ctx.holdsStockAndCrypto`
 - `COLLECTIONNEUR` — Collectionneur — *Rare* — avoir détenu 25 actifs différents au
@@ -199,8 +200,11 @@ Notation : `CODE` — Nom — *rareté* — condition → logique `evaluate` (ou
 
 - `INTOUCHABLE` — Intouchable — *Légendaire* — 1er pendant 12 jours cumulés
   → `ctx.rankHistory.filter(p => p.rank === 1).length >= 12` *(évalué en continu, pas close-only : `rank === 1` cumulé ne peut que croître, aucun risque de faux positif)*
-- `PERFECTION` — Perfection — *Légendaire* — débloquer tous les autres badges
-  → `ctx.alreadyOwnedCodes.size >= ctx.totalBadgeCount - 1`
+- `PERFECTION` — Perfection — *Légendaire* — débloquer tous les badges accessibles en
+  cours de concours (catalogue moins les 8 close-only, qui ne sont jamais écrits pendant
+  que `evaluate` tourne)
+  → `ctx.alreadyOwnedCodes.size >= ctx.evaluatableBadgeCount - 1`
+  *(`evaluatableBadgeCount = BADGE_CATALOG.length - CLOSE_ONLY_CODES.size`)*
 - `CHAMPION_DU_CONCOURS` — Champion du concours — *Légendaire* — terminer 1er — **close-only**
 - `LE_PHENIX` — Le Phénix — *Légendaire* — avoir été dernier puis finir sur le podium — **close-only**
 - `MEILLEUR_STOCK_PICKER` — Meilleur stock picker — *Légendaire* — le meilleur trade

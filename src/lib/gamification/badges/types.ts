@@ -51,7 +51,8 @@ export interface BadgeEvaluationContext {
   longestStreakDays: number;
   /** Moyenne de `cumulativeReturnPct` sur tous les participants du classement. */
   fieldAverageReturnPct: number;
-  /** Ce participant a le meilleur rendement 7 jours glissants de tous les participants (min 2 valeurs). */
+  /** Ce participant a le meilleur rendement 7 jours glissants de tous les participants, sa semaine
+   * est strictement positive, et au moins 3 participants ont une valeur hebdomadaire. */
   hasBestWeeklyReturn: boolean;
   /** Nombre d'actifs distincts jamais tradés (transactions), ouverts ou non. */
   distinctAssetsTradedCount: number;
@@ -65,8 +66,10 @@ export interface BadgeEvaluationContext {
   regainedFirstPlace: boolean;
   /** Codes déjà obtenus par l'utilisateur (avant cette évaluation) — pour le méta-badge PERFECTION. */
   alreadyOwnedCodes: Set<string>;
-  /** Nombre total de badges du catalogue — pour le méta-badge PERFECTION. */
+  /** Nombre total de badges du catalogue. */
   totalBadgeCount: number;
+  /** Nombre de badges gagnables en cours de concours (catalogue moins les close-only) — pour PERFECTION. */
+  evaluatableBadgeCount: number;
 }
 
 export interface BadgeSpec {

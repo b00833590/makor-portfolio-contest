@@ -7,7 +7,10 @@ function ev(code: string) {
   if (!b?.evaluate) throw new Error(`Badge ${code} introuvable ou sans evaluate`);
   return b.evaluate;
 }
-const rh = (ranks: (number | null)[]) => ranks.map((rank) => ({ timestamp: NOW, rank }));
+const DAY_MS = 24 * 60 * 60 * 1000;
+// le plus récent en premier — un jour UTC distinct par point
+const rh = (ranks: (number | null)[]) =>
+  ranks.map((rank, i) => ({ timestamp: new Date(NOW.getTime() - i * DAY_MS), rank }));
 
 describe("SUR_LE_PODIUM", () => {
   it("attribué au top 3 (>= 4 participants)", () =>
@@ -73,4 +76,11 @@ describe("REGNE", () => {
     expect(ev("REGNE")(baseContext({ rankHistory: rh([1, 1, 1, 1]) }))).toBe(false));
   it("un null casse la série", () =>
     expect(ev("REGNE")(baseContext({ rankHistory: rh([1, 1, null, 1, 1, 1]) }))).toBe(false));
+  it("compte les jours distincts, pas les snapshots : 8 snapshots en tête sur 2 jours = pas attribué", () => {
+    const rankHistory = Array.from({ length: 8 }, (_, i) => ({
+      timestamp: new Date(NOW.getTime() - Math.floor(i / 4) * DAY_MS - (i % 4) * 3600 * 1000),
+      rank: 1,
+    }));
+    expect(ev("REGNE")(baseContext({ rankHistory }))).toBe(false);
+  });
 });

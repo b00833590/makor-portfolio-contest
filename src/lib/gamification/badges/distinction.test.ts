@@ -27,20 +27,30 @@ function ev(code: string) {
   return b.evaluate;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysAgo = (n: number) => new Date(NOW.getTime() - n * DAY_MS);
+
 describe("INTOUCHABLE", () => {
-  it("attribué à 12 snapshots cumulés en tête", () => {
-    const rankHistory = Array.from({ length: 15 }, (_, i) => ({ timestamp: NOW, rank: i < 12 ? 1 : 2 }));
+  it("attribué à 12 journées cumulées en tête", () => {
+    const rankHistory = Array.from({ length: 15 }, (_, i) => ({ timestamp: daysAgo(i), rank: i < 12 ? 1 : 2 }));
     expect(ev("INTOUCHABLE")(baseContext({ rankHistory }))).toBe(true);
   });
-  it("pas attribué à 11 cumulés", () => {
-    const rankHistory = Array.from({ length: 15 }, (_, i) => ({ timestamp: NOW, rank: i < 11 ? 1 : 2 }));
+  it("pas attribué à 11 journées", () => {
+    const rankHistory = Array.from({ length: 15 }, (_, i) => ({ timestamp: daysAgo(i), rank: i < 11 ? 1 : 2 }));
+    expect(ev("INTOUCHABLE")(baseContext({ rankHistory }))).toBe(false);
+  });
+  it("compte les jours distincts, pas les snapshots : 24 snapshots sur 8 jours = pas attribué", () => {
+    const rankHistory = Array.from({ length: 24 }, (_, i) => ({
+      timestamp: new Date(daysAgo(Math.floor(i / 3)).getTime() + (i % 3) * 3600 * 1000),
+      rank: 1,
+    }));
     expect(ev("INTOUCHABLE")(baseContext({ rankHistory }))).toBe(false);
   });
 });
 
 describe("PERFECTION", () => {
-  it("attribué si tous les autres badges sont possédés", () =>
-    expect(ev("PERFECTION")(baseContext({ alreadyOwnedCodes: new Set(Array.from({ length: 39 }, (_, i) => `X${i}`)), totalBadgeCount: 40 }))).toBe(true));
+  it("attribué si tous les badges gagnables en jeu sont possédés (evaluatableBadgeCount - 1)", () =>
+    expect(ev("PERFECTION")(baseContext({ alreadyOwnedCodes: new Set(Array.from({ length: 31 }, (_, i) => `X${i}`)), evaluatableBadgeCount: 32 }))).toBe(true));
   it("pas attribué s'il en manque deux", () =>
-    expect(ev("PERFECTION")(baseContext({ alreadyOwnedCodes: new Set(Array.from({ length: 38 }, (_, i) => `X${i}`)), totalBadgeCount: 40 }))).toBe(false));
+    expect(ev("PERFECTION")(baseContext({ alreadyOwnedCodes: new Set(Array.from({ length: 30 }, (_, i) => `X${i}`)), evaluatableBadgeCount: 32 }))).toBe(false));
 });

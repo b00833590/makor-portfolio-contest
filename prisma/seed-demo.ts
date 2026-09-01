@@ -16,7 +16,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { AssetType, ChangeSessionStatus, PromotionStatus, TransactionType, UserRole } from "../src/generated/prisma/enums";
 import { defaultPromotionRules } from "../src/lib/promotion-rules";
-import { BADGE_CATALOG, evaluateBadgeCatalog } from "../src/lib/gamification/badges/catalog";
+import { BADGE_CATALOG, CLOSE_ONLY_CODES, evaluateBadgeCatalog } from "../src/lib/gamification/badges/catalog";
 import type { BadgeEvaluationContext } from "../src/lib/gamification/badges/types";
 import { rankEntries } from "../src/lib/gamification/ranking";
 
@@ -315,6 +315,7 @@ async function main() {
       longestStreakDays: 0,
       alreadyOwnedCodes: new Set(),
       totalBadgeCount: BADGE_CATALOG.length,
+      evaluatableBadgeCount: BADGE_CATALOG.length - CLOSE_ONLY_CODES.size,
       ...overrides,
     };
   }

@@ -45,6 +45,13 @@ describe("computeCloseOnlyWinners", () => {
     expect(winners).toContainEqual({ userId: "user-b", code: "SANS_FAUTE" });
   });
 
+  it("n'attribue pas SANS_FAUTE quand neverExceededMaxLossPct est faux (ex. no-show sans position)", () => {
+    // buildCloseOnlySummary garde `allPositions.length > 0 && drawdowns.every(...)` : un participant
+    // sans aucune position produit `neverExceededMaxLossPct: false` et ne doit PAS obtenir SANS_FAUTE.
+    const winners = computeCloseOnlyWinners([summary({ userId: "no-show", neverExceededMaxLossPct: false })]);
+    expect(winners.some((w) => w.code === "SANS_FAUTE")).toBe(false);
+  });
+
   it("attribue MEILLEUR_STOCK_PICKER au meilleur pnl % de trade, en excluant les null", () => {
     const winners = computeCloseOnlyWinners([
       summary({ userId: "user-a", bestTradePnlPct: 40 }),

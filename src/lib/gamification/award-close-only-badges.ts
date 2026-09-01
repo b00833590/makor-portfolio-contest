@@ -153,7 +153,8 @@ async function buildCloseOnlySummary(
       ),
     ),
   );
-  const neverExceededMaxLossPct = drawdowns.every((drawdown) => drawdown >= MAX_LOSS_PCT_THRESHOLD);
+  const neverExceededMaxLossPct =
+    allPositions.length > 0 && drawdowns.every((drawdown) => drawdown >= MAX_LOSS_PCT_THRESHOLD);
 
   const rankHistory = snapshots.map((snapshot) => snapshot.rank);
   const wasEverLastAndFinishedTopThree =

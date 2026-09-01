@@ -161,6 +161,52 @@ describe("buildEvaluationContext (champs dérivés)", () => {
   });
 });
 
+describe("MEILLEURE_SEMAINE (gate hasBestWeeklyReturn)", () => {
+  const weeklyRow = (userId: string, portfolioId: string, rank: number, weeklyReturnPct: number) => ({
+    ...EMPTY_ROW,
+    userId,
+    portfolioId,
+    rank,
+    weeklyReturnPct,
+  });
+
+  it("attribué au meilleur rendement 7 j positif avec au moins 3 participants", async () => {
+    getLeaderboardMock.mockResolvedValue([
+      weeklyRow("user-a", "portfolio-a", 1, 4),
+      weeklyRow("user-b", "portfolio-b", 2, 1),
+      weeklyRow("user-c", "portfolio-c", 3, -2),
+    ]);
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    expect(results.find((r) => r.userId === "user-a")?.awarded).toContain("MEILLEURE_SEMAINE");
+    expect(results.find((r) => r.userId === "user-b")?.awarded ?? []).not.toContain("MEILLEURE_SEMAINE");
+  });
+
+  it("pas attribué quand la meilleure semaine du concours est négative", async () => {
+    getLeaderboardMock.mockResolvedValue([
+      weeklyRow("user-a", "portfolio-a", 1, -1),
+      weeklyRow("user-b", "portfolio-b", 2, -3),
+      weeklyRow("user-c", "portfolio-c", 3, -5),
+    ]);
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    expect(results.some((r) => r.awarded.includes("MEILLEURE_SEMAINE"))).toBe(false);
+  });
+
+  it("pas attribué avec seulement 2 participants ayant une valeur hebdo", async () => {
+    getLeaderboardMock.mockResolvedValue([
+      weeklyRow("user-a", "portfolio-a", 1, 4),
+      weeklyRow("user-b", "portfolio-b", 2, 1),
+    ]);
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    expect(results.some((r) => r.awarded.includes("MEILLEURE_SEMAINE"))).toBe(false);
+  });
+});
+
 describe("evaluateUserBadges", () => {
   it("retourne un tableau vide si l'utilisateur n'est pas dans le classement de la promotion", async () => {
     getLeaderboardMock.mockResolvedValue([{ ...EMPTY_ROW, userId: "autre-utilisateur" }]);

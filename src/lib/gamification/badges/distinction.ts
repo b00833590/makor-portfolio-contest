@@ -1,4 +1,5 @@
 import type { BadgeSpec } from "./types";
+import { dedupeRankHistoryByDay } from "./rank-history";
 
 const INTOUCHABLE_CUMULATIVE_DAYS = 12;
 
@@ -19,17 +20,18 @@ export const distinctionBadges: BadgeSpec[] = [
     category: "DISTINCTION",
     rarity: "LEGENDARY",
     icon: "🛡️",
-    evaluate: (ctx) => ctx.rankHistory.filter((point) => point.rank === 1).length >= INTOUCHABLE_CUMULATIVE_DAYS,
+    evaluate: (ctx) =>
+      dedupeRankHistoryByDay(ctx.rankHistory).filter((point) => point.rank === 1).length >= INTOUCHABLE_CUMULATIVE_DAYS,
   },
   {
     code: "PERFECTION",
     name: "Perfection",
-    description: "Vous avez débloqué tous les autres badges de la collection.",
-    condition: "Débloquer tous les autres badges de la collection",
+    description: "Vous avez débloqué tous les badges accessibles en cours de concours.",
+    condition: "Débloquer tous les badges hors distinctions de fin de concours",
     category: "DISTINCTION",
     rarity: "LEGENDARY",
     icon: "💎",
-    evaluate: (ctx) => ctx.alreadyOwnedCodes.size >= ctx.totalBadgeCount - 1,
+    evaluate: (ctx) => ctx.alreadyOwnedCodes.size >= ctx.evaluatableBadgeCount - 1,
   },
   {
     code: "CHAMPION_DU_CONCOURS",

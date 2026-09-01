@@ -6,10 +6,15 @@ const BEAU_MOVE_GAIN_PCT = 12;
 const GROS_COUP_GAIN_PCT = 25;
 const LE_BON_INSTINCT_GAIN_PCT = 15;
 
-/** Vrai si les `count` trades clôturés les plus récents (chronologiquement) sont tous gagnants. */
+/** Vrai s'il existe `count` trades clôturés gagnants consécutifs quelque part dans la série
+ * chronologique (pas seulement les `count` derniers). */
 export function hasWinningStreak(trades: { pnlEur: number }[], count: number): boolean {
-  if (trades.length < count) return false;
-  return trades.slice(-count).every((trade) => trade.pnlEur >= 0);
+  let run = 0;
+  for (const trade of trades) {
+    run = trade.pnlEur >= 0 ? run + 1 : 0;
+    if (run >= count) return true;
+  }
+  return false;
 }
 
 export interface ArbitrageTransaction {

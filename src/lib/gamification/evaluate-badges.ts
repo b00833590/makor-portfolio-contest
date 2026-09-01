@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { TransactionType, ChangeSessionKind, ChangeSessionStatus } from "@/generated/prisma/enums";
 import type { BadgeRarity } from "@/generated/prisma/enums";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
-import { BADGE_CATALOG, evaluateBadgeCatalog } from "./badges/catalog";
+import { BADGE_CATALOG, CLOSE_ONLY_CODES, evaluateBadgeCatalog } from "./badges/catalog";
 import type { BadgeEvaluationContext, ChangeWindowUsage, RankHistoryPoint } from "./badges/types";
 import { computeHasSuccessfulArbitrage } from "./badges/trading";
 import { computeMaxPostBuyGainPct } from "./badges/post-buy-gain";
@@ -67,8 +67,10 @@ async function buildEvaluationContext(
   ]);
 
   const openPositions = allPositions.filter((position) => Number(position.quantity) > 0 && position.closedAt === null);
+  // Clé sur les positions OUVERTES uniquement : le prix d'entrée d'une position clôturée sur le même
+  // actif ne doit jamais servir de fallback pour valoriser la position ouverte.
   const currentPriceByAsset = new Map(
-    allPositions.map((position) => [position.assetId, Number(position.asset.prices[0]?.price ?? position.avgEntryPrice)]),
+    openPositions.map((position) => [position.assetId, Number(position.asset.prices[0]?.price ?? position.avgEntryPrice)]),
   );
 
   const positionSnapshots = openPositions.map((position) => {
@@ -161,7 +163,11 @@ async function buildEvaluationContext(
     .filter((value): value is number => value !== null);
   const bestWeekly = weeklyValues.length > 0 ? Math.max(...weeklyValues) : null;
   const hasBestWeeklyReturn =
-    weeklyValues.length >= 2 && row.weeklyReturnPct !== null && bestWeekly !== null && row.weeklyReturnPct >= bestWeekly;
+    weeklyValues.length >= 3 &&
+    row.weeklyReturnPct !== null &&
+    row.weeklyReturnPct > 0 &&
+    bestWeekly !== null &&
+    row.weeklyReturnPct >= bestWeekly;
 
   const distinctAssetsTradedCount = new Set(transactions.map((transaction) => transaction.assetId)).size;
 
@@ -231,6 +237,7 @@ async function buildEvaluationContext(
     longestStreakDays: user?.longestStreakDays ?? 0,
     alreadyOwnedCodes: new Set(existingBadges.map((userBadge) => userBadge.badge.code)),
     totalBadgeCount: BADGE_CATALOG.length,
+    evaluatableBadgeCount: BADGE_CATALOG.length - CLOSE_ONLY_CODES.size,
   };
 }
 

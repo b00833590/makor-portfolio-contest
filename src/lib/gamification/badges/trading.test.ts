@@ -40,6 +40,8 @@ describe("MAIN_CHAUDE", () => {
     expect(ev("MAIN_CHAUDE")(baseContext({ closedTradesChronological: [trade(1, 1), trade(1, 1), trade(1, 1), trade(1, 1)] }))).toBe(true));
   it("pas attribué si l'une est perdante", () =>
     expect(ev("MAIN_CHAUDE")(baseContext({ closedTradesChronological: [trade(1, 1), trade(-1, -1), trade(1, 1), trade(1, 1)] }))).toBe(false));
+  it("attribué si 4 gagnantes consécutives précèdent une perte", () =>
+    expect(ev("MAIN_CHAUDE")(baseContext({ closedTradesChronological: [trade(1, 1), trade(1, 1), trade(1, 1), trade(1, 1), trade(-1, -1)] }))).toBe(true));
   it("pas attribué avec seulement 3 ventes", () =>
     expect(ev("MAIN_CHAUDE")(baseContext({ closedTradesChronological: [trade(1, 1), trade(1, 1), trade(1, 1)] }))).toBe(false));
 });

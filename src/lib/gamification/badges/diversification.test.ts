@@ -16,14 +16,14 @@ describe("PORTEFEUILLE_COMPLET", () => {
 });
 
 describe("RIEN_DANS_UN_PANIER", () => {
-  it("attribué : 8 positions, concentration max 12%", () =>
-    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 8, maxPositionConcentrationPct: 12 }))).toBe(true));
+  it("attribué : 9 positions, concentration max 11%", () =>
+    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 9, maxPositionConcentrationPct: 11 }))).toBe(true));
   it("pas attribué : concentration 12.1%", () =>
-    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 8, maxPositionConcentrationPct: 12.1 }))).toBe(false));
-  it("pas attribué : moins de 8 positions", () =>
-    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 7, maxPositionConcentrationPct: 5 }))).toBe(false));
+    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 9, maxPositionConcentrationPct: 12.1 }))).toBe(false));
+  it("pas attribué : moins de 9 positions", () =>
+    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 8, maxPositionConcentrationPct: 5 }))).toBe(false));
   it("pas attribué : concentration inconnue", () =>
-    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 8, maxPositionConcentrationPct: null }))).toBe(false));
+    expect(ev("RIEN_DANS_UN_PANIER")(baseContext({ openPositionCount: 9, maxPositionConcentrationPct: null }))).toBe(false));
 });
 
 describe("TOUCHE_A_TOUT", () => {

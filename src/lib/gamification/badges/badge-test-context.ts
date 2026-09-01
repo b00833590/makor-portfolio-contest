@@ -35,6 +35,7 @@ export function baseContext(overrides: Partial<BadgeEvaluationContext> = {}): Ba
     regainedFirstPlace: false,
     alreadyOwnedCodes: new Set(),
     totalBadgeCount: 40,
+    evaluatableBadgeCount: 32,
     ...overrides,
   };
 }

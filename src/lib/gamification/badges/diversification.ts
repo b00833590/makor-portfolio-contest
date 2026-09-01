@@ -1,6 +1,6 @@
 import type { BadgeSpec } from "./types";
 
-const RIEN_DANS_UN_PANIER_MIN_POSITIONS = 8;
+const RIEN_DANS_UN_PANIER_MIN_POSITIONS = 9;
 const RIEN_DANS_UN_PANIER_MAX_CONCENTRATION_PCT = 12;
 const COLLECTIONNEUR_MIN_ASSETS = 25;
 
@@ -19,7 +19,7 @@ export const diversificationBadges: BadgeSpec[] = [
     code: "RIEN_DANS_UN_PANIER",
     name: "Rien dans un seul panier",
     description: "Aucune de vos positions ne pèse plus de 12% de votre portefeuille.",
-    condition: "Aucune position ne dépasse 12% du portefeuille (au moins 8 positions)",
+    condition: "Aucune position ne dépasse 12% du portefeuille (au moins 9 positions)",
     category: "DIVERSIFICATION",
     rarity: "RARE",
     icon: "⚖️",

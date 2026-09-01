@@ -1,4 +1,5 @@
 import type { BadgeSpec } from "./types";
+import { dedupeRankHistoryByDay } from "./rank-history";
 
 const REGNE_DAYS = 5;
 const REMONTADA_MIN_RANK_GAIN = 5;
@@ -6,10 +7,15 @@ const DOMINATION_MIN_GAP_PTS = 8;
 const FUSEE_MIN_DAILY_RETURN_PCT = 8;
 const PODIUM_MIN_PARTICIPANTS = 4;
 
-/** Vrai si les `days` points de rang les plus récents (le plus récent en premier) valent tous 1. */
-export function isLeaderForConsecutiveDays(ctx: { rankHistory: { rank: number | null }[] }, days: number): boolean {
-  if (ctx.rankHistory.length < days) return false;
-  return ctx.rankHistory.slice(0, days).every((point) => point.rank === 1);
+/** Vrai si les `days` jours UTC les plus récents (le plus récent en premier, un point par jour)
+ * valent tous rang 1. */
+export function isLeaderForConsecutiveDays(
+  ctx: { rankHistory: { timestamp: Date; rank: number | null }[] },
+  days: number,
+): boolean {
+  const daily = dedupeRankHistoryByDay(ctx.rankHistory);
+  if (daily.length < days) return false;
+  return daily.slice(0, days).every((point) => point.rank === 1);
 }
 
 export const rankingBadges: BadgeSpec[] = [
