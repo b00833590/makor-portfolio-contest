@@ -1,4 +1,4 @@
-import { RARITY_LABEL, RARITY_BAR_CLASSNAME, RARITY_ORDER } from "@/lib/gamification/badge-display";
+import { RARITY_LABEL, RARITY_BAR_CLASSNAME, RARITY_TEXT_CLASSNAME } from "@/lib/gamification/badge-display";
 import type { BadgeBoard } from "@/lib/gamification/get-badge-board";
 
 type Props = { board: BadgeBoard };
@@ -22,25 +22,24 @@ export function BadgesHeader({ board }: Props) {
         </p>
       </div>
 
-      <div className="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-        {RARITY_ORDER.map((rarity) => {
-          const row = board.byRarity.find((r) => r.rarity === rarity);
-          if (!row || row.total === 0) return null;
-          const widthPct = (row.total / board.totalCount) * 100;
-          const earnedPct = row.total > 0 ? (row.earned / row.total) * 100 : 0;
+      <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+        {board.byRarity.map((row) => {
+          if (row.total === 0) return null;
+          const earnedPct = (row.earned / row.total) * 100;
           return (
-            <div key={rarity} style={{ width: `${widthPct}%` }} className="h-full bg-muted-foreground/10">
-              <div className={`h-full ${RARITY_BAR_CLASSNAME[rarity]}`} style={{ width: `${earnedPct}%` }} />
+            <div key={row.rarity} className="flex flex-col gap-1.5">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className={`h-full rounded-full ${RARITY_BAR_CLASSNAME[row.rarity]}`} style={{ width: `${earnedPct}%` }} />
+              </div>
+              <p className="text-center text-sm font-semibold tabular-nums">
+                {row.earned} <span className="text-muted-foreground">/ {row.total}</span>
+              </p>
+              <p className={`text-center text-xs font-medium ${RARITY_TEXT_CLASSNAME[row.rarity]}`}>
+                {RARITY_LABEL[row.rarity]}
+              </p>
             </div>
           );
         })}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {board.byRarity.map((row) => (
-          <span key={row.rarity} className="tabular-nums">
-            {RARITY_LABEL[row.rarity]} {row.earned}/{row.total}
-          </span>
-        ))}
       </div>
     </div>
   );

@@ -33,6 +33,14 @@ export const RARITY_BAR_CLASSNAME: Record<BadgeRarity, string> = {
   LEGENDARY: "bg-amber-500",
 };
 
+/** Couleur de texte seule (label de rareté), alignée sur `RARITY_CLASSNAME`. */
+export const RARITY_TEXT_CLASSNAME: Record<BadgeRarity, string> = {
+  COMMON: "text-muted-foreground",
+  RARE: "text-blue-500",
+  EPIC: "text-violet-500",
+  LEGENDARY: "text-amber-600 dark:text-amber-400",
+};
+
 export const CATEGORY_LABEL: Record<BadgeCategory, string> = {
   PERFORMANCE: "Performance",
   RANKING: "Compétition",
