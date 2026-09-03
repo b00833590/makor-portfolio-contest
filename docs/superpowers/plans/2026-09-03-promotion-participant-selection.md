@@ -37,11 +37,11 @@
 | `src/app/admin/participants/actions.ts` | `createParticipant` + nouvelle `addParticipantToPromotion` (remplace `reassign`) via module | 4 |
 | `src/app/admin/participants/schema.ts` | `addToPromotionSchema` (renommage) | 4 |
 | `src/app/admin/participants/schema.test.ts` | test adapté | 4 |
-| `src/app/admin/promotions/[id]/participants-actions.ts` | bulk via module + `addExistingParticipants` + `unregisterParticipantAction` | 5 |
+| `src/app/admin/participants/participant-row-actions.tsx` | consomme `addParticipantToPromotion` (recâblage dans le commit du renommage) | 4 |
+| `src/app/admin/promotions/[id]/participants-actions.ts` | bulk via module + `addExistingParticipants` + `unregisterParticipantAction` | 4 (bulk) + 5 |
 | `src/app/admin/promotions/[id]/add-existing-participants-form.tsx` | composant client — liste à cocher + filtre | 5 |
 | `src/app/admin/promotions/[id]/page.tsx` | roster via `participants` + carte « ajouter des existants » | 5 |
 | `src/app/admin/participants/page.tsx` | colonne multi-promotions | 6 |
-| `src/app/admin/participants/participant-row-actions.tsx` | « Ajouter à une promotion » | 6 |
 | `docs/ADMINISTRATION.md` | doc du nouveau flux | 7 |
 
 ---
@@ -833,16 +833,66 @@ import { registerParticipants } from "@/lib/participants/promotion-membership";
   }
 ```
 
-- [ ] **Step 8 : Vérifier compilation + suite complète**
+- [ ] **Step 8 : Recâbler le seul consommateur de l'action renommée**
+
+`participant-row-actions.tsx` importe `reassignParticipantPromotion` (supprimée au Step 6) — il faut le mettre à jour dans le même commit pour que l'arbre compile. Dans `src/app/admin/participants/participant-row-actions.tsx` :
+
+1. Import : remplacer `reassignParticipantPromotion` par `addParticipantToPromotion`.
+
+```ts
+import {
+  addParticipantToPromotion,
+  removeParticipant,
+  deleteParticipant,
+  resetParticipantPassword,
+  type ParticipantFormState,
+} from "./actions";
+```
+
+2. Remplacer le `useActionState` de reassign par :
+
+```ts
+  const [addState, addAction, addPending] = useActionState(addParticipantToPromotion, initialState);
+```
+
+3. Dans le JSX, le premier `<form>` du dialogue : `action={reassignAction}` → `action={addAction}` ; le libellé du bouton devient « Ajouter à cette promotion » ; `reassignState` → `addState`, `reassignPending` → `addPending`. Le `<Select defaultValue={currentPromotionId ?? undefined}>` reste inchangé.
+
+```tsx
+            <form action={addAction} className="flex flex-col gap-2">
+              <input type="hidden" name="userId" value={userId} />
+              <Label htmlFor={`promotion-${userId}`}>Promotion</Label>
+              <Select
+                name="promotionId"
+                defaultValue={currentPromotionId ?? undefined}
+                items={promotions.map((promotion) => ({ value: promotion.id, label: promotion.name }))}
+              >
+                <SelectTrigger id={`promotion-${userId}`} className="w-full">
+                  <SelectValue placeholder="Choisir une promotion" />
+                </SelectTrigger>
+                <SelectContent>
+                  {promotions.map((promotion) => (
+                    <SelectItem key={promotion.id} value={promotion.id}>
+                      {promotion.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="submit" size="sm" disabled={addPending} className="self-start">
+                Ajouter à cette promotion
+              </Button>
+              {addState.error && <p className="text-sm text-destructive">{addState.error}</p>}
+            </form>
+```
+
+- [ ] **Step 9 : Vérifier compilation + suite complète**
 
 Run: `npx tsc --noEmit && npm test`
 Expected: aucune erreur TS ; toute la suite PASS.
-(Si `tsc` signale `reassignParticipantPromotion` manquant dans `participant-row-actions.tsx` — c'est attendu, corrigé en Task 6. Pour garder ce commit compilable, appliquer d'abord Task 6 Step 1-2 puis revenir ; sinon committer Task 4 et Task 6 ensemble. **Recommandation : enchaîner Task 4 → Task 6 sans `tsc --noEmit` intermédiaire, et committer après Task 6 Step 4.**)
 
-- [ ] **Step 9 : Commit** (après Task 6 si la compilation croisée l'exige)
+- [ ] **Step 10 : Commit**
 
 ```bash
-git add src/lib/participants/create-participant.ts src/lib/participants/create-participant.test.ts src/app/admin/participants/actions.ts src/app/admin/participants/schema.ts src/app/admin/participants/schema.test.ts src/app/admin/promotions/[id]/participants-actions.ts
+git add src/lib/participants/create-participant.ts src/lib/participants/create-participant.test.ts src/app/admin/participants/actions.ts src/app/admin/participants/schema.ts src/app/admin/participants/schema.test.ts src/app/admin/participants/participant-row-actions.tsx "src/app/admin/promotions/[id]/participants-actions.ts"
 git commit -m "refactor: route participant creation through registerParticipants
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
@@ -1146,7 +1196,7 @@ import { unregisterParticipantAction } from "./participants-actions";
 - [ ] **Step 4 : Vérifier compilation**
 
 Run: `npx tsc --noEmit`
-Expected: aucune erreur (sauf `participant-row-actions.tsx` si Task 6 pas encore faite — voir note Task 4 Step 8).
+Expected: aucune erreur.
 
 - [ ] **Step 5 : Vérification manuelle**
 
@@ -1171,14 +1221,13 @@ Claude-Session: https://claude.ai/code/session_01UqBLYU3dCAE8iUT3wtRGD8"
 
 ---
 
-## Task 6 : `/admin/participants` — colonne multi-promotions + « Ajouter à une promotion »
+## Task 6 : `/admin/participants` — colonne multi-promotions
 
 **Files:**
 - Modify: `src/app/admin/participants/page.tsx`
-- Modify: `src/app/admin/participants/participant-row-actions.tsx`
 
 **Interfaces:**
-- Consumes : action `addParticipantToPromotion` (Task 4), `db.user.promotionParticipations`.
+- Consumes : `db.user.promotionParticipations` (Task 1). L'action `addParticipantToPromotion` et le composant `participant-row-actions.tsx` ont déjà été recâblés en Task 4 Step 8 — **ne pas y retoucher ici**.
 
 - [ ] **Step 1 : Mettre à jour la requête et l'affichage de la page**
 
@@ -1222,75 +1271,24 @@ Remplacer la `<TableCell>` de la colonne « Promotion » (lignes ~50-56) par :
                 </TableCell>
 ```
 
-(Le calcul `currentPortfolio` juste au-dessus et le reste de la ligne restent inchangés — `user.promotionId` est toujours sélectionné.)
+(Le calcul `currentPortfolio` juste au-dessus et le reste de la ligne restent inchangés — `user.promotionId` est toujours sélectionné. `ParticipantRowActions` reçoit toujours `currentPromotionId={user.promotionId}` et `promotions`.)
 
-- [ ] **Step 2 : Mettre à jour les actions de ligne**
-
-Dans `src/app/admin/participants/participant-row-actions.tsx` :
-
-1. Import : remplacer `reassignParticipantPromotion` par `addParticipantToPromotion`.
-
-```ts
-import {
-  addParticipantToPromotion,
-  removeParticipant,
-  deleteParticipant,
-  resetParticipantPassword,
-  type ParticipantFormState,
-} from "./actions";
-```
-
-2. Remplacer le `useActionState` de reassign :
-
-```ts
-  const [addState, addAction, addPending] = useActionState(addParticipantToPromotion, initialState);
-```
-
-3. Dans le JSX du dialogue, le premier `<form>` : remplacer `action={reassignAction}` par `action={addAction}`, le `<Label>` reste « Promotion », le libellé du bouton devient « Ajouter à cette promotion », et les références `reassignState` / `reassignPending` deviennent `addState` / `addPending`. Le `<Select defaultValue={currentPromotionId ?? undefined}>` reste tel quel.
-
-```tsx
-            <form action={addAction} className="flex flex-col gap-2">
-              <input type="hidden" name="userId" value={userId} />
-              <Label htmlFor={`promotion-${userId}`}>Promotion</Label>
-              <Select
-                name="promotionId"
-                defaultValue={currentPromotionId ?? undefined}
-                items={promotions.map((promotion) => ({ value: promotion.id, label: promotion.name }))}
-              >
-                <SelectTrigger id={`promotion-${userId}`} className="w-full">
-                  <SelectValue placeholder="Choisir une promotion" />
-                </SelectTrigger>
-                <SelectContent>
-                  {promotions.map((promotion) => (
-                    <SelectItem key={promotion.id} value={promotion.id}>
-                      {promotion.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="submit" size="sm" disabled={addPending} className="self-start">
-                Ajouter à cette promotion
-              </Button>
-              {addState.error && <p className="text-sm text-destructive">{addState.error}</p>}
-            </form>
-```
-
-- [ ] **Step 3 : Vérifier compilation + suite**
+- [ ] **Step 2 : Vérifier compilation + suite**
 
 Run: `npx tsc --noEmit && npm test`
 Expected: aucune erreur TS ; toute la suite PASS.
 
-- [ ] **Step 4 : Vérification manuelle**
+- [ ] **Step 3 : Vérification manuelle**
 
 1. `/admin/participants` : la colonne Promotion montre, pour un participant ayant fait 2 saisons, 2 badges (l'active en couleur pleine).
 2. « Modifier » sur une ligne → choisir une promotion → « Ajouter à cette promotion » → le badge apparaît ; s'il est déjà dans une promotion ACTIVE différente, message d'erreur explicite.
 3. Régression : « Créer un participant » (formulaire du haut) fonctionne toujours et provisionne le portefeuille si la promotion est active.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 4 : Commit**
 
 ```bash
-git add src/app/admin/participants/page.tsx src/app/admin/participants/participant-row-actions.tsx
-git commit -m "feat: /admin/participants shows all promotions, add-to-promotion action
+git add src/app/admin/participants/page.tsx
+git commit -m "feat: /admin/participants shows all promotions a participant has joined
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01UqBLYU3dCAE8iUT3wtRGD8"
@@ -1363,14 +1361,14 @@ git push -u origin feat/promotion-participant-selection
 | `provisionPortfolios` lit la table de liaison | 3 |
 | `create-participant` ne fixe plus `promotionId`, renvoie l'`id` | 4 |
 | Création (simple + groupée) routée via le module | 4 |
-| `reassignParticipantPromotion` → `addParticipantToPromotion` | 4, 6 |
+| `reassignParticipantPromotion` → `addParticipantToPromotion` (+ recâblage row-actions) | 4 |
 | Actions `addExistingParticipants` / `unregisterParticipantAction` | 5 |
 | Carte « ajouter des participants existants » (cases à cocher + filtre + dernière promotion) | 5 |
 | Roster page détail via `participants`, ✕ seulement en DRAFT | 5 |
 | `/admin/participants` colonne multi-promotions | 6 |
-| Non-inscrits absents du classement / sans accès | Vérifs manuelles Task 5 Step 5, Task 6 Step 4 (mécanisme : pas de `Portfolio` → absent de `getLeaderboard` ; `user.promotionId` inchangé) |
+| Non-inscrits absents du classement / sans accès | Vérifs manuelles Task 5 Step 5, Task 6 Step 3 (mécanisme : pas de `Portfolio` → absent de `getLeaderboard` ; `user.promotionId` inchangé) |
 | Historique conservé | 1 (table additive), aucune suppression de `Portfolio`/snapshot/`HallOfFameEntry` |
-| Ne pas casser l'existant | 3 Step 5, 4 Step 8, 7 Step 2 (suite + build) ; backfill 1 Step 5 |
+| Ne pas casser l'existant | 3 Step 5, 4 Step 9, 7 Step 2 (suite + build) ; backfill 1 Step 5 |
 | Doc | 7 |
 
 **Hors périmètre (spec)** : suppression de `User.promotionId`, sélecteur de promotion côté participant, sélection dans le formulaire de création — non planifiés, conformément au spec.
