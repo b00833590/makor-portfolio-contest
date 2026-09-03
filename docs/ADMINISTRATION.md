@@ -79,6 +79,27 @@ Depuis `/admin/participants` :
 futur concours** : chaque nouvelle promotion ne contient que les comptes explicitement créés (ou
 réaffectés) par l'admin. Aucune auto-inscription n'est possible.
 
+## Inscrire des participants à une promotion
+
+La participation est **liée à chaque promotion** : un participant d'une saison
+passée n'a accès à une nouvelle promotion que si l'admin l'y inscrit
+explicitement. Depuis la page détail d'une promotion (`/admin/promotions/<id>`),
+carte **Participants** :
+
+- **Créer de nouveaux comptes** — génère des comptes + mots de passe temporaires.
+- **Ajouter des participants existants** — liste à cocher de tous les participants
+  déjà connus (avec leur dernière promotion en repère). Les cocher les inscrit à
+  cette promotion ; un portefeuille leur est créé si la promotion est déjà active.
+
+Tant que la promotion est en **brouillon**, un participant inscrit peut être
+retiré (✕ à côté de son nom). Une fois la promotion active ou clôturée, le roster
+est verrouillé (retirer quelqu'un fausserait classement et historique).
+
+Les participants non inscrits n'apparaissent pas dans le classement de la nouvelle
+promotion et n'y ont pas accès. Chaque participation garde son portefeuille, son
+classement et son historique propres ; l'historique des anciennes promotions est
+conservé.
+
 ## Restreindre l'univers d'actifs
 
 Par défaut, tout ticker action/crypto trouvé par la recherche (`/api/assets/search`, Twelve
