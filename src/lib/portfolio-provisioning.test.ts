@@ -5,7 +5,7 @@ const createManyMock = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
-    user: { findMany: findManyMock },
+    promotionParticipant: { findMany: findManyMock },
     portfolio: { createMany: createManyMock },
   },
 }));
@@ -18,13 +18,13 @@ beforeEach(() => {
 });
 
 describe("provisionPortfolios", () => {
-  it("crée un portefeuille pour chaque participant assigné à la promotion", async () => {
-    findManyMock.mockResolvedValue([{ id: "user-1" }, { id: "user-2" }]);
+  it("crée un portefeuille pour chaque participant inscrit à la promotion", async () => {
+    findManyMock.mockResolvedValue([{ userId: "user-1" }, { userId: "user-2" }]);
     createManyMock.mockResolvedValue({ count: 2 });
 
     const count = await provisionPortfolios("promo-1");
 
-    expect(findManyMock).toHaveBeenCalledWith({ where: { promotionId: "promo-1" }, select: { id: true } });
+    expect(findManyMock).toHaveBeenCalledWith({ where: { promotionId: "promo-1" }, select: { userId: true } });
     expect(createManyMock).toHaveBeenCalledWith({
       data: [
         { userId: "user-1", promotionId: "promo-1" },
@@ -35,7 +35,7 @@ describe("provisionPortfolios", () => {
     expect(count).toBe(2);
   });
 
-  it("ne crée rien si aucun participant n'est assigné", async () => {
+  it("ne crée rien si aucun participant n'est inscrit", async () => {
     findManyMock.mockResolvedValue([]);
     createManyMock.mockResolvedValue({ count: 0 });
 

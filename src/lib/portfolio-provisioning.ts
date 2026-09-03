@@ -3,18 +3,19 @@ import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 
 /**
- * Crée un Portfolio pour chaque participant déjà assigné à la promotion et qui
- * n'en a pas encore un. Idempotent (skipDuplicates) — peut être rappelé sans
- * risque si des participants sont ajoutés après l'activation.
+ * Crée un Portfolio pour chaque participant inscrit à la promotion (table
+ * `PromotionParticipant`) et qui n'en a pas encore un. Idempotent
+ * (skipDuplicates) — peut être rappelé sans risque si des participants sont
+ * ajoutés après l'activation.
  */
 export async function provisionPortfolios(promotionId: string): Promise<number> {
-  const participants = await db.user.findMany({
+  const participants = await db.promotionParticipant.findMany({
     where: { promotionId },
-    select: { id: true },
+    select: { userId: true },
   });
 
   const result = await db.portfolio.createMany({
-    data: participants.map((participant) => ({ userId: participant.id, promotionId })),
+    data: participants.map((participant) => ({ userId: participant.userId, promotionId })),
     skipDuplicates: true,
   });
 
