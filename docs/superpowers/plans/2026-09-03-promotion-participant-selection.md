@@ -434,7 +434,7 @@ export async function unregisterParticipant(promotionId: string, userId: string)
 - [ ] **Step 4 : Lancer les tests, vérifier le succès**
 
 Run: `npx vitest run src/lib/participants/promotion-membership.test.ts`
-Expected: PASS (12 tests).
+Expected: PASS (9 tests).
 
 - [ ] **Step 5 : Commit**
 
