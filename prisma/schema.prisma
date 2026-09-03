@@ -66,6 +66,7 @@ model User {
   badges      UserBadge[]
   auditLogs   AuditLog[]
   hallOfFameEntries HallOfFameEntry[]
+  promotionParticipations PromotionParticipant[]
 }
 
 enum PromotionStatus {
@@ -100,6 +101,7 @@ model Promotion {
   changeSessions ChangeSession[]
   userBadges     UserBadge[]
   hallOfFameEntries HallOfFameEntry[]
+  participants PromotionParticipant[]
 }
 
 enum AssetType {
@@ -369,4 +371,25 @@ model HallOfFameEntry {
 
   @@unique([promotionId, userId])
   @@index([finalReturnPct])
+}
+
+/// Registre d'inscription : une ligne par couple (participant, promotion),
+/// écrite quand l'admin inscrit quelqu'un à une promotion, jamais mutée
+/// destructivement. Source de vérité du roster (pilote provisionPortfolios) et
+/// de l'historique des participations. `User.promotionId` en reste le pointeur
+/// dénormalisé "promotion active" (une seule promotion non clôturée à la fois),
+/// synchronisé ici à l'inscription.
+/// ponytail: double donnée volontaire (ligne de liaison + User.promotionId) —
+/// à fusionner si l'app passe un jour à du multi-promotion simultané.
+model PromotionParticipant {
+  id          String   @id @default(cuid())
+  userId      String
+  promotionId String
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promotionId])
+  @@index([promotionId])
 }
