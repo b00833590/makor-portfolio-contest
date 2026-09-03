@@ -9,7 +9,7 @@ export const resetPasswordSchema = z.object({
   userId: z.string().min(1),
 });
 
-export const reassignPromotionSchema = z.object({
+export const addToPromotionSchema = z.object({
   userId: z.string().min(1),
   promotionId: z.string().min(1, "Choisissez une promotion"),
 });

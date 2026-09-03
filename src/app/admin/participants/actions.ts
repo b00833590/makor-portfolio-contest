@@ -7,8 +7,8 @@ import { logAudit } from "@/lib/audit";
 import { hashPassword, generateTempPassword } from "@/lib/auth/password";
 import { destroyAllSessionsForUser } from "@/lib/auth/session";
 import { createParticipantWithTempPassword } from "@/lib/participants/create-participant";
-import { provisionPortfolioIfPromotionActive } from "@/lib/portfolio-provisioning";
-import { createParticipantSchema, resetPasswordSchema, reassignPromotionSchema } from "./schema";
+import { registerParticipants } from "@/lib/participants/promotion-membership";
+import { createParticipantSchema, resetPasswordSchema, addToPromotionSchema } from "./schema";
 
 export interface ParticipantFormState {
   error?: string;
@@ -32,12 +32,12 @@ export async function createParticipant(
 
   const { name, promotionId } = parsed.data;
 
-  const result = await createParticipantWithTempPassword({ name, promotionId });
+  const result = await createParticipantWithTempPassword({ name });
   if (result.status === "exists") {
     return { error: `L'identifiant "${name}" est déjà utilisé.` };
   }
 
-  await provisionPortfolioIfPromotionActive(promotionId);
+  await registerParticipants(promotionId, [result.id]);
 
   await logAudit({
     adminId: session.user.id,
@@ -82,13 +82,13 @@ export async function resetParticipantPassword(
   return { created: { name: user.name, tempPassword } };
 }
 
-export async function reassignParticipantPromotion(
+export async function addParticipantToPromotion(
   _prevState: ParticipantFormState,
   formData: FormData,
 ): Promise<ParticipantFormState> {
   const session = await requireAdmin();
 
-  const parsed = reassignPromotionSchema.safeParse({
+  const parsed = addToPromotionSchema.safeParse({
     userId: formData.get("userId"),
     promotionId: formData.get("promotionId"),
   });
@@ -97,19 +97,15 @@ export async function reassignParticipantPromotion(
     return { error: parsed.error.issues[0]?.message ?? "Données invalides" };
   }
 
-  const before = await db.user.findUniqueOrThrow({ where: { id: parsed.data.userId } });
-  await db.user.update({
-    where: { id: parsed.data.userId },
-    data: { promotionId: parsed.data.promotionId },
-  });
-
-  await provisionPortfolioIfPromotionActive(parsed.data.promotionId);
+  const [result] = await registerParticipants(parsed.data.promotionId, [parsed.data.userId]);
+  if (result?.status === "blocked-active-elsewhere") {
+    return { error: `${result.name} participe déjà à « ${result.promotionName} » (promotion active).` };
+  }
 
   await logAudit({
     adminId: session.user.id,
-    action: "participant.reassign",
+    action: "participant.add-to-promotion",
     target: parsed.data.userId,
-    before: { promotionId: before.promotionId },
     after: { promotionId: parsed.data.promotionId },
   });
 

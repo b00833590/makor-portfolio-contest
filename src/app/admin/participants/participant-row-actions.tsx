@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import {
-  reassignParticipantPromotion,
+  addParticipantToPromotion,
   removeParticipant,
   deleteParticipant,
   resetParticipantPassword,
@@ -46,10 +46,7 @@ export function ParticipantRowActions({
 }) {
   const [open, setOpen] = useState(false);
   const [resetState, resetAction, resetPending] = useActionState(resetParticipantPassword, initialState);
-  const [reassignState, reassignAction, reassignPending] = useActionState(
-    reassignParticipantPromotion,
-    initialState,
-  );
+  const [addState, addAction, addPending] = useActionState(addParticipantToPromotion, initialState);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -76,7 +73,7 @@ export function ParticipantRowActions({
             <DialogTitle>Modifier le participant</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-6">
-            <form action={reassignAction} className="flex flex-col gap-2">
+            <form action={addAction} className="flex flex-col gap-2">
               <input type="hidden" name="userId" value={userId} />
               <Label htmlFor={`promotion-${userId}`}>Promotion</Label>
               <Select
@@ -95,10 +92,10 @@ export function ParticipantRowActions({
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="submit" size="sm" disabled={reassignPending} className="self-start">
-                Changer de promotion
+              <Button type="submit" size="sm" disabled={addPending} className="self-start">
+                Ajouter à cette promotion
               </Button>
-              {reassignState.error && <p className="text-sm text-destructive">{reassignState.error}</p>}
+              {addState.error && <p className="text-sm text-destructive">{addState.error}</p>}
             </form>
 
             <form action={resetAction} className="flex flex-col gap-2 border-t border-border pt-4">

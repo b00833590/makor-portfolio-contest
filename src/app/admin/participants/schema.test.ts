@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createParticipantSchema, resetPasswordSchema, reassignPromotionSchema } from "./schema";
+import { createParticipantSchema, resetPasswordSchema, addToPromotionSchema } from "./schema";
 
 describe("createParticipantSchema", () => {
   it("accepts a valid name and promotion id", () => {
@@ -44,22 +44,14 @@ describe("resetPasswordSchema", () => {
   });
 });
 
-describe("reassignPromotionSchema", () => {
-  it("accepts a valid user id and promotion id", () => {
-    const result = reassignPromotionSchema.safeParse({
-      userId: "user-1",
-      promotionId: "promo-1",
-    });
-
+describe("addToPromotionSchema", () => {
+  it("accepte un userId et un promotionId valides", () => {
+    const result = addToPromotionSchema.safeParse({ userId: "user-1", promotionId: "promo-1" });
     expect(result.success).toBe(true);
   });
 
-  it("rejects a missing promotion id", () => {
-    const result = reassignPromotionSchema.safeParse({
-      userId: "user-1",
-      promotionId: "",
-    });
-
+  it("rejette un promotionId manquant", () => {
+    const result = addToPromotionSchema.safeParse({ userId: "user-1", promotionId: "" });
     expect(result.success).toBe(false);
   });
 });

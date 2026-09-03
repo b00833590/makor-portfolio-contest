@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import { createParticipantWithTempPassword, type ParticipantCreationResult } from "@/lib/participants/create-participant";
-import { provisionPortfolioIfPromotionActive } from "@/lib/portfolio-provisioning";
+import { registerParticipants } from "@/lib/participants/promotion-membership";
 
 const participantRowSchema = z.object({
   name: z.string().trim().min(2, "Identifiant trop court (Prénom Nom)"),
@@ -42,11 +42,13 @@ export async function createParticipantsBulk(
   }
 
   const results: BulkParticipantResult[] = [];
+  const createdIds: string[] = [];
   for (const row of parsedRows) {
-    const result = await createParticipantWithTempPassword({ name: row.name, promotionId });
+    const result = await createParticipantWithTempPassword({ name: row.name });
     results.push(result);
 
     if (result.status === "created") {
+      createdIds.push(result.id);
       await logAudit({
         adminId: session.user.id,
         action: "participant.create",
@@ -56,8 +58,8 @@ export async function createParticipantsBulk(
     }
   }
 
-  if (results.some((result) => result.status === "created")) {
-    await provisionPortfolioIfPromotionActive(promotionId);
+  if (createdIds.length > 0) {
+    await registerParticipants(promotionId, createdIds);
   }
 
   revalidatePath(`/admin/promotions/${promotionId}`);

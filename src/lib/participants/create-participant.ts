@@ -4,19 +4,18 @@ import { hashPassword, generateTempPassword } from "@/lib/auth/password";
 
 export interface ParticipantCreationInput {
   name: string;
-  promotionId: string | null;
 }
 
 export type ParticipantCreationResult =
-  | { name: string; status: "created"; tempPassword: string }
+  | { name: string; status: "created"; id: string; tempPassword: string }
   | { name: string; status: "exists" };
 
 /**
- * Crée un participant avec un mot de passe temporaire généré (jamais choisi
- * par l'admin) — le compte a `mustChangePassword: true`, forçant le
- * changement de mot de passe à la première connexion (voir src/proxy.ts).
- * Ne fait rien si l'identifiant existe déjà (retourne "exists" plutôt que
- * d'écraser un compte existant).
+ * Crée UN compte participant avec un mot de passe temporaire généré (jamais
+ * choisi par l'admin) — `mustChangePassword: true` force le changement à la
+ * première connexion (voir src/proxy.ts). Ne fait rien si l'identifiant existe
+ * déjà. L'inscription à une promotion est une étape séparée : l'appelant
+ * enchaîne `registerParticipants` (voir promotion-membership.ts).
  */
 export async function createParticipantWithTempPassword(
   input: ParticipantCreationInput,
@@ -27,9 +26,9 @@ export async function createParticipantWithTempPassword(
 
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
-  await db.user.create({
-    data: { name, passwordHash, promotionId: input.promotionId, mustChangePassword: true },
+  const user = await db.user.create({
+    data: { name, passwordHash, mustChangePassword: true },
   });
 
-  return { name, status: "created", tempPassword };
+  return { name, status: "created", id: user.id, tempPassword };
 }

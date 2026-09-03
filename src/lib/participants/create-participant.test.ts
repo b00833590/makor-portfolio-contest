@@ -15,46 +15,44 @@ beforeEach(() => {
 });
 
 describe("createParticipantWithTempPassword", () => {
-  it("creates a new participant with a generated temp password and mustChangePassword", async () => {
+  it("crée un compte avec mot de passe temporaire et renvoie son id", async () => {
     findUniqueMock.mockResolvedValue(null);
-    createMock.mockResolvedValue({});
+    createMock.mockResolvedValue({ id: "user-x" });
 
-    const result = await createParticipantWithTempPassword({ name: "Adam Dupont", promotionId: "promo-1" });
+    const result = await createParticipantWithTempPassword({ name: "Adam Dupont" });
 
     expect(result.status).toBe("created");
-    expect(result).toHaveProperty("tempPassword");
     if (result.status === "created") {
+      expect(result.id).toBe("user-x");
       expect(result.tempPassword).toHaveLength(10);
     }
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          name: "Adam Dupont",
-          promotionId: "promo-1",
-          mustChangePassword: true,
-        }),
+        data: expect.objectContaining({ name: "Adam Dupont", mustChangePassword: true }),
       }),
     );
+    const createArg = createMock.mock.calls[0][0];
+    expect(createArg.data).not.toHaveProperty("promotionId");
   });
 
-  it("does not create a duplicate account when the name already exists", async () => {
+  it("ne crée pas de doublon si le nom existe déjà", async () => {
     findUniqueMock.mockResolvedValue({ id: "existing-user" });
 
-    const result = await createParticipantWithTempPassword({ name: "Adam Dupont", promotionId: "promo-1" });
+    const result = await createParticipantWithTempPassword({ name: "Adam Dupont" });
 
     expect(result).toEqual({ name: "Adam Dupont", status: "exists" });
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("trims the provided name before checking and creating", async () => {
+  it("nettoie le nom (trim) avant vérification et création", async () => {
     findUniqueMock.mockResolvedValue(null);
-    createMock.mockResolvedValue({});
+    createMock.mockResolvedValue({ id: "user-y" });
 
-    await createParticipantWithTempPassword({ name: "  Adam Dupont  ", promotionId: null });
+    await createParticipantWithTempPassword({ name: "  Adam Dupont  " });
 
     expect(findUniqueMock).toHaveBeenCalledWith({ where: { name: "Adam Dupont" } });
     expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ name: "Adam Dupont", promotionId: null }) }),
+      expect.objectContaining({ data: expect.objectContaining({ name: "Adam Dupont" }) }),
     );
   });
 });
