@@ -68,10 +68,14 @@ Depuis `/admin/participants` :
   passe initial, et la promotion à laquelle rattacher le participant. Communiquez ces
   identifiants au stagiaire par le canal de votre choix (Slack, email, oral) — la plateforme ne
   les envoie jamais elle-même.
-- **Modifier** : réinitialiser le mot de passe d'un participant (utile s'il l'a oublié), ou le
-  faire changer de promotion.
-- **Retirer** : détache le participant de sa promotion (`Retirer`) sans supprimer son compte ni
-  son historique — utile pour un participant qui quitte le concours en cours de route.
+- **Modifier** : réinitialiser le mot de passe d'un participant (utile s'il l'a oublié), ou
+  l'ajouter à une promotion (`Ajouter à cette promotion`).
+- **Retirer** : détache le participant de sa **promotion active** (il perd l'accès au tableau de
+  bord et au classement) mais **conserve** sa participation, son portefeuille et sa place au
+  classement de cette promotion — utile pour un participant qui quitte le concours en cours de
+  route. Le ré-ajouter ensuite via `Modifier → Ajouter à cette promotion` le remet exactement où
+  il en était. Pour annuler complètement une inscription (avant le début du concours), voir le ✕
+  sur la page détail de la promotion.
 - **Supprimer** : suppression définitive du compte et de tout son historique (positions,
   transactions, badges). Irréversible — à réserver aux comptes créés par erreur.
 
@@ -91,9 +95,12 @@ carte **Participants** :
   déjà connus (avec leur dernière promotion en repère). Les cocher les inscrit à
   cette promotion ; un portefeuille leur est créé si la promotion est déjà active.
 
-Tant que la promotion est en **brouillon**, un participant inscrit peut être
-retiré (✕ à côté de son nom). Une fois la promotion active ou clôturée, le roster
-est verrouillé (retirer quelqu'un fausserait classement et historique).
+Tant que la promotion est en **brouillon**, le ✕ à côté d'un nom **annule
+complètement** l'inscription (supprime la ligne de participation — rien n'a encore
+été provisionné). Une fois la promotion active ou clôturée, ce ✕ disparaît : le
+roster est verrouillé. Pour écarter un participant d'une promotion en cours, on
+utilise `Retirer` depuis `/admin/participants`, qui ne coupe que l'accès et laisse
+sa participation intacte pour l'historique.
 
 Les participants non inscrits n'apparaissent pas dans le classement de la nouvelle
 promotion et n'y ont pas accès. Chaque participation garde son portefeuille, son

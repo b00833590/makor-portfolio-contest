@@ -107,7 +107,7 @@ export async function deletePromotion(promotionId: string) {
 
   const promotion = await db.promotion.findUniqueOrThrow({
     where: { id: promotionId },
-    include: { _count: { select: { users: true, portfolios: true } } },
+    include: { _count: { select: { participants: true, portfolios: true } } },
   });
 
   await db.promotion.delete({ where: { id: promotionId } });
@@ -119,7 +119,7 @@ export async function deletePromotion(promotionId: string) {
     before: {
       name: promotion.name,
       status: promotion.status,
-      participantCount: promotion._count.users,
+      participantCount: promotion._count.participants,
       portfolioCount: promotion._count.portfolios,
     },
   });

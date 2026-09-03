@@ -28,7 +28,7 @@ const nextStatusLabel: Partial<Record<PromotionStatus, string>> = {
 export default async function PromotionsPage() {
   const promotions = await db.promotion.findMany({
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { users: true, portfolios: true } } },
+    include: { _count: { select: { participants: true, portfolios: true } } },
   });
 
   return (
@@ -58,7 +58,7 @@ export default async function PromotionsPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatParisDateTime(promotion.startDate)} →{" "}
                     {formatParisDateTime(promotion.endDate)} ·{" "}
-                    {promotion._count.users} participant(s)
+                    {promotion._count.participants} participant(s)
                   </p>
                 </div>
                 <Badge variant={promotion.status === "ACTIVE" ? "default" : "secondary"}>
@@ -79,7 +79,7 @@ export default async function PromotionsPage() {
                 <PromotionRowActions
                   promotionId={promotion.id}
                   name={promotion.name}
-                  participantCount={promotion._count.users}
+                  participantCount={promotion._count.participants}
                   portfolioCount={promotion._count.portfolios}
                 />
               </CardContent>

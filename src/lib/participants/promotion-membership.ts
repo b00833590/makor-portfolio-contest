@@ -16,19 +16,26 @@ export type RegisterResult =
  * promotion actuelle est ACTIVE et différente (perte d'accès à un concours en
  * cours) — le client garantit qu'une seule promotion tourne à la fois, ce
  * garde-fou couvre le cas anormal.
+ *
+ * Un participant déjà inscrit (ligne de liaison présente) mais dont le pointeur
+ * a été détaché (ex. « Retirer » depuis /admin/participants) est re-synchronisé
+ * ici : sans ça il resterait sans tableau de bord ni classement, sans moyen de
+ * le récupérer depuis l'admin.
  */
 export async function registerParticipants(
   promotionId: string,
   userIds: string[],
 ): Promise<RegisterResult[]> {
   const results: RegisterResult[] = [];
-  let anyRegistered = false;
+  // Dédoublonne : deux fois le même id enchaînerait un create sur la contrainte
+  // unique (la ligne créée au 1er passage n'est pas visible du findUnique du 2e).
+  const uniqueUserIds = [...new Set(userIds)];
+  let anyMembership = false;
 
-  for (const userId of userIds) {
+  for (const userId of uniqueUserIds) {
     const user = await db.user.findUnique({
       where: { id: userId },
       select: {
-        id: true,
         name: true,
         promotionId: true,
         promotion: { select: { status: true, name: true } },
@@ -54,17 +61,23 @@ export async function registerParticipants(
       where: { userId_promotionId: { userId, promotionId } },
     });
     if (existing) {
+      if (user.promotionId !== promotionId) {
+        await db.user.update({ where: { id: userId }, data: { promotionId } });
+      }
+      anyMembership = true;
       results.push({ userId, name: user.name, status: "already-registered" });
       continue;
     }
 
     await db.promotionParticipant.create({ data: { userId, promotionId } });
     await db.user.update({ where: { id: userId }, data: { promotionId } });
-    anyRegistered = true;
+    anyMembership = true;
     results.push({ userId, name: user.name, status: "registered" });
   }
 
-  if (anyRegistered) {
+  // Idempotent (skipDuplicates) : sans danger de le lancer aussi pour les
+  // "already-registered" — couvre le cas d'un portefeuille jamais créé.
+  if (anyMembership) {
     await provisionPortfolioIfPromotionActive(promotionId);
   }
 

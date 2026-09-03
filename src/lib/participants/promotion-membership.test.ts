@@ -39,18 +39,28 @@ describe("registerParticipants", () => {
     expect(results).toEqual([{ userId: "u1", name: "Alice", status: "registered" }]);
   });
 
-  it("provisionne les portefeuilles une seule fois si au moins une inscription", async () => {
-    userFindUnique.mockResolvedValue({ id: "u1", name: "Alice", promotionId: null, promotion: null });
+  it("provisionne les portefeuilles une seule fois pour plusieurs inscriptions", async () => {
+    userFindUnique.mockResolvedValue({ name: "Alice", promotionId: null, promotion: null });
     ppFindUnique.mockResolvedValue(null);
 
-    await registerParticipants("promo-2", ["u1", "u1"]);
+    await registerParticipants("promo-2", ["u1", "u2"]);
 
+    expect(ppCreate).toHaveBeenCalledTimes(2);
     expect(provisionIfActive).toHaveBeenCalledTimes(1);
     expect(provisionIfActive).toHaveBeenCalledWith("promo-2");
   });
 
-  it("renvoie already-registered sans rien écrire si la ligne existe déjà", async () => {
-    userFindUnique.mockResolvedValue({ id: "u1", name: "Alice", promotionId: "promo-2", promotion: { status: "DRAFT", name: "P2" } });
+  it("dédoublonne les userId répétés dans un même appel", async () => {
+    userFindUnique.mockResolvedValue({ name: "Alice", promotionId: null, promotion: null });
+    ppFindUnique.mockResolvedValue(null);
+
+    await registerParticipants("promo-2", ["u1", "u1"]);
+
+    expect(ppCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("already-registered : ne recrée pas la ligne mais garde le pointeur si déjà correct", async () => {
+    userFindUnique.mockResolvedValue({ name: "Alice", promotionId: "promo-2", promotion: { status: "DRAFT", name: "P2" } });
     ppFindUnique.mockResolvedValue({ id: "pp1" });
 
     const results = await registerParticipants("promo-2", ["u1"]);
@@ -58,6 +68,18 @@ describe("registerParticipants", () => {
     expect(ppCreate).not.toHaveBeenCalled();
     expect(userUpdate).not.toHaveBeenCalled();
     expect(results).toEqual([{ userId: "u1", name: "Alice", status: "already-registered" }]);
+  });
+
+  it("already-registered : re-synchronise un pointeur détaché (bug « Retirer » puis remettre)", async () => {
+    userFindUnique.mockResolvedValue({ name: "Léonard", promotionId: null, promotion: null });
+    ppFindUnique.mockResolvedValue({ id: "pp1" });
+
+    const results = await registerParticipants("promo-2", ["u1"]);
+
+    expect(ppCreate).not.toHaveBeenCalled();
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: "u1" }, data: { promotionId: "promo-2" } });
+    expect(provisionIfActive).toHaveBeenCalledWith("promo-2");
+    expect(results).toEqual([{ userId: "u1", name: "Léonard", status: "already-registered" }]);
   });
 
   it("bloque un participant dont la promotion actuelle est ACTIVE et différente", async () => {

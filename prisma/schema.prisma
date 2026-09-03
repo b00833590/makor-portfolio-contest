@@ -34,25 +34,25 @@ enum UserRole {
 /// name sert à la fois d'identifiant de connexion (ex. "Adam Dupont") et
 /// d'affichage — un seul champ, pas de duplication entre "username" et "name".
 model User {
-  id                 String   @id @default(cuid())
-  name               String   @unique
+  id                 String    @id @default(cuid())
+  name               String    @unique
   passwordHash       String
   /// Vrai juste après la création du compte par l'admin (mot de passe
   /// temporaire) — force le changement de mot de passe à la première
   /// connexion, avant tout autre accès (voir src/proxy.ts).
-  mustChangePassword Boolean  @default(false)
-  role               UserRole @default(PARTICIPANT)
+  mustChangePassword Boolean   @default(false)
+  role               UserRole  @default(PARTICIPANT)
   /// Photo de profil encodée en data URL (base64) — pas de stockage objet
   /// externe pour rester sur l'hébergement gratuit Vercel+Neon existant.
   /// Redimensionnée/compressée côté client avant envoi (voir avatar-upload.ts).
-  avatarUrl          String?  @db.Text
-  createdAt          DateTime @default(now())
+  avatarUrl          String?   @db.Text
+  createdAt          DateTime  @default(now())
   /// Dernière date (UTC, tronquée) de visite du dashboard/badges — série de
   /// connexions consécutives, voir recordDailyVisit(). Nul tant que
   /// l'utilisateur n'a jamais visité une page qui l'enregistre.
   lastVisitDate      DateTime? @db.Date
-  currentStreakDays  Int      @default(0)
-  longestStreakDays  Int      @default(0)
+  currentStreakDays  Int       @default(0)
+  longestStreakDays  Int       @default(0)
 
   sessions Session[]
 
@@ -61,11 +61,11 @@ model User {
   /// les comptes participants, seulement les en détacher.
   promotion   Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
 
-  portfolios  Portfolio[]
-  changeUsage ChangeUsage[]
-  badges      UserBadge[]
-  auditLogs   AuditLog[]
-  hallOfFameEntries HallOfFameEntry[]
+  portfolios              Portfolio[]
+  changeUsage             ChangeUsage[]
+  badges                  UserBadge[]
+  auditLogs               AuditLog[]
+  hallOfFameEntries       HallOfFameEntry[]
   promotionParticipations PromotionParticipant[]
 }
 
@@ -96,12 +96,12 @@ model Promotion {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  users          User[]
-  portfolios     Portfolio[]
-  changeSessions ChangeSession[]
-  userBadges     UserBadge[]
+  users             User[]
+  portfolios        Portfolio[]
+  changeSessions    ChangeSession[]
+  userBadges        UserBadge[]
   hallOfFameEntries HallOfFameEntry[]
-  participants PromotionParticipant[]
+  participants      PromotionParticipant[]
 }
 
 enum AssetType {
@@ -381,6 +381,10 @@ model HallOfFameEntry {
 /// synchronisé ici à l'inscription.
 /// ponytail: double donnée volontaire (ligne de liaison + User.promotionId) —
 /// à fusionner si l'app passe un jour à du multi-promotion simultané.
+/// `removeParticipant` (/admin/participants) ne remet QUE le pointeur à null,
+/// sans toucher à la ligne de liaison ni au portefeuille : divergence assumée
+/// (« quitte le concours en cours de route »). `registerParticipants`
+/// resynchronise le pointeur quand la ligne existe déjà.
 model PromotionParticipant {
   id          String   @id @default(cuid())
   userId      String

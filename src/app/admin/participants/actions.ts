@@ -98,7 +98,10 @@ export async function addParticipantToPromotion(
   }
 
   const [result] = await registerParticipants(parsed.data.promotionId, [parsed.data.userId]);
-  if (result?.status === "blocked-active-elsewhere") {
+  if (!result) {
+    return { error: "Participant introuvable." };
+  }
+  if (result.status === "blocked-active-elsewhere") {
     return { error: `${result.name} participe déjà à « ${result.promotionName} » (promotion active).` };
   }
 
