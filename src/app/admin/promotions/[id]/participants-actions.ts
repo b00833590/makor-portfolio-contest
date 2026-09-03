@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import { createParticipantWithTempPassword, type ParticipantCreationResult } from "@/lib/participants/create-participant";
-import { registerParticipants } from "@/lib/participants/promotion-membership";
+import { registerParticipants, unregisterParticipant, type RegisterResult } from "@/lib/participants/promotion-membership";
 
 const participantRowSchema = z.object({
   name: z.string().trim().min(2, "Identifiant trop court (Prénom Nom)"),
@@ -65,4 +65,54 @@ export async function createParticipantsBulk(
   revalidatePath(`/admin/promotions/${promotionId}`);
   revalidatePath("/admin/participants");
   return { results };
+}
+
+export interface AddParticipantsFormState {
+  error?: string;
+  results?: RegisterResult[];
+}
+
+export async function addExistingParticipants(
+  promotionId: string,
+  _prevState: AddParticipantsFormState,
+  formData: FormData,
+): Promise<AddParticipantsFormState> {
+  const session = await requireAdmin();
+
+  const userIds = formData.getAll("userId").map((value) => String(value)).filter((value) => value.length > 0);
+  if (userIds.length === 0) {
+    return { error: "Sélectionnez au moins un participant." };
+  }
+
+  const results = await registerParticipants(promotionId, userIds);
+
+  const registered = results.filter((result) => result.status === "registered");
+  if (registered.length > 0) {
+    await logAudit({
+      adminId: session.user.id,
+      action: "promotion.participants.add",
+      target: promotionId,
+      after: { userIds: registered.map((result) => result.userId) },
+    });
+  }
+
+  revalidatePath(`/admin/promotions/${promotionId}`);
+  revalidatePath("/admin/participants");
+  return { results };
+}
+
+export async function unregisterParticipantAction(promotionId: string, userId: string): Promise<void> {
+  const session = await requireAdmin();
+
+  await unregisterParticipant(promotionId, userId);
+
+  await logAudit({
+    adminId: session.user.id,
+    action: "promotion.participants.remove",
+    target: promotionId,
+    after: { userId },
+  });
+
+  revalidatePath(`/admin/promotions/${promotionId}`);
+  revalidatePath("/admin/participants");
 }

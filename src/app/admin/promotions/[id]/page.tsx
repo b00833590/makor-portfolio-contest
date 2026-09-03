@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { ChangeSessionKind } from "@/generated/prisma/enums";
+import { ChangeSessionKind, PromotionStatus } from "@/generated/prisma/enums";
 import { formatParisDate, formatParisDateTime, toParisDateTimeLocalValue } from "@/lib/timezone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { computeChangeSessionStatus } from "@/lib/trading/change-session-status"
 import { ChangeSessionForm } from "./change-session-form";
 import { ChangeSessionsList, type ChangeSessionViewModel } from "./change-sessions-list";
 import { BulkParticipantsForm } from "./bulk-participants-form";
+import { AddExistingParticipantsForm } from "./add-existing-participants-form";
+import { unregisterParticipantAction } from "./participants-actions";
 import { recalculateAllSnapshots } from "./actions";
 
 function formatDuration(opensAt: Date, closesAt: Date): string {
@@ -33,7 +35,10 @@ export default async function PromotionDetailPage({
     where: { id },
     include: {
       changeSessions: { orderBy: { opensAt: "asc" } },
-      users: { orderBy: { name: "asc" }, select: { id: true, name: true } },
+      participants: {
+        orderBy: { user: { name: "asc" } },
+        select: { userId: true, user: { select: { name: true } } },
+      },
     },
   });
 
@@ -42,6 +47,30 @@ export default async function PromotionDetailPage({
   }
 
   const rules = promotionRulesSchema.parse(promotion.rules);
+
+  const registeredIds = promotion.participants.map((participant) => participant.userId);
+  const candidateUsers = await db.user.findMany({
+    where: {
+      role: "PARTICIPANT",
+      ...(registeredIds.length > 0 ? { id: { notIn: registeredIds } } : {}),
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      promotionParticipations: {
+        orderBy: { promotion: { createdAt: "desc" } },
+        take: 1,
+        select: { promotion: { select: { name: true } } },
+      },
+    },
+  });
+  const candidates = candidateUsers.map((user) => ({
+    id: user.id,
+    name: user.name,
+    lastPromotionName: user.promotionParticipations[0]?.promotion.name ?? null,
+  }));
+  const isDraft = promotion.status === PromotionStatus.DRAFT;
   const now = new Date();
   const sessionViewModels: ChangeSessionViewModel[] = promotion.changeSessions.map((changeSession) => ({
     id: changeSession.id,
@@ -87,19 +116,43 @@ export default async function PromotionDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Participants</CardTitle>
+          <CardTitle>Participants ({promotion.participants.length})</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {promotion.users.length > 0 && (
+        <CardContent className="flex flex-col gap-6">
+          {promotion.participants.length > 0 ? (
             <ul className="flex flex-wrap gap-2">
-              {promotion.users.map((user) => (
-                <li key={user.id}>
-                  <Badge variant="secondary">{user.name}</Badge>
+              {promotion.participants.map((participant) => (
+                <li key={participant.userId} className="flex items-center gap-1">
+                  <Badge variant="secondary">{participant.user.name}</Badge>
+                  {isDraft && (
+                    <form action={unregisterParticipantAction.bind(null, promotion.id, participant.userId)}>
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Retirer ${participant.user.name}`}
+                      >
+                        ✕
+                      </Button>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucun participant inscrit pour le moment.</p>
           )}
-          <BulkParticipantsForm promotionId={promotion.id} />
+
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <p className="text-sm font-medium">Créer de nouveaux comptes</p>
+            <BulkParticipantsForm promotionId={promotion.id} />
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <p className="text-sm font-medium">Ajouter des participants existants</p>
+            <AddExistingParticipantsForm promotionId={promotion.id} candidates={candidates} />
+          </div>
+
           <Link href="/admin/participants" className="text-sm text-muted-foreground hover:underline">
             Gérer tous les participants →
           </Link>
