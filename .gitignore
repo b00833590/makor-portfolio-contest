@@ -60,3 +60,9 @@ next-env.d.ts
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
+
+# tooling scratch (ruflo / claude-flow) — never commit
+.agents/
+.claude-flow/
+.swarm/
+data/
