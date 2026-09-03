@@ -70,6 +70,10 @@ export interface BadgeEvaluationContext {
   totalBadgeCount: number;
   /** Nombre de badges gagnables en cours de concours (catalogue moins les close-only) — pour PERFECTION. */
   evaluatableBadgeCount: number;
+  /** La fenêtre de constitution du portefeuille de la promotion est terminée (ou n'existe pas).
+   * Tant qu'elle est ouverte, seuls les badges `awardableDuringInit` sont attribués — un badge
+   * comme « Sur le toit » n'a aucun sens quand le concours vient de démarrer. */
+  initWindowClosed: boolean;
 }
 
 export interface BadgeSpec {
@@ -87,4 +91,10 @@ export interface BadgeSpec {
    * évalués progressivement au risque d'être attribués à tort avant la fin.
    */
   evaluate?: (ctx: BadgeEvaluationContext) => boolean;
+  /**
+   * Attribuable même pendant la fenêtre de constitution du portefeuille. Par défaut (absent) un
+   * badge n'est attribué qu'une fois cette fenêtre terminée. À réserver aux badges qui portent
+   * précisément sur la phase de constitution (première transaction, portefeuille complété…).
+   */
+  awardableDuringInit?: boolean;
 }

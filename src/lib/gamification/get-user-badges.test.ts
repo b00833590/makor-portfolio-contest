@@ -24,13 +24,23 @@ function row(code: string, awardedAt: string, promotionId: string) {
 }
 
 describe("getUserBadges", () => {
-  it("interroge toutes les promotions du participant (pas de filtre promotionId)", async () => {
+  it("interroge toutes les promotions du participant sans argument promotionId", async () => {
     findMany.mockResolvedValue([]);
 
     await getUserBadges("user-a");
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: "user-a" } }),
+    );
+  });
+
+  it("filtre sur la promotion quand promotionId est fourni", async () => {
+    findMany.mockResolvedValue([]);
+
+    await getUserBadges("user-a", "promo-sept");
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "user-a", promotionId: "promo-sept" } }),
     );
   });
 

@@ -14,15 +14,14 @@ export interface EarnedBadge {
 }
 
 /**
- * Tous les badges obtenus par un participant, **toutes promotions confondues** —
- * la page /badges est une collection à vie : un badge gagné lors d'une saison
- * passée ne disparaît pas quand le participant rejoint une nouvelle promotion.
- * Un même badge regagné dans plusieurs saisons n'apparaît qu'une fois, daté de
- * sa première obtention.
+ * Badges obtenus par un participant.
+ * - avec `promotionId` : uniquement ceux de cette promotion.
+ * - sans : collection à vie, toutes promotions confondues, dédoublonnée par code
+ *   (un badge regagné n'apparaît qu'une fois, daté de sa première obtention).
  */
-export async function getUserBadges(userId: string): Promise<EarnedBadge[]> {
+export async function getUserBadges(userId: string, promotionId?: string): Promise<EarnedBadge[]> {
   const userBadges = await db.userBadge.findMany({
-    where: { userId },
+    where: promotionId ? { userId, promotionId } : { userId },
     include: { badge: true },
     orderBy: { awardedAt: "asc" },
   });

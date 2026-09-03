@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-09-01T10:11:25.739Z",
+  "projectRoot": "C:\\Users\\rouas\\Documents\\Cerveau\\Projets-Code\\concours-trading-makor",
+  "structure": {
+    "hasPackageJson": true,
+    "hasTsConfig": true,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1788257485739
+}

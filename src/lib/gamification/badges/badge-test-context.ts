@@ -36,6 +36,7 @@ export function baseContext(overrides: Partial<BadgeEvaluationContext> = {}): Ba
     alreadyOwnedCodes: new Set(),
     totalBadgeCount: 40,
     evaluatableBadgeCount: 32,
+    initWindowClosed: true,
     ...overrides,
   };
 }

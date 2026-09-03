@@ -47,7 +47,7 @@ async function buildEvaluationContext(
   leaderboard: LeaderboardRow[],
   now: Date,
 ): Promise<BadgeEvaluationContext> {
-  const [allPositions, transactions, snapshots, closedWeeklySessions, user, existingBadges] = await Promise.all([
+  const [allPositions, transactions, snapshots, closedWeeklySessions, user, existingBadges, initSession] = await Promise.all([
     db.position.findMany({
       where: { portfolioId },
       include: { asset: { select: { type: true, prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
@@ -64,7 +64,16 @@ async function buildEvaluationContext(
     }),
     db.user.findUnique({ where: { id: userId }, select: { currentStreakDays: true, longestStreakDays: true } }),
     db.userBadge.findMany({ where: { userId, promotionId }, include: { badge: { select: { code: true } } } }),
+    db.changeSession.findFirst({
+      where: { promotionId, kind: ChangeSessionKind.INITIALIZATION },
+      select: { closesAt: true, status: true },
+    }),
   ]);
+
+  // Fenêtre de constitution terminée si elle est écoulée, close, ou absente (promotion
+  // sans fenêtre d'init — on ne bloque alors rien).
+  const initWindowClosed =
+    !initSession || initSession.status === ChangeSessionStatus.CLOSED || now > initSession.closesAt;
 
   const openPositions = allPositions.filter((position) => Number(position.quantity) > 0 && position.closedAt === null);
   // Clé sur les positions OUVERTES uniquement : le prix d'entrée d'une position clôturée sur le même
@@ -238,6 +247,7 @@ async function buildEvaluationContext(
     alreadyOwnedCodes: new Set(existingBadges.map((userBadge) => userBadge.badge.code)),
     totalBadgeCount: BADGE_CATALOG.length,
     evaluatableBadgeCount: BADGE_CATALOG.length - CLOSE_ONLY_CODES.size,
+    initWindowClosed,
   };
 }
 

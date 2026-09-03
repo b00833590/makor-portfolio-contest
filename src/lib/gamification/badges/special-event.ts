@@ -11,6 +11,7 @@ export const specialEventBadges: BadgeSpec[] = [
     category: "SPECIAL_EVENT",
     rarity: "RARE",
     icon: "🐓",
+    awardableDuringInit: true,
     // L'exclusivité (« le 1er ») est vérifiée à l'attribution dans evaluate-badges.ts
     // (état DB, pas dérivable du seul contexte). Ici : condition individuelle (portefeuille complet).
     evaluate: (ctx) => ctx.maxPositions > 0 && ctx.openPositionCount >= ctx.maxPositions,
@@ -42,6 +43,8 @@ export const specialEventBadges: BadgeSpec[] = [
     category: "SPECIAL_EVENT",
     rarity: "COMMON",
     icon: "📆",
+    // Assiduité de connexion, sans rapport avec la phase de constitution.
+    awardableDuringInit: true,
     evaluate: (ctx) => ctx.currentStreakDays >= HABITUE_STREAK_DAYS || ctx.longestStreakDays >= HABITUE_STREAK_DAYS,
   },
 ];

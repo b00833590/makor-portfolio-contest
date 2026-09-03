@@ -64,6 +64,31 @@ describe("getBadgeBoard", () => {
     expect(board.rareOwnedCount).toBe(2);
   });
 
+  it("ajoute les badges obtenus dont le code n'est plus au catalogue (legacy)", async () => {
+    getUserBadgesMock.mockResolvedValue([
+      {
+        code: "ROI_DE_LA_SEMAINE",
+        name: "Roi(ne) de la semaine",
+        description: "d",
+        condition: "c",
+        category: "PERFORMANCE",
+        rarity: "EPIC",
+        icon: "👑",
+        awardedAt: new Date("2026-08-20T00:00:00Z"),
+      },
+    ]);
+
+    const board = await getBadgeBoard("user-a");
+
+    const entry = board.entries.find((e) => e.code === "ROI_DE_LA_SEMAINE");
+    expect(entry).toBeDefined();
+    expect(entry!.earned).toBe(true);
+    expect(entry!.legacy).toBe(true);
+    expect(board.earnedCount).toBe(1);
+    // le total reste le catalogue courant (le legacy ne gonfle pas le dénominateur)
+    expect(board.totalCount).toBe(BADGE_CATALOG.length);
+  });
+
   it("identifie le badge le plus récemment obtenu", async () => {
     getUserBadgesMock.mockResolvedValue([
       { code: "PREMIER_PAS", name: "n", description: "d", condition: "c", category: "TRADING", rarity: "COMMON", icon: "i", awardedAt: new Date("2026-09-01T00:00:00Z") },

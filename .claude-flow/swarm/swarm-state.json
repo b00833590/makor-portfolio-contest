@@ -1,0 +1,23 @@
+{
+  "swarms": {
+    "swarm-1788175558558-5s4im2": {
+      "swarmId": "swarm-1788175558558-5s4im2",
+      "topology": "star",
+      "maxAgents": 3,
+      "status": "terminated",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "star",
+        "maxAgents": 3,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-08-31T11:25:58.558Z",
+      "updatedAt": "2026-08-31T11:32:17.928Z"
+    }
+  },
+  "version": "3.0.0"
+}

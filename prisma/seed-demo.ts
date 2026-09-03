@@ -316,6 +316,7 @@ async function main() {
       alreadyOwnedCodes: new Set(),
       totalBadgeCount: BADGE_CATALOG.length,
       evaluatableBadgeCount: BADGE_CATALOG.length - CLOSE_ONLY_CODES.size,
+      initWindowClosed: true,
       ...overrides,
     };
   }

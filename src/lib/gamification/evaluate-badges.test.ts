@@ -6,7 +6,7 @@ const dbMock = {
   transaction: { findMany: vi.fn() },
   price: { findMany: vi.fn() },
   performanceSnapshot: { findMany: vi.fn() },
-  changeSession: { findMany: vi.fn() },
+  changeSession: { findMany: vi.fn(), findFirst: vi.fn() },
   user: { findUnique: vi.fn() },
   userBadge: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
   promotion: { findUniqueOrThrow: vi.fn() },
@@ -69,6 +69,7 @@ function resetMocks() {
   dbMock.price.findMany.mockResolvedValue([]);
   dbMock.performanceSnapshot.findMany.mockResolvedValue([]);
   dbMock.changeSession.findMany.mockResolvedValue([]);
+  dbMock.changeSession.findFirst.mockResolvedValue(null); // pas de fenêtre d'init → initWindowClosed = true
   dbMock.user.findUnique.mockResolvedValue({ promotionId: "promo-1", currentStreakDays: 0, longestStreakDays: 0 });
   dbMock.userBadge.findMany.mockResolvedValue([]);
   dbMock.userBadge.count.mockResolvedValue(0);
@@ -120,6 +121,45 @@ describe("evaluateAndAwardBadges", () => {
 
     expect(results).toEqual([{ userId: "user-a", awarded: [] }]);
     expect(dbMock.userBadge.upsert).not.toHaveBeenCalled();
+  });
+
+  it("pendant la fenêtre de constitution : n'attribue que les badges awardableDuringInit", async () => {
+    // user-a est 1er du classement (3 participants) ET a fait une transaction.
+    getLeaderboardMock.mockResolvedValue([
+      { ...EMPTY_ROW, rank: 1 },
+      { ...EMPTY_ROW, userId: "user-b", portfolioId: "portfolio-b", rank: 2 },
+      { ...EMPTY_ROW, userId: "user-c", portfolioId: "portfolio-c", rank: 3 },
+    ]);
+    dbMock.transaction.findMany.mockResolvedValue([
+      { assetId: "asset-a", type: "BUY", price: 100, quantity: 1, changeSessionId: null, createdAt: NOW },
+    ]);
+    // Fenêtre d'init encore ouverte (se ferme dans le futur).
+    dbMock.changeSession.findFirst.mockResolvedValue({
+      closesAt: new Date(NOW.getTime() + 3_600_000),
+      status: "SCHEDULED",
+    });
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    const userA = results.find((r) => r.userId === "user-a")!;
+    expect(userA.awarded).toContain("PREMIER_PAS");
+    expect(userA.awarded).not.toContain("SUR_LE_TOIT");
+  });
+
+  it("fenêtre de constitution terminée : attribue les badges classement", async () => {
+    getLeaderboardMock.mockResolvedValue([
+      { ...EMPTY_ROW, rank: 1 },
+      { ...EMPTY_ROW, userId: "user-b", portfolioId: "portfolio-b", rank: 2 },
+      { ...EMPTY_ROW, userId: "user-c", portfolioId: "portfolio-c", rank: 3 },
+    ]);
+    dbMock.changeSession.findFirst.mockResolvedValue({
+      closesAt: new Date(NOW.getTime() - 3_600_000),
+      status: "CLOSED",
+    });
+
+    const results = await evaluateAndAwardBadges("promo-1", NOW);
+
+    expect(results.find((r) => r.userId === "user-a")!.awarded).toContain("SUR_LE_TOIT");
   });
 
   it("n'attribue LEVE_TOT qu'à un seul participant par promotion", async () => {

@@ -2,7 +2,7 @@ import "server-only";
 import type { BadgeCategory, BadgeRarity } from "@/generated/prisma/enums";
 import { BADGE_CATALOG } from "./badges/catalog";
 import { CATEGORY_ORDER, CATEGORY_LABEL, CATEGORY_ICON, RARITY_ORDER } from "./badge-display";
-import { getUserBadges } from "./get-user-badges";
+import { getUserBadges, type EarnedBadge } from "./get-user-badges";
 import { computeXp, computeLevel, type LevelInfo } from "./xp";
 
 export interface BadgeBoardEntry {
@@ -15,6 +15,8 @@ export interface BadgeBoardEntry {
   icon: string;
   earned: boolean;
   awardedAt: Date | null;
+  /** Badge obtenu dont le code ne fait plus partie du catalogue courant (ancienne saison). */
+  legacy?: boolean;
 }
 
 export interface BadgeCategoryGroup {
@@ -47,15 +49,36 @@ export interface BadgeBoard {
 
 const RARE_RARITIES = new Set<BadgeRarity>(["EPIC", "LEGENDARY"]);
 
-/** Toujours construit à partir de BADGE_CATALOG (pas d'une requête `Badge` brute) — ne montre
- * jamais un éventuel badge orphelin d'un ancien catalogue qui ne serait plus dans le code.
- * Les badges obtenus sont cumulés sur toutes les promotions du participant (collection à vie),
- * donc XP / niveau / % de complétion sont des totaux à vie. */
-export async function getBadgeBoard(userId: string): Promise<BadgeBoard> {
-  const earned = await getUserBadges(userId);
-  const earnedByCode = new Map(earned.map((badge) => [badge.code, badge]));
+function legacyEntry(badge: EarnedBadge): BadgeBoardEntry {
+  return {
+    code: badge.code,
+    name: badge.name,
+    description: badge.description,
+    condition: badge.condition,
+    category: badge.category,
+    rarity: badge.rarity,
+    icon: badge.icon,
+    earned: true,
+    awardedAt: badge.awardedAt,
+    legacy: true,
+  };
+}
 
-  const entries: BadgeBoardEntry[] = BADGE_CATALOG.map((spec) => {
+/**
+ * Construit le tableau de bord des badges.
+ * - `promotionId` fourni → périmètre = badges de cette promotion.
+ * - absent → collection à vie (toutes promotions, dédoublonnée).
+ *
+ * Les entrées viennent de BADGE_CATALOG (badges verrouillés inclus). Un badge
+ * obtenu dont le code a disparu du catalogue (ancienne saison) est ajouté comme
+ * entrée `legacy` à partir de sa fiche en base — il ne doit pas disparaître.
+ */
+export async function getBadgeBoard(userId: string, promotionId?: string): Promise<BadgeBoard> {
+  const earned = await getUserBadges(userId, promotionId);
+  const earnedByCode = new Map(earned.map((badge) => [badge.code, badge]));
+  const catalogCodes = new Set(BADGE_CATALOG.map((spec) => spec.code));
+
+  const catalogEntries: BadgeBoardEntry[] = BADGE_CATALOG.map((spec) => {
     const earnedBadge = earnedByCode.get(spec.code);
     return {
       code: spec.code,
@@ -70,7 +93,13 @@ export async function getBadgeBoard(userId: string): Promise<BadgeBoard> {
     };
   });
 
+  const legacyEntries = earned
+    .filter((badge) => !catalogCodes.has(badge.code))
+    .map(legacyEntry);
+
+  const entries = [...catalogEntries, ...legacyEntries];
   const earnedEntries = entries.filter((entry) => entry.earned);
+
   const mostRecentBadge = earnedEntries.reduce<BadgeBoardEntry | null>((latest, entry) => {
     if (!latest || !latest.awardedAt) return entry;
     if (!entry.awardedAt) return latest;
@@ -78,6 +107,7 @@ export async function getBadgeBoard(userId: string): Promise<BadgeBoard> {
   }, null);
 
   const xp = computeXp(earned);
+  const totalCount = BADGE_CATALOG.length;
 
   const byCategory: BadgeCategoryGroup[] = CATEGORY_ORDER.map((category) => {
     const catEntries = entries.filter((entry) => entry.category === category);
@@ -86,21 +116,25 @@ export async function getBadgeBoard(userId: string): Promise<BadgeBoard> {
       label: CATEGORY_LABEL[category],
       icon: CATEGORY_ICON[category],
       earned: catEntries.filter((entry) => entry.earned).length,
-      total: catEntries.length,
+      total: catEntries.filter((entry) => !entry.legacy).length,
       entries: catEntries,
     };
-  }).filter((group) => group.total > 0);
+  }).filter((group) => group.entries.length > 0);
 
   const byRarity: BadgeRarityCount[] = RARITY_ORDER.map((rarity) => {
     const rarEntries = entries.filter((entry) => entry.rarity === rarity);
-    return { rarity, earned: rarEntries.filter((entry) => entry.earned).length, total: rarEntries.length };
+    return {
+      rarity,
+      earned: rarEntries.filter((entry) => entry.earned).length,
+      total: rarEntries.filter((entry) => !entry.legacy).length,
+    };
   });
 
   return {
     entries,
     earnedCount: earnedEntries.length,
-    totalCount: BADGE_CATALOG.length,
-    completionPct: BADGE_CATALOG.length > 0 ? (earnedEntries.length / BADGE_CATALOG.length) * 100 : 0,
+    totalCount,
+    completionPct: totalCount > 0 ? Math.min(100, (earnedEntries.length / totalCount) * 100) : 0,
     rareOwnedCount: earnedEntries.filter((entry) => RARE_RARITIES.has(entry.rarity)).length,
     mostRecentBadge,
     byCategory,

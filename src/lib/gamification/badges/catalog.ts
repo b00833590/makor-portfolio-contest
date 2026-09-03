@@ -27,5 +27,11 @@ export const BADGE_CATALOG_BY_CODE = new Map(BADGE_CATALOG.map((spec) => [spec.c
 export const CLOSE_ONLY_CODES = new Set(BADGE_CATALOG.filter((spec) => !spec.evaluate).map((spec) => spec.code));
 
 export function evaluateBadgeCatalog(ctx: BadgeEvaluationContext): string[] {
-  return BADGE_CATALOG.filter((spec) => spec.evaluate?.(ctx) ?? false).map((spec) => spec.code);
+  return BADGE_CATALOG.filter((spec) => {
+    if (!(spec.evaluate?.(ctx) ?? false)) return false;
+    // Tant que la fenêtre de constitution est ouverte, on ne décerne que les badges
+    // qui portent sur cette phase — sinon « Sur le toit » & co. tomberaient dès le
+    // 1er classement, quand personne n'a encore vraiment investi.
+    return ctx.initWindowClosed || spec.awardableDuringInit === true;
+  }).map((spec) => spec.code);
 }

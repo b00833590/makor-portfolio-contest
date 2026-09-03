@@ -73,6 +73,7 @@ export const tradingBadges: BadgeSpec[] = [
     category: "TRADING",
     rarity: "COMMON",
     icon: "🐣",
+    awardableDuringInit: true,
     evaluate: (ctx) => ctx.transactionCount >= 1,
   },
   {

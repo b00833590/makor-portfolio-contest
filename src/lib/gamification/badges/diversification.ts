@@ -13,6 +13,7 @@ export const diversificationBadges: BadgeSpec[] = [
     category: "DIVERSIFICATION",
     rarity: "COMMON",
     icon: "🧱",
+    awardableDuringInit: true,
     evaluate: (ctx) => ctx.maxPositions > 0 && ctx.openPositionCount >= ctx.maxPositions,
   },
   {
