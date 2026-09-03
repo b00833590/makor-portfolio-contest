@@ -23,7 +23,10 @@ export default async function ParticipantsPage() {
         id: true,
         name: true,
         promotionId: true,
-        promotion: { select: { name: true } },
+        promotionParticipations: {
+          orderBy: { promotion: { createdAt: "desc" } },
+          select: { promotionId: true, promotion: { select: { name: true } } },
+        },
         portfolios: { select: { id: true, promotionId: true } },
       },
     }),
@@ -48,8 +51,17 @@ export default async function ParticipantsPage() {
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.name}</TableCell>
                 <TableCell>
-                  {user.promotion ? (
-                    user.promotion.name
+                  {user.promotionParticipations.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {user.promotionParticipations.map((participation) => (
+                        <Badge
+                          key={participation.promotionId}
+                          variant={participation.promotionId === user.promotionId ? "default" : "secondary"}
+                        >
+                          {participation.promotion.name}
+                        </Badge>
+                      ))}
+                    </div>
                   ) : (
                     <Badge variant="secondary">Aucune</Badge>
                   )}
