@@ -26,42 +26,47 @@ export default async function BadgesPage() {
   );
 
   const user = await db.user.findUnique({ where: { id: session.user.id }, select: { promotionId: true } });
-  if (!user?.promotionId) {
-    return (
-      <>
-        {header}
-        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-          <p className="text-sm text-muted-foreground">
-            Vous n&apos;êtes pas encore assigné à une promotion pour le moment.
-          </p>
-        </div>
-      </>
-    );
-  }
 
-  const portfolio = await db.portfolio.findUnique({
-    where: { userId_promotionId: { userId: session.user.id, promotionId: user.promotionId } },
-    select: { id: true },
-  });
-  if (!portfolio) {
-    return (
-      <>
-        {header}
-        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-          <p className="text-sm text-muted-foreground">
-            Votre portefeuille n&apos;a pas encore été créé par l&apos;administrateur.
-          </p>
-        </div>
-      </>
-    );
-  }
-
-  const [board, records, unseen] = await Promise.all([
-    getBadgeBoard(session.user.id, user.promotionId),
-    getCachedPersonalRecords(portfolio.id),
-    getUnseenBadges(session.user.id, user.promotionId),
+  // Collection à vie : tous les badges obtenus par le participant, quelle que
+  // soit la promotion. Reste visible même entre deux saisons.
+  const [board] = await Promise.all([
+    getBadgeBoard(session.user.id),
     recordDailyVisit(session.user.id),
   ]);
+
+  const portfolio = user?.promotionId
+    ? await db.portfolio.findUnique({
+        where: { userId_promotionId: { userId: session.user.id, promotionId: user.promotionId } },
+        select: { id: true },
+      })
+    : null;
+
+  // Records personnels et notifications de déblocage sont liés à une promotion
+  // active en cours : on ne les affiche que si le participant en a une.
+  const [records, unseen] =
+    user?.promotionId && portfolio
+      ? await Promise.all([
+          getCachedPersonalRecords(portfolio.id),
+          getUnseenBadges(session.user.id, user.promotionId),
+        ])
+      : [null, []];
+
+  // Rien à montrer : aucun badge à vie ET pas de portefeuille dans une promotion
+  // en cours. Sinon on affiche toujours la collection (badges obtenus + catalogue).
+  if (board.earnedCount === 0 && !portfolio) {
+    return (
+      <>
+        {header}
+        <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+          <p className="text-sm text-muted-foreground">
+            {user?.promotionId
+              ? "Votre portefeuille n'a pas encore été créé par l'administrateur."
+              : "Vous n'êtes pas encore assigné à une promotion pour le moment."}
+          </p>
+        </div>
+      </>
+    );
+  }
 
   const justUnlockedCodes = new Set(unseen.map((badge) => badge.code));
 
@@ -76,9 +81,11 @@ export default async function BadgesPage() {
           <BadgesHeader board={board} />
         </div>
         <BadgeGrid board={board} justUnlockedCodes={justUnlockedCodes} />
-        <div className="mt-10">
-          <PersonalRecordsSection records={records} />
-        </div>
+        {records && (
+          <div className="mt-10">
+            <PersonalRecordsSection records={records} />
+          </div>
+        )}
       </div>
     </>
   );

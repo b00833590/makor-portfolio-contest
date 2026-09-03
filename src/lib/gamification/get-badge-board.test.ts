@@ -14,7 +14,7 @@ describe("getBadgeBoard", () => {
   it("expose tout le catalogue, avec earned:false et awardedAt:null par défaut", async () => {
     getUserBadgesMock.mockResolvedValue([]);
 
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
 
     expect(board.entries).toHaveLength(BADGE_CATALOG.length);
     expect(board.entries.every((entry) => !entry.earned && entry.awardedAt === null)).toBe(true);
@@ -40,7 +40,7 @@ describe("getBadgeBoard", () => {
       },
     ]);
 
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
 
     const entry = board.entries.find((e) => e.code === "PREMIER_PAS")!;
     expect(entry.earned).toBe(true);
@@ -57,7 +57,7 @@ describe("getBadgeBoard", () => {
       { code: "GROS_COUP", name: "n", description: "d", condition: "c", category: "TRADING", rarity: "EPIC", icon: "i", awardedAt: new Date() },
     ]);
 
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
 
     // rareOwnedCount dérive de la rareté du CATALOGUE, pas du mock : PREMIER_PAS=COMMON,
     // MAIN_CHAUDE=EPIC, GROS_COUP=EPIC → 2 rares.
@@ -70,7 +70,7 @@ describe("getBadgeBoard", () => {
       { code: "PREMIERE_VICTOIRE", name: "n", description: "d", condition: "c", category: "TRADING", rarity: "COMMON", icon: "i", awardedAt: new Date("2026-09-10T00:00:00Z") },
     ]);
 
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
 
     expect(board.mostRecentBadge?.code).toBe("PREMIERE_VICTOIRE");
   });
@@ -79,7 +79,7 @@ describe("getBadgeBoard", () => {
 describe("getBadgeBoard — regroupements UI", () => {
   it("byRarity couvre les 4 raretés et somme au total du catalogue", async () => {
     getUserBadgesMock.mockResolvedValue([]);
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
     expect(board.byRarity.map((r) => r.rarity)).toEqual(["COMMON", "RARE", "EPIC", "LEGENDARY"]);
     expect(board.byRarity.reduce((s, r) => s + r.total, 0)).toBe(board.totalCount);
     expect(board.byRarity.every((r) => r.earned === 0)).toBe(true);
@@ -87,7 +87,7 @@ describe("getBadgeBoard — regroupements UI", () => {
 
   it("byCategory est ordonné et chaque section somme correctement", async () => {
     getUserBadgesMock.mockResolvedValue([]);
-    const board = await getBadgeBoard("user-a", "promo-1");
+    const board = await getBadgeBoard("user-a");
     expect(board.byCategory.map((c) => c.category)).toEqual([
       "PERFORMANCE", "RANKING", "TRADING", "RISK_MANAGEMENT", "DIVERSIFICATION", "DISTINCTION", "SPECIAL_EVENT",
     ]);

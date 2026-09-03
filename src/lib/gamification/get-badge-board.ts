@@ -48,9 +48,11 @@ export interface BadgeBoard {
 const RARE_RARITIES = new Set<BadgeRarity>(["EPIC", "LEGENDARY"]);
 
 /** Toujours construit à partir de BADGE_CATALOG (pas d'une requête `Badge` brute) — ne montre
- * jamais un éventuel badge orphelin d'un ancien catalogue qui ne serait plus dans le code. */
-export async function getBadgeBoard(userId: string, promotionId: string): Promise<BadgeBoard> {
-  const earned = await getUserBadges(userId, promotionId);
+ * jamais un éventuel badge orphelin d'un ancien catalogue qui ne serait plus dans le code.
+ * Les badges obtenus sont cumulés sur toutes les promotions du participant (collection à vie),
+ * donc XP / niveau / % de complétion sont des totaux à vie. */
+export async function getBadgeBoard(userId: string): Promise<BadgeBoard> {
+  const earned = await getUserBadges(userId);
   const earnedByCode = new Map(earned.map((badge) => [badge.code, badge]));
 
   const entries: BadgeBoardEntry[] = BADGE_CATALOG.map((spec) => {
