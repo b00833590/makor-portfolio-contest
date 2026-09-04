@@ -5,6 +5,7 @@ import { LineChart } from "lucide-react";
 import { increasePosition, sellPartial, sellFull, type TradeFormState } from "./actions";
 import { useBadgeToast } from "./use-badge-toast";
 import type { PositionView } from "@/lib/trading/portfolio-view";
+import { formatUnitPrice } from "@/lib/format-price";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,8 +101,8 @@ export function PositionCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 p-3 sm:grid-cols-4">
-          <Stat label="Prix moyen" value={currencyFormatter.format(position.avgEntryPrice)} />
-          <Stat label="Prix actuel" value={currencyFormatter.format(position.currentPrice)} />
+          <Stat label="Prix moyen" value={formatUnitPrice(position.avgEntryPrice)} />
+          <Stat label="Prix actuel" value={formatUnitPrice(position.currentPrice)} />
           <Stat label="Valeur d'entrée" value={currencyFormatter.format(position.entryValue)} />
           <Stat
             label="Plus/moins-value"

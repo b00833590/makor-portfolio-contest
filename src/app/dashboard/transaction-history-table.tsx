@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatParisDateTime } from "@/lib/timezone";
+import { formatUnitPrice } from "@/lib/format-price";
 import type { TransactionHistoryItem } from "@/lib/trading/transaction-history";
 
 const typeLabels: Record<TransactionHistoryItem["type"], string> = {
@@ -42,7 +43,7 @@ export function TransactionHistoryTable({ transactions }: { transactions: Transa
             <div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{formatParisDateTime(transaction.createdAt)}</span>
               <span className="tabular-nums">
-                {transaction.quantity.toFixed(4)} × {currencyFormatter.format(transaction.price)}
+                {transaction.quantity.toFixed(4)} × {formatUnitPrice(transaction.price)}
               </span>
             </div>
           </div>
@@ -72,7 +73,7 @@ export function TransactionHistoryTable({ transactions }: { transactions: Transa
                 </TableCell>
                 <TableCell className="font-medium">{transaction.symbol}</TableCell>
                 <TableCell>{transaction.quantity.toFixed(4)}</TableCell>
-                <TableCell>{currencyFormatter.format(transaction.price)}</TableCell>
+                <TableCell>{formatUnitPrice(transaction.price)}</TableCell>
                 <TableCell className="text-right">{currencyFormatter.format(transaction.amount)}</TableCell>
               </TableRow>
             ))}

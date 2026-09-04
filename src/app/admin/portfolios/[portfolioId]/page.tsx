@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { computeAvailableCash } from "@/lib/trading/execute-order";
 import { getTransactionHistory } from "@/lib/trading/transaction-history";
+import { formatUnitPrice } from "@/lib/format-price";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -148,7 +149,7 @@ export default async function AdminPortfolioPage({
                     </TableCell>
                     <TableCell className="font-medium">{transaction.symbol}</TableCell>
                     <TableCell>{transaction.quantity.toFixed(4)}</TableCell>
-                    <TableCell>{currencyFormatter.format(transaction.price)}</TableCell>
+                    <TableCell>{formatUnitPrice(transaction.price)}</TableCell>
                     <TableCell>{currencyFormatter.format(transaction.amount)}</TableCell>
                     <TableCell>
                       <TransactionRowActions

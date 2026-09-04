@@ -6,6 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { getPositionPriceHistory } from "./position-price-history-actions";
+import { formatUnitPrice } from "@/lib/format-price";
 import type { PriceHistoryPeriod } from "@/lib/prices/get-asset-price-history";
 
 const PERIODS: { value: PriceHistoryPeriod; label: string }[] = [
@@ -14,8 +15,6 @@ const PERIODS: { value: PriceHistoryPeriod; label: string }[] = [
   { value: "1M", label: "1 mois" },
   { value: "SINCE_PURCHASE", label: "Depuis l'achat" },
 ];
-
-const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
 function formatLabel(period: PriceHistoryPeriod, timestamp: Date): string {
   if (period === "1D") return timestamp.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -123,7 +122,7 @@ export function PositionPriceChart({
               tickMargin={8}
               width={64}
               domain={["auto", "auto"]}
-              tickFormatter={(value: number) => currencyFormatter.format(value)}
+              tickFormatter={(value: number) => formatUnitPrice(value)}
             />
             {hasVolume && <YAxis yAxisId="volume" orientation="right" hide domain={[0, (max: number) => max * 4]} />}
             <ChartTooltip
@@ -133,7 +132,7 @@ export function PositionPriceChart({
                     <div className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">{name === "price" ? "Cours" : "Volume"}</span>
                       <span className="font-mono font-medium tabular-nums text-foreground">
-                        {name === "price" ? currencyFormatter.format(Number(value)) : Number(value).toLocaleString("fr-FR")}
+                        {name === "price" ? formatUnitPrice(Number(value)) : Number(value).toLocaleString("fr-FR")}
                       </span>
                     </div>
                   )}
