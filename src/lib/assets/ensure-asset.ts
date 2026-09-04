@@ -28,6 +28,15 @@ export type EnsureAssetResult = { ok: true; asset: Asset } | { ok: false; error:
  */
 const TRUSTED_LOGO_HOSTS = ["images.financialmodelingprep.com", "coingecko.com"];
 
+/**
+ * Cours plancher (EUR) en dessous duquel un actif est refusé à l'achat. La
+ * précision de stockage est Decimal(24, 12) (voir Price.price dans
+ * schema.prisma), donc le pas d'arrondi est 1e-12 : à 1e-6 €/unité l'erreur
+ * relative reste sous 1e-4 %. En dessous, l'actif devient une poussière dont la
+ * valeur de position saute par paliers visibles — on l'écarte du concours.
+ */
+const MIN_TRACKABLE_PRICE_EUR = 0.000001;
+
 function sanitizeLogoUrl(logoUrl: string | undefined): string | undefined {
   if (!logoUrl) return undefined;
   try {
@@ -92,9 +101,18 @@ export async function ensureAssetForPurchase(candidate: AssetCandidate): Promise
 
   await refreshAssetPriceIfStale(asset);
 
-  const hasPrice = await db.price.findFirst({ where: { assetId: asset.id } });
-  if (!hasPrice) {
+  const latestPrice = await db.price.findFirst({
+    where: { assetId: asset.id },
+    orderBy: { timestamp: "desc" },
+  });
+  if (!latestPrice) {
     return { ok: false, error: "Impossible de récupérer une cotation pour cet actif pour le moment. Réessayez plus tard." };
+  }
+  if (Number(latestPrice.price) < MIN_TRACKABLE_PRICE_EUR) {
+    return {
+      ok: false,
+      error: "Le cours de cet actif est trop faible pour être suivi avec une précision suffisante dans le concours.",
+    };
   }
 
   return { ok: true, asset };

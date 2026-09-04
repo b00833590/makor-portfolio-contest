@@ -49,7 +49,7 @@ describe("ensureAssetForPurchase", () => {
   it("reuses an existing asset instead of creating a new one", async () => {
     const asset = makeAsset();
     findUniqueMock.mockResolvedValue(asset);
-    priceFindFirstMock.mockResolvedValue({ id: "price-1" });
+    priceFindFirstMock.mockResolvedValue({ id: "price-1", price: 150 });
 
     const result = await ensureAssetForPurchase({ symbol: "aapl", name: "Apple Inc.", type: AssetType.STOCK });
 
@@ -61,7 +61,7 @@ describe("ensureAssetForPurchase", () => {
     findUniqueMock.mockResolvedValue(null);
     const created = makeAsset({ symbol: "TSLA", name: "Tesla Inc." });
     createMock.mockResolvedValue(created);
-    priceFindFirstMock.mockResolvedValue({ id: "price-1" });
+    priceFindFirstMock.mockResolvedValue({ id: "price-1", price: 150 });
 
     const result = await ensureAssetForPurchase({ symbol: "tsla", name: "Tesla Inc.", type: AssetType.STOCK });
 
@@ -82,7 +82,7 @@ describe("ensureAssetForPurchase", () => {
     findUniqueMock.mockResolvedValue(null);
     const created = makeAsset({ type: AssetType.CRYPTO, symbol: "ETH", externalId: "ethereum" });
     createMock.mockResolvedValue(created);
-    priceFindFirstMock.mockResolvedValue({ id: "price-1" });
+    priceFindFirstMock.mockResolvedValue({ id: "price-1", price: 150 });
 
     const result = await ensureAssetForPurchase({
       symbol: "eth",
@@ -113,5 +113,24 @@ describe("ensureAssetForPurchase", () => {
 
     expect(refreshAssetPriceIfStaleMock).toHaveBeenCalled();
     expect(result).toEqual({ ok: false, error: expect.stringContaining("cotation") });
+  });
+
+  it("rejects a micro-cap asset whose quote is below the trackable floor", async () => {
+    findUniqueMock.mockResolvedValue(makeAsset({ type: AssetType.CRYPTO, symbol: "DUST" }));
+    priceFindFirstMock.mockResolvedValue({ id: "price-1", price: 0.0000003 });
+
+    const result = await ensureAssetForPurchase({ symbol: "dust", name: "Dust Coin", type: AssetType.CRYPTO });
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("trop faible") });
+  });
+
+  it("accepts an asset priced just above the trackable floor", async () => {
+    const asset = makeAsset({ type: AssetType.CRYPTO, symbol: "PEPE" });
+    findUniqueMock.mockResolvedValue(asset);
+    priceFindFirstMock.mockResolvedValue({ id: "price-1", price: 0.00000306 });
+
+    const result = await ensureAssetForPurchase({ symbol: "pepe", name: "Pepe", type: AssetType.CRYPTO });
+
+    expect(result).toEqual({ ok: true, asset });
   });
 });
