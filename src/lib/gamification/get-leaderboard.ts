@@ -1,9 +1,12 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
-import { computeAvailableCash } from "@/lib/trading/execute-order";
 import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
+import {
+  getCachedPromotionValuation,
+  getPromotionValuation,
+  type ValuedPosition,
+} from "@/lib/trading/promotion-valuation";
 import { rankEntries, computeRankChange } from "./ranking";
 
 export interface BestWorstPosition {
@@ -32,77 +35,15 @@ export interface LeaderboardRow {
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
 
-interface EnrichedPosition extends BestWorstPosition {
-  marketValue: number;
-}
-
-/**
- * Positions ouvertes de tous les portefeuilles d'une promotion, en un seul
- * lot — les prix périmés sont rafraîchis une seule fois pour l'ensemble des
- * actifs distincts détenus (cache pull-through), plutôt qu'une fois par
- * participant, pour que le classement reste réellement "temps réel" sans
- * multiplier les appels aux API de marché.
- *
- * `frozen` : concours clôturé — chaque position est valorisée au dernier cours
- * connu **≤ asOf** (aucun rafraîchissement fournisseur, aucun prix postérieur à
- * la fin officielle ne peut fausser le résultat). Le classement final est alors
- * déterministe et rejouable à l'identique indéfiniment. En mode normal (`asOf`
- * ≈ maintenant), `price ≤ asOf` = dernier prix connu, donc rien ne change.
- */
-async function getPositionsByPortfolio(
-  portfolioIds: string[],
-  asOf: Date,
-  frozen: boolean,
-): Promise<Map<string, EnrichedPosition[]>> {
-  const result = new Map<string, EnrichedPosition[]>();
-  if (portfolioIds.length === 0) return result;
-
-  const positions = await db.position.findMany({
-    where: { portfolioId: { in: portfolioIds }, quantity: { gt: 0 }, closedAt: null },
-    include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
-  });
-
-  const distinctAssets = new Map(positions.map((position) => [position.assetId, position.asset]));
-
-  const frozenPrices = new Map<string, number>();
-  let refreshedPrices = new Map<string, { price: number }>();
-  if (frozen) {
-    const rows = await db.price.findMany({
-      where: { assetId: { in: [...distinctAssets.keys()] }, timestamp: { lte: asOf } },
-      orderBy: { timestamp: "desc" },
-      distinct: ["assetId"],
-    });
-    for (const row of rows) frozenPrices.set(row.assetId, Number(row.price));
-  } else {
-    refreshedPrices = await refreshAssetPricesIfStale([...distinctAssets.values()], asOf);
-  }
-
-  for (const position of positions) {
-    const quantity = Number(position.quantity);
-    const avgEntryPrice = Number(position.avgEntryPrice);
-    const currentPrice = frozen
-      ? (frozenPrices.get(position.assetId) ?? Number(position.asset.prices[0]?.price ?? avgEntryPrice))
-      : (refreshedPrices.get(position.assetId)?.price ?? Number(position.asset.prices[0]?.price ?? avgEntryPrice));
-    const pnlPct = avgEntryPrice > 0 ? ((currentPrice - avgEntryPrice) / avgEntryPrice) * 100 : 0;
-
-    const entry: EnrichedPosition = {
-      symbol: position.asset.symbol,
-      name: position.asset.name,
-      pnlPct,
-      marketValue: quantity * currentPrice,
-    };
-    const list = result.get(position.portfolioId) ?? [];
-    list.push(entry);
-    result.set(position.portfolioId, list);
-  }
-
-  return result;
-}
-
-function pickBestWorst(positions: EnrichedPosition[]): { best: BestWorstPosition | null; worst: BestWorstPosition | null } {
+function pickBestWorst(positions: ValuedPosition[]): { best: BestWorstPosition | null; worst: BestWorstPosition | null } {
   if (positions.length === 0) return { best: null, worst: null };
   const sorted = [...positions].sort((a, b) => b.pnlPct - a.pnlPct);
-  return { best: sorted[0], worst: sorted[sorted.length - 1] };
+  const toBestWorst = (position: ValuedPosition): BestWorstPosition => ({
+    symbol: position.symbol,
+    name: position.name,
+    pnlPct: position.pnlPct,
+  });
+  return { best: toBestWorst(sorted[0]), worst: toBestWorst(sorted[sorted.length - 1]) };
 }
 
 export async function getLeaderboard(
@@ -110,49 +51,46 @@ export async function getLeaderboard(
   now: Date = new Date(),
   { frozen = false }: { frozen?: boolean } = {},
 ): Promise<LeaderboardRow[]> {
-  const promotion = await db.promotion.findUniqueOrThrow({ where: { id: promotionId } });
-  const initialCapital = Number(promotion.initialCapital);
+  // Valeur de chaque portefeuille : lue dans la valorisation partagée de la
+  // promotion (un seul rafraîchissement de prix, un seul cache) — c'est la même
+  // source que `getPortfolioView` (tableau de bord) et les statistiques, donc
+  // classement et portefeuille affichent le même euro.
+  const valuation = frozen
+    ? await getPromotionValuation(promotionId, now, { frozen: true })
+    : await getCachedPromotionValuation(promotionId);
+  const initialCapital = valuation.initialCapital;
 
   const portfolios = await db.portfolio.findMany({
     where: { promotionId },
     include: { user: { select: { id: true, name: true } } },
   });
-  const portfolioIds = portfolios.map((portfolio) => portfolio.id);
 
   const yesterday = new Date(now.getTime() - ONE_DAY_MS);
   const sevenDaysAgo = new Date(now.getTime() - SEVEN_DAYS_MS);
 
-  const [historyByPortfolio, positionsByPortfolio, cashByPortfolio] = await Promise.all([
-    Promise.all(
-      portfolios.map(async (portfolio) => {
-        const [dayAgo, weekAgo] = await Promise.all([
-          db.performanceSnapshot.findFirst({
-            where: { portfolioId: portfolio.id, timestamp: { lte: yesterday } },
-            orderBy: { timestamp: "desc" },
-          }),
-          db.performanceSnapshot.findFirst({
-            where: { portfolioId: portfolio.id, timestamp: { lte: sevenDaysAgo } },
-            orderBy: { timestamp: "desc" },
-          }),
-        ]);
-        return [portfolio.id, { dayAgo, weekAgo }] as const;
-      }),
-    ).then((entries) => new Map(entries)),
-    getPositionsByPortfolio(portfolioIds, now, frozen),
-    Promise.all(
-      portfolios.map(
-        async (portfolio) => [portfolio.id, await computeAvailableCash(portfolio.id, initialCapital)] as const,
-      ),
-    ).then((entries) => new Map(entries)),
-  ]);
+  const historyByPortfolio = await Promise.all(
+    portfolios.map(async (portfolio) => {
+      const [dayAgo, weekAgo] = await Promise.all([
+        db.performanceSnapshot.findFirst({
+          where: { portfolioId: portfolio.id, timestamp: { lte: yesterday } },
+          orderBy: { timestamp: "desc" },
+        }),
+        db.performanceSnapshot.findFirst({
+          where: { portfolioId: portfolio.id, timestamp: { lte: sevenDaysAgo } },
+          orderBy: { timestamp: "desc" },
+        }),
+      ]);
+      return [portfolio.id, { dayAgo, weekAgo }] as const;
+    }),
+  ).then((entries) => new Map(entries));
 
   const currentEntries = portfolios.map((portfolio) => {
-    const positions = positionsByPortfolio.get(portfolio.id) ?? [];
-    const marketValue = positions.reduce((total, position) => total + position.marketValue, 0);
-    const totalValue = (cashByPortfolio.get(portfolio.id) ?? initialCapital) + marketValue;
-    const cumulativeReturnPct = initialCapital > 0 ? ((totalValue - initialCapital) / initialCapital) * 100 : 0;
-
-    return { portfolioId: portfolio.id, totalValue, cumulativeReturnPct };
+    const valued = valuation.byPortfolio[portfolio.id];
+    return {
+      portfolioId: portfolio.id,
+      totalValue: valued?.totalValue ?? initialCapital,
+      cumulativeReturnPct: valued?.cumulativeReturnPct ?? 0,
+    };
   });
 
   const previousDayEntries = portfolios
@@ -167,22 +105,22 @@ export async function getLeaderboard(
   const rankedPreviousDay = rankEntries(previousDayEntries);
   const previousRankByPortfolio = new Map(rankedPreviousDay.map((entry) => [entry.portfolioId, entry.rank]));
 
-  // Avatar (photo base64) chargé uniquement pour le podium (top 3), pas pour
-  // tout le classement — cette page est ré-interrogée en continu par
-  // AutoRefresh, retransmettre la photo des ~30 participants à chaque tick
-  // dominait largement l'egress Supabase (voir incident du 2026-08). Le
-  // reste de la liste utilise le repli initiales de UserAvatar.
-  const podiumPortfolioIds = new Set(
-    rankedCurrent.filter((entry) => entry.rank <= 3).map((entry) => entry.portfolioId),
-  );
-  const podiumUserIds = portfolios
-    .filter((portfolio) => podiumPortfolioIds.has(portfolio.id))
-    .map((portfolio) => portfolio.user.id);
-  const podiumAvatars = await db.user.findMany({
-    where: { id: { in: podiumUserIds } },
+  // Photo de profil (data URL base64, ~15 Ko) de TOUS les participants, pas
+  // seulement le podium. Le repli podium-only datait de l'incident egress
+  // Supabase du 2026-08 (retransmettre ~30 photos à chaque tick AutoRefresh) —
+  // c'est désormais le cache serveur partagé `unstable_cache`
+  // (getCachedLeaderboard) qui plafonne l'egress : une seule lecture par fenêtre
+  // de revalidation, quel que soit le nombre de ticks. Le repli faisait
+  // disparaître la photo d'un participant dès qu'il sortait du top 3 — un
+  // classement serré la faisait clignoter à chaque rafraîchissement.
+  // ponytail: surcoût de payload négligeable pour une cohorte de stagiaires
+  // (~30) ; repasser à une miniature dédiée si les promos atteignent plusieurs
+  // centaines de participants.
+  const avatars = await db.user.findMany({
+    where: { id: { in: portfolios.map((portfolio) => portfolio.user.id) } },
     select: { id: true, avatarUrl: true },
   });
-  const avatarByUserId = new Map(podiumAvatars.map((user) => [user.id, user.avatarUrl]));
+  const avatarByUserId = new Map(avatars.map((user) => [user.id, user.avatarUrl]));
 
   return rankedCurrent
     .map((entry) => {
@@ -192,7 +130,7 @@ export async function getLeaderboard(
       const weekAgoValue = weekAgo ? Number(weekAgo.totalValue) : null;
       const weeklyReturnPct =
         weekAgoValue && weekAgoValue !== 0 ? ((entry.totalValue - weekAgoValue) / weekAgoValue) * 100 : null;
-      const { best, worst } = pickBestWorst(positionsByPortfolio.get(entry.portfolioId) ?? []);
+      const { best, worst } = pickBestWorst(valuation.byPortfolio[entry.portfolioId]?.positions ?? []);
 
       return {
         userId: portfolio.user.id,

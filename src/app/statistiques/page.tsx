@@ -50,7 +50,7 @@ export default async function StatistiquesPage() {
   const ownRow = leaderboard.find((row) => row.userId === session.user.id);
 
   const [participantStats, contestStats] = await Promise.all([
-    ownRow ? getCachedParticipantStats(ownRow.portfolioId, ownRow) : Promise.resolve(null),
+    ownRow ? getCachedParticipantStats(ownRow.portfolioId, user.promotionId, ownRow) : Promise.resolve(null),
     getCachedContestStats(user.promotionId, leaderboard),
   ]);
 

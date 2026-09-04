@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
+import { getCachedPromotionValuation } from "@/lib/trading/promotion-valuation";
 import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { buildTrades } from "./match-closing-trades";
 import type { LeaderboardRow } from "./get-leaderboard";
@@ -102,12 +102,14 @@ export async function getContestStats(promotionId: string, leaderboard: Leaderbo
       .filter((position) => Number(position.quantity) > 0 && position.closedAt === null)
       .map((position) => ({ ...position, participantName: portfolio.user.name })),
   );
-  const distinctAssets = new Map(allOpenPositions.map((position) => [position.assetId, position.asset]));
-  const refreshedPrices = await refreshAssetPricesIfStale([...distinctAssets.values()]);
+  // Cours courants : valorisation partagée de la promotion (même source que le
+  // classement, le tableau de bord et les stats participant) — une seule
+  // résolution de prix, cohérente entre tous les onglets.
+  const valuation = await getCachedPromotionValuation(promotionId);
   const currentPricesByAsset = new Map(
-    [...distinctAssets.entries()].map(([assetId, asset]) => [
-      assetId,
-      refreshedPrices.get(assetId)?.price ?? Number(asset.prices[0]?.price ?? 0),
+    allOpenPositions.map((position) => [
+      position.assetId,
+      valuation.pricesByAsset[position.assetId] ?? Number(position.asset.prices[0]?.price ?? 0),
     ]),
   );
 

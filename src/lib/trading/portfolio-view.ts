@@ -2,10 +2,10 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { AssetType, PromotionStatus } from "@/generated/prisma/enums";
-import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
 import { promotionRulesSchema } from "@/lib/promotion-rules";
 import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { computeAvailableCash } from "./execute-order";
+import { getCachedPromotionValuation, getPromotionValuation } from "./promotion-valuation";
 
 export interface PositionView {
   assetId: string;
@@ -66,14 +66,6 @@ async function getDailyReferencePrices(assetIds: string[], cutoff: Date): Promis
   return new Map(rows.map((row) => [row.assetId, Number(row.price)]));
 }
 
-function resolveLogoUrl(asset: { symbol: string; type: AssetType; logoUrl: string | null }): string | null {
-  if (asset.logoUrl) return asset.logoUrl;
-  if (asset.type === AssetType.STOCK) {
-    return `https://images.financialmodelingprep.com/symbol/${asset.symbol}.png`;
-  }
-  return null;
-}
-
 export async function getPortfolioView(userId: string): Promise<PortfolioView | null> {
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user?.promotionId) return null;
@@ -81,12 +73,7 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
   const [portfolio, promotion] = await Promise.all([
     db.portfolio.findUnique({
       where: { userId_promotionId: { userId, promotionId: user.promotionId } },
-      include: {
-        positions: {
-          where: { quantity: { gt: 0 }, closedAt: null },
-          include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
-        },
-      },
+      select: { id: true },
     }),
     db.promotion.findUnique({ where: { id: user.promotionId } }),
   ]);
@@ -94,68 +81,60 @@ export async function getPortfolioView(userId: string): Promise<PortfolioView | 
   if (!portfolio || !promotion) return null;
 
   const initialCapital = Number(promotion.initialCapital);
-  const openPositions = portfolio.positions;
-  const assetIds = openPositions.map((position) => position.assetId);
 
-  // Concours clôturé : tout est figé à `endDate`. On ne rafraîchit plus les prix
-  // (l'ingestion s'arrête aussi à la clôture, voir ingest.ts) et on valorise
-  // chaque position au dernier cours connu ≤ endDate — le portefeuille affiche
-  // alors exactement le résultat officiel et ne bouge plus, quelle que soit
-  // l'évolution du marché ensuite. Pas de variation 24 h sur un concours figé.
+  // Concours clôturé : tout est figé à `endDate` (dernier cours ≤ endDate, aucun
+  // appel fournisseur). Sinon : valorisation partagée de la promotion — la MÊME
+  // source que le classement (get-leaderboard.ts) et les statistiques, donc le
+  // « Valeur du portefeuille » du tableau de bord et la colonne « Valeur » du
+  // classement affichent le même euro. Plus de double rafraîchissement de prix,
+  // plus de deux caches qui dérivent l'un de l'autre.
   const isClosed = promotion.status === PromotionStatus.CLOSED;
+  const valuation = isClosed
+    ? await getPromotionValuation(promotion.id, promotion.endDate, { frozen: true })
+    : await getCachedPromotionValuation(promotion.id);
+  const valued = valuation.byPortfolio[portfolio.id];
 
-  const [availableCash, referencePrices, refreshedPrices, frozenPrices] = await Promise.all([
-    computeAvailableCash(portfolio.id, initialCapital),
-    isClosed
-      ? Promise.resolve(new Map<string, number>())
-      : getDailyReferencePrices(assetIds, new Date(Date.now() - DAY_MS)),
-    refreshAssetPricesIfStale(isClosed ? [] : openPositions.map((position) => position.asset)),
-    isClosed ? getDailyReferencePrices(assetIds, promotion.endDate) : Promise.resolve(new Map<string, number>()),
-  ]);
+  const valuedPositions = valued?.positions ?? [];
+  const availableCash = valued?.availableCash ?? (await computeAvailableCash(portfolio.id, initialCapital));
+  const totalMarketValue = valued?.marketValue ?? 0;
 
-  function resolveCurrentPrice(position: (typeof openPositions)[number]): number {
-    if (isClosed) {
-      return frozenPrices.get(position.assetId) ?? Number(position.asset.prices[0]?.price ?? position.avgEntryPrice);
-    }
-    const refreshed = refreshedPrices.get(position.assetId);
-    if (refreshed) return refreshed.price;
-    return Number(position.asset.prices[0]?.price ?? position.avgEntryPrice);
-  }
+  // Variation 24 h : cours de référence de la veille — détail propre au tableau
+  // de bord, jamais figé sur un concours clos.
+  const referencePrices = isClosed
+    ? new Map<string, number>()
+    : await getDailyReferencePrices(
+        valuedPositions.map((position) => position.assetId),
+        new Date(Date.now() - DAY_MS),
+      );
 
-  const totalMarketValue = openPositions.reduce((total, position) => {
-    const quantity = Number(position.quantity);
-    return total + quantity * resolveCurrentPrice(position);
-  }, 0);
-
-  const positions: PositionView[] = openPositions.map((position) => {
-    const quantity = Number(position.quantity);
-    const avgEntryPrice = Number(position.avgEntryPrice);
-    const currentPrice = resolveCurrentPrice(position);
-    const actualValue = quantity * currentPrice;
-    const entryValue = quantity * avgEntryPrice;
+  const positions: PositionView[] = valuedPositions.map((position) => {
+    const actualValue = position.marketValue;
+    const entryValue = position.quantity * position.avgEntryPrice;
     const referencePrice = referencePrices.get(position.assetId);
 
     return {
       assetId: position.assetId,
-      symbol: position.asset.symbol,
-      name: position.asset.name,
-      assetType: position.asset.type,
-      logoUrl: resolveLogoUrl(position.asset),
-      quantity,
-      avgEntryPrice,
-      openedAt: position.openedAt.toISOString(),
-      currentPrice,
+      symbol: position.symbol,
+      name: position.name,
+      assetType: position.assetType,
+      logoUrl: position.logoUrl,
+      quantity: position.quantity,
+      avgEntryPrice: position.avgEntryPrice,
+      openedAt: position.openedAt,
+      currentPrice: position.currentPrice,
       entryValue,
       actualValue,
       allocationPct: totalMarketValue > 0 ? (actualValue / totalMarketValue) * 100 : 0,
       pnl: actualValue - entryValue,
       pnlPct: entryValue > 0 ? ((actualValue - entryValue) / entryValue) * 100 : 0,
       dailyChangePct:
-        referencePrice && referencePrice > 0 ? ((currentPrice - referencePrice) / referencePrice) * 100 : null,
+        referencePrice && referencePrice > 0
+          ? ((position.currentPrice - referencePrice) / referencePrice) * 100
+          : null,
     };
   });
 
-  const totalValue = availableCash + totalMarketValue;
+  const totalValue = valued?.totalValue ?? availableCash + totalMarketValue;
   const totalGainEur = totalValue - initialCapital;
 
   return {

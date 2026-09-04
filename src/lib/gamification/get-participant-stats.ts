@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { refreshAssetPricesIfStale } from "@/lib/prices/pull-through";
+import { getCachedPromotionValuation } from "@/lib/trading/promotion-valuation";
 import { getRefreshTier, MORNING_INTERVAL_MS, AFTERNOON_INTERVAL_MS, NIGHT_REVALIDATE_MS } from "@/lib/refresh-schedule";
 import { buildTrades } from "./match-closing-trades";
 import type { BestWorstPosition, LeaderboardRow } from "./get-leaderboard";
@@ -57,14 +57,18 @@ export function buildAllocation<K extends string>(
 
 /**
  * Statistiques enrichies d'un participant, au-delà de ce que fournit déjà le
- * classement (`getLeaderboard`) — passé en paramètre pour éviter de refaire
- * le calcul live de valeur/rang déjà fait une fois par page.
+ * classement (`getLeaderboard`) — la valeur, le rang et les rendements viennent
+ * directement de `leaderboardRow`, et les cours courants de la valorisation
+ * partagée de la promotion (même source que le classement et le tableau de
+ * bord), pour que « plus-value latente » et répartition soient cohérentes avec
+ * la colonne « Valeur » du classement.
  */
 export async function getParticipantStats(
   portfolioId: string,
+  promotionId: string,
   leaderboardRow: Pick<LeaderboardRow, "cumulativeReturnPct" | "weeklyReturnPct" | "bestPosition" | "worstPosition">,
 ): Promise<ParticipantStats> {
-  const [positions, transactions, snapshots, transactionCount] = await Promise.all([
+  const [positions, transactions, snapshots, transactionCount, valuation] = await Promise.all([
     db.position.findMany({
       where: { portfolioId },
       include: { asset: { include: { prices: { orderBy: { timestamp: "desc" }, take: 1 } } } },
@@ -72,14 +76,14 @@ export async function getParticipantStats(
     db.transaction.findMany({ where: { portfolioId }, select: { assetId: true, type: true, price: true, quantity: true, createdAt: true } }),
     db.performanceSnapshot.findMany({ where: { portfolioId }, orderBy: { timestamp: "asc" } }),
     db.transaction.count({ where: { portfolioId } }),
+    getCachedPromotionValuation(promotionId),
   ]);
 
   const openPositions = positions.filter((position) => Number(position.quantity) > 0 && position.closedAt === null);
-  const refreshedPrices = await refreshAssetPricesIfStale(openPositions.map((position) => position.asset));
   const currentPricesByAsset = new Map(
     openPositions.map((position) => [
       position.assetId,
-      refreshedPrices.get(position.assetId)?.price ?? Number(position.asset.prices[0]?.price ?? position.avgEntryPrice),
+      valuation.pricesByAsset[position.assetId] ?? Number(position.asset.prices[0]?.price ?? position.avgEntryPrice),
     ]),
   );
 
@@ -145,29 +149,30 @@ type ParticipantStatsLeaderboardRow = Pick<
 /** Variante mise en cache — voir {@link getCachedLeaderboard} pour le raisonnement (même pattern
  * à trois variantes matin/après-midi/nuit selon l'heure). */
 const getCachedParticipantStatsMorning = unstable_cache(
-  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
-    getParticipantStats(portfolioId, leaderboardRow),
+  (portfolioId: string, promotionId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, promotionId, leaderboardRow),
   ["participant-stats", "morning"],
   { revalidate: MORNING_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedParticipantStatsAfternoon = unstable_cache(
-  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
-    getParticipantStats(portfolioId, leaderboardRow),
+  (portfolioId: string, promotionId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, promotionId, leaderboardRow),
   ["participant-stats", "afternoon"],
   { revalidate: AFTERNOON_INTERVAL_MS / 1000, tags: ["portfolio-view"] },
 );
 const getCachedParticipantStatsNight = unstable_cache(
-  (portfolioId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
-    getParticipantStats(portfolioId, leaderboardRow),
+  (portfolioId: string, promotionId: string, leaderboardRow: ParticipantStatsLeaderboardRow) =>
+    getParticipantStats(portfolioId, promotionId, leaderboardRow),
   ["participant-stats", "night"],
   { revalidate: NIGHT_REVALIDATE_MS / 1000, tags: ["portfolio-view"] },
 );
 export function getCachedParticipantStats(
   portfolioId: string,
+  promotionId: string,
   leaderboardRow: ParticipantStatsLeaderboardRow,
 ): Promise<ParticipantStats> {
   const tier = getRefreshTier();
-  if (tier === "afternoon") return getCachedParticipantStatsAfternoon(portfolioId, leaderboardRow);
-  if (tier === "morning") return getCachedParticipantStatsMorning(portfolioId, leaderboardRow);
-  return getCachedParticipantStatsNight(portfolioId, leaderboardRow);
+  if (tier === "afternoon") return getCachedParticipantStatsAfternoon(portfolioId, promotionId, leaderboardRow);
+  if (tier === "morning") return getCachedParticipantStatsMorning(portfolioId, promotionId, leaderboardRow);
+  return getCachedParticipantStatsNight(portfolioId, promotionId, leaderboardRow);
 }

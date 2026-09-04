@@ -7,12 +7,17 @@ const dbMock = {
   performanceSnapshot: { findMany: vi.fn() },
 };
 
-const refreshAssetPricesIfStaleMock = vi.fn();
+const getCachedPromotionValuationMock = vi.fn();
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
-vi.mock("@/lib/prices/pull-through", () => ({ refreshAssetPricesIfStale: refreshAssetPricesIfStaleMock }));
+vi.mock("@/lib/trading/promotion-valuation", () => ({ getCachedPromotionValuation: getCachedPromotionValuationMock }));
 
 const { getParticipantStats } = await import("./get-participant-stats");
+
+/** Réduit une carte de cours en la valorisation partagée attendue par le code. */
+function valuationWithPrices(pricesByAsset: Record<string, number> = {}) {
+  return { promotionId: "promo-1", initialCapital: 1_000_000, pricesByAsset, byPortfolio: {} };
+}
 
 const leaderboardRow = {
   cumulativeReturnPct: 5,
@@ -23,8 +28,8 @@ const leaderboardRow = {
 
 beforeEach(() => {
   Object.values(dbMock).forEach((group) => Object.values(group).forEach((fn) => fn.mockReset()));
-  refreshAssetPricesIfStaleMock.mockReset();
-  refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
+  getCachedPromotionValuationMock.mockReset();
+  getCachedPromotionValuationMock.mockResolvedValue(valuationWithPrices());
   dbMock.transaction.count.mockResolvedValue(0);
   dbMock.transaction.findMany.mockResolvedValue([]);
   dbMock.performanceSnapshot.findMany.mockResolvedValue([]);
@@ -33,7 +38,7 @@ beforeEach(() => {
 
 describe("getParticipantStats", () => {
   it("carries best/worst position and cumulative/weekly return through from the leaderboard row", async () => {
-    const stats = await getParticipantStats("portfolio-1", leaderboardRow);
+    const stats = await getParticipantStats("portfolio-1", "promo-1", leaderboardRow);
 
     expect(stats.bestPosition).toEqual(leaderboardRow.bestPosition);
     expect(stats.worstPosition).toEqual(leaderboardRow.worstPosition);
@@ -66,9 +71,9 @@ describe("getParticipantStats", () => {
       { assetId: "tsla", type: TransactionType.SELL_FULL, price: 150, quantity: 5, createdAt: new Date("2026-01-05") },
     ]);
     dbMock.transaction.count.mockResolvedValue(3);
-    refreshAssetPricesIfStaleMock.mockResolvedValue(new Map([["aapl", { price: 120, timestamp: new Date(), isStale: false }]]));
+    getCachedPromotionValuationMock.mockResolvedValue(valuationWithPrices({ aapl: 120 }));
 
-    const stats = await getParticipantStats("portfolio-1", leaderboardRow);
+    const stats = await getParticipantStats("portfolio-1", "promo-1", leaderboardRow);
 
     // Open AAPL: cost 1000, value 1200 -> +200. Closed TSLA: cost 1000, exit 750 -> -250.
     expect(stats.unrealizedGainEur).toBe(200);
@@ -100,7 +105,7 @@ describe("getParticipantStats", () => {
       },
     ]);
 
-    const stats = await getParticipantStats("portfolio-1", leaderboardRow);
+    const stats = await getParticipantStats("portfolio-1", "promo-1", leaderboardRow);
 
     expect(stats.sectorAllocation).toEqual(
       expect.arrayContaining([
@@ -117,7 +122,7 @@ describe("getParticipantStats", () => {
   });
 
   it("returns null volatility and win rate when there is no history yet", async () => {
-    const stats = await getParticipantStats("portfolio-1", leaderboardRow);
+    const stats = await getParticipantStats("portfolio-1", "promo-1", leaderboardRow);
 
     expect(stats.volatilityPct).toBeNull();
     expect(stats.winRatePct).toBeNull();
@@ -132,7 +137,7 @@ describe("getParticipantStats", () => {
       { dailyReturnPct: -2 },
     ]);
 
-    const stats = await getParticipantStats("portfolio-1", leaderboardRow);
+    const stats = await getParticipantStats("portfolio-1", "promo-1", leaderboardRow);
 
     // mean = 2/3, sample variance = ((1-2/3)^2+(3-2/3)^2+(-2-2/3)^2)/2
     expect(stats.volatilityPct).toBeCloseTo(2.5166, 3);

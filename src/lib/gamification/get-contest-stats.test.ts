@@ -5,10 +5,10 @@ import type { LeaderboardRow } from "./get-leaderboard";
 const dbMock = {
   portfolio: { findMany: vi.fn() },
 };
-const refreshAssetPricesIfStaleMock = vi.fn();
+const getCachedPromotionValuationMock = vi.fn();
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
-vi.mock("@/lib/prices/pull-through", () => ({ refreshAssetPricesIfStale: refreshAssetPricesIfStaleMock }));
+vi.mock("@/lib/trading/promotion-valuation", () => ({ getCachedPromotionValuation: getCachedPromotionValuationMock }));
 
 const { getContestStats } = await import("./get-contest-stats");
 
@@ -32,8 +32,8 @@ function makeRow(overrides: Partial<LeaderboardRow>): LeaderboardRow {
 
 beforeEach(() => {
   dbMock.portfolio.findMany.mockReset();
-  refreshAssetPricesIfStaleMock.mockReset();
-  refreshAssetPricesIfStaleMock.mockResolvedValue(new Map());
+  getCachedPromotionValuationMock.mockReset();
+  getCachedPromotionValuationMock.mockResolvedValue({ promotionId: "promo-1", initialCapital: 1_000_000, pricesByAsset: {}, byPortfolio: {} });
 });
 
 describe("getContestStats", () => {
