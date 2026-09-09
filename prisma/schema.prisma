@@ -29,6 +29,7 @@ model Session {
 enum UserRole {
   PARTICIPANT
   ADMIN
+  DIRECTEUR
 }
 
 /// name sert à la fois d'identifiant de connexion (ex. "Adam Dupont") et
