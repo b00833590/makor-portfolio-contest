@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
-import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { getCachedLeaderboard } from "@/lib/gamification/get-leaderboard";
 import { getFrozenLeaderboard } from "@/lib/gamification/frozen-leaderboard";
 import { computeLeaderboardHighlights } from "@/lib/gamification/leaderboard-highlights";
@@ -20,13 +19,15 @@ export default async function DirecteurPromotionOverviewPage({
   params: Promise<{ promotionId: string }>;
 }) {
   const { promotionId } = await params;
-  await closePromotionIfEnded(promotionId);
 
   const promotion = await db.promotion.findUnique({
     where: { id: promotionId },
     select: { status: true, endDate: true, initialCapital: true },
   });
   if (!promotion) {
+    notFound();
+  }
+  if (promotion.status === PromotionStatus.DRAFT) {
     notFound();
   }
 

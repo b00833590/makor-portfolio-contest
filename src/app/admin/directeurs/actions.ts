@@ -53,10 +53,15 @@ export async function resetDirecteurPassword(
 
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
-  const user = await db.user.update({
-    where: { id: parsed.data.userId },
-    data: { passwordHash, mustChangePassword: true },
-  });
+  let user;
+  try {
+    user = await db.user.update({
+      where: { id: parsed.data.userId, role: "DIRECTEUR" },
+      data: { passwordHash, mustChangePassword: true },
+    });
+  } catch {
+    return { error: "Compte Directeur introuvable." };
+  }
   await destroyAllSessionsForUser(parsed.data.userId);
 
   await logAudit({
@@ -73,6 +78,9 @@ export async function deleteDirecteur(userId: string): Promise<void> {
   const session = await requireAdmin();
 
   const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
+  if (before.role !== "DIRECTEUR") {
+    throw new Error("Ce compte n'est pas un compte Directeur.");
+  }
   await db.user.delete({ where: { id: userId } });
 
   await logAudit({
