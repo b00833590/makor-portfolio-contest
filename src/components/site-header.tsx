@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MenuIcon } from "lucide-react";
 import { handleSignOut } from "@/lib/auth-actions";
+import { roleLabel } from "@/lib/auth/role-display";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -42,18 +43,28 @@ const adminNavLinks: NavLink[] = [
   { href: "/contact", label: "Contact" },
 ];
 
+// Le Directeur consulte, il ne joue pas non plus — sa navigation part de la
+// liste des concours (espace dédié /directeur) ; le détail d'un concours
+// (classement/statistiques/règlement) et d'un participant (portefeuille/badges)
+// se navigue depuis l'intérieur de cet espace, pas depuis la barre du haut.
+const directeurNavLinks: NavLink[] = [
+  { href: "/directeur", label: "Concours" },
+  { href: "/hall-of-fame", label: "Hall of Fame" },
+  { href: "/contact", label: "Contact" },
+];
+
 export function SiteHeader({
   name,
   role,
   avatarUrl = null,
 }: {
   name: string;
-  role: "ADMIN" | "PARTICIPANT";
+  role: "ADMIN" | "PARTICIPANT" | "DIRECTEUR";
   avatarUrl?: string | null;
 }) {
   const pathname = usePathname();
-  const homeHref = role === "ADMIN" ? "/admin" : "/dashboard";
-  const navLinks = role === "ADMIN" ? adminNavLinks : participantNavLinks;
+  const homeHref = role === "ADMIN" ? "/admin" : role === "DIRECTEUR" ? "/directeur" : "/dashboard";
+  const navLinks = role === "ADMIN" ? adminNavLinks : role === "DIRECTEUR" ? directeurNavLinks : participantNavLinks;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   const isLinkActive = (href: string) => (href === "/admin/promotions" ? pathname.startsWith("/admin") : pathname === href);
@@ -131,7 +142,7 @@ export function SiteHeader({
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <p className="font-medium">{name}</p>
-                <p className="text-xs font-normal text-muted-foreground">{role === "ADMIN" ? "Administrateur" : "Participant"}</p>
+                <p className="text-xs font-normal text-muted-foreground">{roleLabel(role)}</p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
