@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "", label: "Vue d'ensemble" },
