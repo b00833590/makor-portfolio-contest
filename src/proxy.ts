@@ -1,14 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionGate } from "@/lib/auth/session";
 
-const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/resultats", "/admin", "/change-password"];
+const protectedPrefixes = ["/dashboard", "/leaderboard", "/hall-of-fame", "/resultats", "/admin", "/directeur", "/change-password"];
 const adminPrefixes = ["/admin"];
+const directeurPrefixes = ["/directeur"];
 const CHANGE_PASSWORD_PATH = "/change-password";
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isProtected = protectedPrefixes.some((prefix) => pathname.startsWith(prefix));
   const isAdminRoute = adminPrefixes.some((prefix) => pathname.startsWith(prefix));
+  const isDirecteurRoute = directeurPrefixes.some((prefix) => pathname.startsWith(prefix));
 
   if (!isProtected) return NextResponse.next();
 
@@ -27,6 +29,10 @@ export default async function proxy(req: NextRequest) {
   }
 
   if (isAdminRoute && user.role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+  }
+
+  if (isDirecteurRoute && user.role !== "DIRECTEUR") {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
   }
 

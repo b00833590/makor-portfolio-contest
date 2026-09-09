@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser, type SessionUser } from "@/lib/auth/session";
+import { roleHomePath } from "@/lib/auth/role-display";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export interface Session {
@@ -19,7 +20,15 @@ export const verifySession = cache(async (): Promise<Session> => {
 export const requireAdmin = cache(async (): Promise<Session> => {
   const session = await verifySession();
   if (session.user.role !== ("ADMIN" satisfies UserRole)) {
-    redirect("/dashboard");
+    redirect(roleHomePath(session.user.role));
+  }
+  return session;
+});
+
+export const requireDirecteur = cache(async (): Promise<Session> => {
+  const session = await verifySession();
+  if (session.user.role !== ("DIRECTEUR" satisfies UserRole)) {
+    redirect(roleHomePath(session.user.role));
   }
   return session;
 });
