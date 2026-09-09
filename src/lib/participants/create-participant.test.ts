@@ -55,4 +55,31 @@ describe("createParticipantWithTempPassword", () => {
       expect.objectContaining({ data: expect.objectContaining({ name: "Adam Dupont" }) }),
     );
   });
+
+  it("crée un compte avec le rôle demandé quand il est fourni", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    createMock.mockResolvedValue({ id: "user-directeur" });
+
+    const result = await createParticipantWithTempPassword({ name: "Stéphane Chouffan", role: "DIRECTEUR" });
+
+    expect(result.status).toBe("created");
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "Stéphane Chouffan", role: "DIRECTEUR" }),
+      }),
+    );
+  });
+
+  it("crée un participant par défaut quand le rôle n'est pas fourni", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    createMock.mockResolvedValue({ id: "user-z" });
+
+    await createParticipantWithTempPassword({ name: "Adam Dupont" });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ role: "PARTICIPANT" }),
+      }),
+    );
+  });
 });
