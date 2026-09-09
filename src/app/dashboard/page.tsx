@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
-import { roleHomePath } from "@/lib/auth/role-display";
 import { db } from "@/lib/db";
 import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { getCachedPortfolioView } from "@/lib/trading/portfolio-view";
@@ -11,19 +10,14 @@ import { getUnseenBadges } from "@/lib/gamification/get-unseen-badges";
 import { recordDailyVisit } from "@/lib/gamification/record-daily-visit";
 import { getOpenChangeSession, getNextScheduledChangeSession, getChangesUsedCount } from "@/lib/trading/execute-order";
 import { ChangeSessionKind, PromotionStatus } from "@/generated/prisma/enums";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenBadgeToaster } from "@/components/badges/unseen-badge-toaster";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BuyForm } from "./buy-form";
-import { PositionCard } from "./position-card";
-import { PerformanceChart } from "./performance-chart";
-import { TransactionHistoryTable } from "./transaction-history-table";
+import { PortfolioSummary } from "./portfolio-summary";
 import { InitializationWindowBanner } from "./initialization-window-banner";
 import { ChangeSessionStatusBanner } from "./change-session-status-banner";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ContestEndedBanner } from "@/components/contest-ended-banner";
-
-const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
 export default async function DashboardPage() {
   const session = await verifySession();
@@ -81,11 +75,7 @@ export default async function DashboardPage() {
   return (
     <>
       {!contestClosed && <AutoRefresh />}
-      <SiteHeader
-        name={session.user.name}
-        role={session.user.role}
-        avatarUrl={session.user.avatarUrl}
-      />
+      <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
       <UnseenBadgeToaster badges={unseenBadges} />
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Mon portefeuille</h1>
@@ -136,105 +126,13 @@ export default async function DashboardPage() {
         )}
 
         {portfolioView && (
-          <div className="mt-6 flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Capital initial</CardTitle>
-                </CardHeader>
-                <CardContent className="text-2xl font-semibold tabular-nums">
-                  {currencyFormatter.format(portfolioView.initialCapital)}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Capital disponible</CardTitle>
-                </CardHeader>
-                <CardContent className="text-2xl font-semibold tabular-nums">
-                  {currencyFormatter.format(portfolioView.availableCash)}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Valeur investie</CardTitle>
-                </CardHeader>
-                <CardContent className="text-2xl font-semibold tabular-nums">
-                  {currencyFormatter.format(portfolioView.totalMarketValue)}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Valeur du portefeuille</CardTitle>
-                </CardHeader>
-                <CardContent className="text-2xl font-semibold tabular-nums">
-                  {currencyFormatter.format(portfolioView.totalValue)}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Performance totale</CardTitle>
-                </CardHeader>
-                <CardContent
-                  className={`text-2xl font-semibold tabular-nums ${portfolioView.totalGainPct >= 0 ? "text-gain" : "text-loss"}`}
-                >
-                  {portfolioView.totalGainPct >= 0 ? "+" : ""}
-                  {portfolioView.totalGainPct.toFixed(1)}%
-                  <span className="ml-1.5 text-sm font-normal text-muted-foreground">
-                    ({portfolioView.totalGainEur >= 0 ? "+" : ""}
-                    {currencyFormatter.format(portfolioView.totalGainEur)})
-                  </span>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Positions</CardTitle>
-                </CardHeader>
-                <CardContent className="text-2xl font-semibold tabular-nums">
-                  {portfolioView.positions.length}
-                  <span className="ml-1 text-base font-normal text-muted-foreground">
-                    / {portfolioView.maxPositions}
-                  </span>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Évolution du portefeuille</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PerformanceChart data={performanceHistory} />
-              </CardContent>
-            </Card>
-
-            {!contestClosed && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Nouvel achat</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BuyForm contestClosed={contestClosed} />
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="flex flex-col gap-4">
-              {portfolioView.positions.length === 0 && (
-                <p className="text-sm text-muted-foreground">Aucune position ouverte pour le moment.</p>
-              )}
-              {portfolioView.positions.map((position) => (
-                <PositionCard key={position.assetId} position={position} contestClosed={contestClosed} />
-              ))}
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Historique des transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TransactionHistoryTable transactions={transactionHistory} />
-              </CardContent>
-            </Card>
+          <div className="mt-6">
+            <PortfolioSummary
+              portfolioView={portfolioView}
+              performanceHistory={performanceHistory}
+              transactionHistory={transactionHistory}
+              contestClosed={Boolean(contestClosed)}
+            />
           </div>
         )}
       </div>
