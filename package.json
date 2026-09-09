@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:seed": "tsx prisma/seed-admin.ts",
-    "db:seed:demo": "tsx prisma/seed-demo.ts"
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
+    "db:create-directeur": "tsx scripts/create-directeur.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
