@@ -5,6 +5,7 @@ import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { destroyOtherSessionsForUser } from "@/lib/auth/session";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { changePasswordSchema } from "./schema";
 
 export interface ChangePasswordFormState {
@@ -40,5 +41,5 @@ export async function changePassword(
   });
   await destroyOtherSessionsForUser(session.user.id);
 
-  redirect(session.user.role === "ADMIN" ? "/admin" : "/dashboard");
+  redirect(roleHomePath(session.user.role));
 }

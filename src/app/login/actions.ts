@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { roleHomePath } from "@/lib/auth/role-display";
 
 export interface LoginFormState {
   error?: string;
@@ -31,6 +32,6 @@ export async function login(
   }
 
   await createSession(user.id);
-  const defaultHome = user.role === "ADMIN" ? "/admin" : "/dashboard";
+  const defaultHome = roleHomePath(user.role);
   redirect(typeof callbackUrl === "string" && callbackUrl ? callbackUrl : defaultHome);
 }
