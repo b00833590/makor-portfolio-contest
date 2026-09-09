@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -12,6 +13,10 @@ import { createDirecteurSchema, resetDirecteurPasswordSchema } from "./schema";
 export interface DirecteurFormState {
   error?: string;
   created?: { name: string; tempPassword: string };
+}
+
+function isRecordNotFoundError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025";
 }
 
 export async function createDirecteur(
@@ -59,8 +64,11 @@ export async function resetDirecteurPassword(
       where: { id: parsed.data.userId, role: "DIRECTEUR" },
       data: { passwordHash, mustChangePassword: true },
     });
-  } catch {
-    return { error: "Compte Directeur introuvable." };
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      return { error: "Compte Directeur introuvable." };
+    }
+    throw error;
   }
   await destroyAllSessionsForUser(parsed.data.userId);
 
