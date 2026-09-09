@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { db } from "@/lib/db";
 import { closePromotionIfEnded } from "@/lib/promotion-lifecycle";
 import { getCachedPortfolioView } from "@/lib/trading/portfolio-view";
@@ -26,9 +27,10 @@ const currencyFormatter = new Intl.NumberFormat("fr-FR", { style: "currency", cu
 
 export default async function DashboardPage() {
   const session = await verifySession();
-  // L'admin ne joue pas — pas de portefeuille, le panneau d'administration le remplace.
-  if (session.user.role === "ADMIN") {
-    redirect("/admin");
+  // Seul un participant a un portefeuille personnel — admin et Directeur ont
+  // leurs propres espaces.
+  if (session.user.role !== "PARTICIPANT") {
+    redirect(roleHomePath(session.user.role));
   }
 
   const dbUser = await db.user.findUnique({

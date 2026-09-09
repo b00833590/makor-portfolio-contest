@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { getCachedLeaderboard, getLeaderboard } from "@/lib/gamification/get-leaderboard";
@@ -13,9 +14,10 @@ import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function StatistiquesPage() {
   const session = await verifySession();
-  // L'admin ne joue pas — les statistiques personnelles ne le concernent pas, voir dashboard/page.tsx pour le même choix.
-  if (session.user.role === "ADMIN") {
-    redirect("/admin");
+  // Seul un participant a des statistiques personnelles à consulter ici —
+  // admin et Directeur ont leurs propres espaces (voir dashboard/page.tsx pour le même choix).
+  if (session.user.role !== "PARTICIPANT") {
+    redirect(roleHomePath(session.user.role));
   }
   const user = await db.user.findUnique({ where: { id: session.user.id } });
   const promotion = user?.promotionId

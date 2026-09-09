@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { db } from "@/lib/db";
 import { PromotionStatus } from "@/generated/prisma/enums";
 import { getFrozenLeaderboard } from "@/lib/gamification/frozen-leaderboard";
@@ -26,7 +27,9 @@ const perfClassName = (value: number): string =>
 
 export default async function ResultatsPage() {
   const session = await verifySession();
-  if (session.user.role === "ADMIN") redirect("/admin");
+  // Flux propre aux participants (bandeau de fin de concours) — admin et
+  // Directeur ont leurs propres espaces.
+  if (session.user.role !== "PARTICIPANT") redirect(roleHomePath(session.user.role));
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },

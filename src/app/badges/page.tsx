@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifySession } from "@/lib/dal";
+import { roleHomePath } from "@/lib/auth/role-display";
 import { db } from "@/lib/db";
 import { getBadgeBoard } from "@/lib/gamification/get-badge-board";
 import { getParticipantPromotions } from "@/lib/gamification/get-participant-promotions";
@@ -18,8 +19,10 @@ function tabLabel(promotionName: string): string {
 
 export default async function BadgesPage() {
   const session = await verifySession();
-  if (session.user.role === "ADMIN") {
-    redirect("/admin");
+  // Seul un participant a une collection de badges personnelle — admin et
+  // Directeur ont leurs propres espaces (voir dashboard/page.tsx pour le même choix).
+  if (session.user.role !== "PARTICIPANT") {
+    redirect(roleHomePath(session.user.role));
   }
 
   const header = (
