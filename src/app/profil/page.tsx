@@ -2,6 +2,7 @@ import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { db } from "@/lib/db";
 import { formatParisDate } from "@/lib/timezone";
+import { roleLabel } from "@/lib/auth/role-display";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export default async function ProfilePage() {
             </div>
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <span className="text-muted-foreground">Rôle</span>
-              <span className="font-medium">{user.role === "ADMIN" ? "Administrateur" : "Participant"}</span>
+              <span className="font-medium">{roleLabel(user.role)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Membre depuis</span>
