@@ -16,6 +16,45 @@ function resolveInterval(request: HistoryRequest): { interval: string; limit: nu
   return { interval: "1d", limit: Math.min(Math.ceil(request.days) + 2, 1000) };
 }
 
+/** Actif-pont utilisé quand la paire directe `<SYMBOL><CURRENCY>` n'existe pas sur Binance
+ * (voir {@link resolveBridgedPrice}) — USDT est coté contre à peu près tout sur Binance. */
+const BRIDGE_ASSET = "USDT";
+
+/**
+ * Combine jusqu'à 3 cotations Binance (déjà récupérées) en un prix dans la devise du
+ * portefeuille — pure, donc testable sans mock réseau.
+ *
+ * - Paire directe dispo (`directPrice`, ex. BTCEUR) : utilisée telle quelle, c'est le cas
+ *   normal pour la plupart des cryptos.
+ * - Sinon, on passe par l'actif-pont ({@link BRIDGE_ASSET}) : de nombreux stablecoins
+ *   (USDT, USDC…) n'ont PAS de paire directe contre l'EUR sur Binance (`USDTEUR`,
+ *   `USDCEUR` répondent HTTP 400 — vérifié sur l'API publique), alors que `<SYMBOL>USDT`
+ *   et `<CURRENCY>USDT` existent quasiment toujours.
+ *   - Si l'actif à prix est lui-même le pont (ex. USDT priced en EUR), `assetInBridge`
+ *     vaut trivialement 1 (une paire "USDTUSDT" n'existe pas et n'a pas de sens).
+ *   - Sinon `assetInBridge` = cours de l'actif en USDT (ex. BTCUSDT).
+ *   - `currencyInBridge` = cours de la devise cible en USDT (ex. EURUSDT).
+ *   - Prix final = assetInBridge / currencyInBridge (USDT/actif ÷ USDT/devise = devise/actif).
+ */
+export function resolveBridgedPrice(params: {
+  symbol: string;
+  currency: string;
+  directPrice: number | null;
+  assetInBridge: number | null;
+  currencyInBridge: number | null;
+}): number | null {
+  const { symbol, currency, directPrice, assetInBridge, currencyInBridge } = params;
+
+  if (directPrice != null) return directPrice;
+  if (currencyInBridge == null || currencyInBridge === 0) return null;
+
+  const isAssetTheBridge = symbol.toUpperCase() === BRIDGE_ASSET;
+  const assetInBridgeResolved = isAssetTheBridge ? 1 : assetInBridge;
+  if (assetInBridgeResolved == null) return null;
+
+  return assetInBridgeResolved / currencyInBridge;
+}
+
 /**
  * Binance, marché public — aucune clé requise, aucun quota significatif pour
  * notre usage. Remplace CoinGecko comme fournisseur de PRIX pour la crypto
@@ -39,12 +78,17 @@ export class BinanceProvider implements PriceProvider {
     return `${asset.symbol}${asset.currency}`.toUpperCase();
   }
 
-  async fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null> {
-    const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(this.pairSymbol(asset))}`;
+  /** Cours brut d'une paire Binance, ou `null` si la paire n'existe pas (HTTP 400) ou en cas d'erreur réseau. */
+  private async fetchTickerPrice(pairSymbol: string): Promise<number | null> {
+    const url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pairSymbol)}`;
 
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
-      console.error(`[ingest:binance] ${asset.symbol}: HTTP ${response.status} — ${await response.text()}`);
+      // Binance renvoie 400 pour un symbole inexistant (ex. USDTEUR) — attendu pour les
+      // paires-pont, ne pas polluer les logs avec ce qui n'est pas une vraie erreur.
+      if (response.status !== 400) {
+        console.error(`[ingest:binance] ${pairSymbol}: HTTP ${response.status} — ${await response.text()}`);
+      }
       return null;
     }
 
@@ -52,11 +96,37 @@ export class BinanceProvider implements PriceProvider {
     if (!body.price) return null;
 
     const price = Number(body.price);
-    if (!Number.isFinite(price)) return null;
+    return Number.isFinite(price) ? price : null;
+  }
 
+  async fetchPrice(asset: Pick<Asset, "symbol" | "currency" | "externalId">): Promise<FetchedPrice | null> {
+    const symbol = asset.symbol.toUpperCase();
+    const currency = asset.currency.toUpperCase();
+
+    const directPrice = await this.fetchTickerPrice(this.pairSymbol(asset));
+
+    let price: number | null;
+    if (directPrice != null) {
+      price = directPrice;
+    } else {
+      const isAssetTheBridge = symbol === BRIDGE_ASSET;
+      const [assetInBridge, currencyInBridge] = await Promise.all([
+        isAssetTheBridge ? Promise.resolve(null) : this.fetchTickerPrice(`${symbol}${BRIDGE_ASSET}`),
+        this.fetchTickerPrice(`${currency}${BRIDGE_ASSET}`),
+      ]);
+      price = resolveBridgedPrice({ symbol, currency, directPrice: null, assetInBridge, currencyInBridge });
+    }
+
+    if (price == null) return null;
     return { price, timestamp: new Date(), source: this.source };
   }
 
+  /**
+   * Contrairement à {@link fetchPrice}, ne passe pas par l'actif-pont quand la paire directe
+   * manque (ex. USDT) — renvoie `null` dans ce cas. Non bloquant : `getAssetPriceHistory`
+   * retombe alors sur l'historique accumulé en base (voir get-asset-price-history.ts), donc
+   * seul le graphique perd en granularité, l'achat/la vente ne sont jamais affectés.
+   */
   async fetchHistory(
     asset: Pick<Asset, "symbol" | "currency" | "externalId">,
     request: HistoryRequest,
