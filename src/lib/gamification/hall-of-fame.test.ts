@@ -3,8 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 let storedEntries: Record<string, unknown>[] = [];
 
 interface AvatarOrCond {
-  finalRank?: { lte: number };
+  finalRank?: { lte: number } | number;
   userId?: string;
+  promotionId?: string;
 }
 interface FindManyOptions {
   orderBy?: { finalReturnPct?: "asc" | "desc" };
@@ -12,9 +13,9 @@ interface FindManyOptions {
 }
 
 // Le mock reproduit le contrat Prisma dont dépend getHallOfFame : `orderBy`
-// (tri délégué à la base) et le `where` de la 2e requête (photos du podium +
-// du visiteur uniquement). Si l'un ou l'autre est retiré du code, les tests
-// ci-dessous doivent casser.
+// (tri délégué à la base) et le `where` de la 2e requête (photos du podium,
+// du visiteur, et de la pire performance historique). Si l'un ou l'autre est
+// retiré du code, les tests ci-dessous doivent casser.
 const dbMock = {
   hallOfFameEntry: {
     findMany: vi.fn(async (options: FindManyOptions) => {
@@ -25,8 +26,13 @@ const dbMock = {
           if (w.avatarUrl?.not === null && row.avatarUrl == null) return false;
           if (w.OR) {
             return w.OR.some((cond) => {
-              if (cond.finalRank?.lte != null) return (row.finalRank as number) <= cond.finalRank.lte;
+              if (cond.promotionId != null) {
+                return row.promotionId === cond.promotionId && row.finalRank === cond.finalRank;
+              }
               if (cond.userId != null) return row.userId === cond.userId;
+              if (cond.finalRank != null && typeof cond.finalRank === "object") {
+                return (row.finalRank as number) <= cond.finalRank.lte;
+              }
               return false;
             });
           }
@@ -138,6 +144,33 @@ describe("getHallOfFame", () => {
     const data = await getHallOfFame("viewer");
     const byName = Object.fromEntries(data.entries.map((e) => [e.userName, e.avatarUrl]));
     expect(byName).toEqual({ A: "img-a", D: null, V: "img-v" });
+  });
+
+  it("renvoie aussi la photo de la pire performance historique, même hors podium et hors visiteur", async () => {
+    storedEntries = [
+      entry({ userId: "u1", userName: "A", finalRank: 1, avatarUrl: "img-a", promotionId: "p1", promotionName: "S1", finalReturnPct: 30 }),
+      entry({ userId: "u2", userName: "B", finalRank: 2, avatarUrl: "img-b", promotionId: "p1", promotionName: "S1", finalReturnPct: 10 }),
+      entry({ userId: "u3", userName: "C", finalRank: 3, avatarUrl: "img-c", promotionId: "p1", promotionName: "S1", finalReturnPct: 5 }),
+      entry({ userId: "u4", userName: "D", finalRank: 4, avatarUrl: "img-d", promotionId: "p1", promotionName: "S1", finalReturnPct: 2 }),
+      entry({ userId: "u5", userName: "E", finalRank: 5, avatarUrl: "img-e", promotionId: "p1", promotionName: "S1", finalReturnPct: -12 }),
+    ];
+    const data = await getHallOfFame();
+    const worst = data.entries.at(-1);
+    expect(worst?.userName).toBe("E");
+    expect(worst?.avatarUrl).toBe("img-e");
+    // Rang 4 : ni podium, ni pire, ni visiteur — sa photo ne doit toujours pas remonter.
+    const rankFour = data.entries.find((e) => e.userName === "D");
+    expect(rankFour?.avatarUrl).toBeNull();
+  });
+
+  it("la pire performance historique = la meilleure quand il n'existe qu'une seule entrée au total", async () => {
+    storedEntries = [
+      entry({ userId: "solo", userName: "Solo", finalRank: 1, avatarUrl: "img-solo", promotionId: "p1", promotionName: "S1", finalReturnPct: 4 }),
+    ];
+    const data = await getHallOfFame();
+    expect(data.entries).toHaveLength(1);
+    expect(data.entries[0]).toBe(data.entries.at(-1));
+    expect(data.entries[0].avatarUrl).toBe("img-solo");
   });
 
   it("trie les participations par bestReturnPct décroissant", async () => {

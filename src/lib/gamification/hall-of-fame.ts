@@ -56,20 +56,23 @@ export interface HallOfFameData {
  * (dizaines de data URLs tirées de Postgres à chaque affichage).
  */
 export async function getHallOfFame(viewerUserId?: string): Promise<HallOfFameData> {
-  const [rows, avatarRows] = await Promise.all([
-    db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" }, omit: { avatarUrl: true } }),
-    db.hallOfFameEntry.findMany({
-      where: {
-        avatarUrl: { not: null },
-        OR: [
-          { finalRank: { lte: PODIUM_RANK } },
-          ...(viewerUserId ? [{ userId: viewerUserId }] : []),
-        ],
-      },
-      // finalRank est unique par promotion → clé stable (promotionId, finalRank).
-      select: { promotionId: true, finalRank: true, avatarUrl: true },
-    }),
-  ]);
+  // Séquentiel (pas Promise.all) : la 2e requête a besoin de connaître la pire
+  // entrée pour demander sa photo, ce qui suppose que la 1ère ait déjà répondu.
+  const rows = await db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" }, omit: { avatarUrl: true } });
+  const worstEntry = rows.at(-1);
+
+  const avatarRows = await db.hallOfFameEntry.findMany({
+    where: {
+      avatarUrl: { not: null },
+      OR: [
+        { finalRank: { lte: PODIUM_RANK } },
+        ...(viewerUserId ? [{ userId: viewerUserId }] : []),
+        ...(worstEntry ? [{ promotionId: worstEntry.promotionId, finalRank: worstEntry.finalRank }] : []),
+      ],
+    },
+    // finalRank est unique par promotion → clé stable (promotionId, finalRank).
+    select: { promotionId: true, finalRank: true, avatarUrl: true },
+  });
   const avatarByEntry = new Map(avatarRows.map((r) => [`${r.promotionId}:${r.finalRank}`, r.avatarUrl]));
 
   const entries: HallOfFameEntryView[] = rows.map((row) => ({
