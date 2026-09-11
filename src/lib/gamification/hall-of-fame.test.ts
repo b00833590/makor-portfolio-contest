@@ -171,6 +171,15 @@ describe("getHallOfFame", () => {
     expect(data.entries).toHaveLength(1);
     expect(data.entries[0]).toBe(data.entries.at(-1));
     expect(data.entries[0].avatarUrl).toBe("img-solo");
+
+    // Vérifier que le worst-entry OR condition est bien envoyé au mock, indépendant
+    // du fait que la condition podium (finalRank <= 3) couvrirait aussi cette entrée.
+    const secondCall = dbMock.hallOfFameEntry.findMany.mock.calls[1];
+    const orConditions = secondCall[0]?.where?.OR ?? [];
+    const hasWorstEntryCondition = orConditions.some(
+      (cond) => cond.promotionId === "p1" && cond.finalRank === 1
+    );
+    expect(hasWorstEntryCondition).toBe(true);
   });
 
   it("trie les participations par bestReturnPct décroissant", async () => {
