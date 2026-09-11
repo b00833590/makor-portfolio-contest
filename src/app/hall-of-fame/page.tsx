@@ -6,9 +6,9 @@ import { SiteHeader } from "@/components/site-header";
 import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { signedPct } from "@/app/statistiques/format";
 import { HallOfShameSection } from "./hall-of-shame-section";
 
-const pctFmt = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 const medals = ["🥇", "🥈", "🥉"];
 
 export default async function HallOfFamePage() {
@@ -38,7 +38,7 @@ export default async function HallOfFamePage() {
               <p>
                 Meilleure performance jamais enregistrée :{" "}
                 <span className="font-semibold text-foreground">{record.userName}</span> avec{" "}
-                <span className="font-semibold text-gain">{pctFmt(record.finalReturnPct)}</span> lors de «&nbsp;
+                <span className="font-semibold text-gain">{signedPct(record.finalReturnPct)}</span> lors de «&nbsp;
                 {record.promotionName}&nbsp;».
               </p>
             </CardContent>
@@ -81,7 +81,7 @@ export default async function HallOfFamePage() {
                               : "shrink-0 text-loss tabular-nums"
                           }
                         >
-                          {pctFmt(e.finalReturnPct)}
+                          {signedPct(e.finalReturnPct)}
                         </span>
                       </div>
                     ))}
@@ -115,7 +115,7 @@ export default async function HallOfFamePage() {
                           : "shrink-0 text-loss tabular-nums"
                       }
                     >
-                      {pctFmt(e.finalReturnPct)}
+                      {signedPct(e.finalReturnPct)}
                     </span>
                   </div>
                 ))}
@@ -130,7 +130,7 @@ export default async function HallOfFamePage() {
             <div className="mt-4 flex flex-wrap gap-2">
               {participations.map((p) => (
                 <Badge key={p.userName} variant="secondary">
-                  {p.userName} · {p.count} concours · record {pctFmt(p.bestReturnPct)}
+                  {p.userName} · {p.count} concours · record {signedPct(p.bestReturnPct)}
                 </Badge>
               ))}
             </div>

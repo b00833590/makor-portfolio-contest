@@ -8,7 +8,9 @@ interface AvatarOrCond {
   promotionId?: string;
 }
 interface FindManyOptions {
-  orderBy?: { finalReturnPct?: "asc" | "desc" };
+  orderBy?:
+    | { finalReturnPct?: "asc" | "desc" }
+    | Array<{ finalReturnPct?: "asc" | "desc"; closedAt?: "asc" | "desc" }>;
   where?: { avatarUrl?: { not: null }; OR?: AvatarOrCond[] };
 }
 
@@ -39,8 +41,19 @@ const dbMock = {
           return true;
         });
       }
-      if (options?.orderBy?.finalReturnPct === "desc") {
-        data.sort((a, b) => (b.finalReturnPct as number) - (a.finalReturnPct as number));
+      const orderByList = Array.isArray(options?.orderBy)
+        ? options.orderBy
+        : options?.orderBy
+          ? [options.orderBy]
+          : [];
+      if (orderByList.some((o) => o.finalReturnPct === "desc")) {
+        const closedAtDesc = orderByList.some((o) => "closedAt" in o && o.closedAt === "desc");
+        data.sort((a, b) => {
+          const diff = (b.finalReturnPct as number) - (a.finalReturnPct as number);
+          if (diff !== 0) return diff;
+          if (closedAtDesc) return (b.closedAt as Date).getTime() - (a.closedAt as Date).getTime();
+          return 0;
+        });
       }
       return data;
     }),
@@ -180,6 +193,15 @@ describe("getHallOfFame", () => {
       (cond) => cond.promotionId === "p1" && cond.finalRank === 1
     );
     expect(hasWorstEntryCondition).toBe(true);
+  });
+
+  it("départage deux performances à égalité par la clôture la plus récente", async () => {
+    storedEntries = [
+      entry({ userName: "Ancien", finalReturnPct: 7, promotionId: "p1", promotionName: "S1", closedAt: new Date("2026-01-31") }),
+      entry({ userName: "Recent", finalReturnPct: 7, promotionId: "p2", promotionName: "S2", finalRank: 1, closedAt: new Date("2026-06-30") }),
+    ];
+    const data = await getHallOfFame();
+    expect(data.entries.map((e) => e.userName)).toEqual(["Recent", "Ancien"]);
   });
 
   it("trie les participations par bestReturnPct décroissant", async () => {

@@ -58,7 +58,10 @@ export interface HallOfFameData {
 export async function getHallOfFame(viewerUserId?: string): Promise<HallOfFameData> {
   // Séquentiel (pas Promise.all) : la 2e requête a besoin de connaître la pire
   // entrée pour demander sa photo, ce qui suppose que la 1ère ait déjà répondu.
-  const rows = await db.hallOfFameEntry.findMany({ orderBy: { finalReturnPct: "desc" }, omit: { avatarUrl: true } });
+  const rows = await db.hallOfFameEntry.findMany({
+    orderBy: [{ finalReturnPct: "desc" }, { closedAt: "desc" }],
+    omit: { avatarUrl: true },
+  });
   const worstEntry = rows.at(-1);
 
   const avatarRows = await db.hallOfFameEntry.findMany({

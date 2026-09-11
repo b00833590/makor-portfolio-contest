@@ -18,17 +18,22 @@ export function HallOfShameSection({
   if (!worstRecord) return null;
 
   return (
-    <section className="mt-12">
+    <section className="mt-12" aria-labelledby="hall-of-shame-heading">
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Hall of Shame</span>
+        <span
+          id="hall-of-shame-heading"
+          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+        >
+          Hall of Shame
+        </span>
         <div className="h-px flex-1 bg-border" />
       </div>
       <p className="mt-2 text-center text-sm text-muted-foreground">
         Parce que ça aussi, ça fait partie de l&rsquo;histoire.
       </p>
 
-      <Card className="mt-6 border-loss/40 bg-loss/5">
+      <Card className="mt-6 ring-loss/30 bg-loss/5">
         <CardHeader>
           <CardTitle>Pire performance historique 🍌</CardTitle>
         </CardHeader>
@@ -46,7 +51,7 @@ export function HallOfShameSection({
       {worstEntries.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold">Pires performances de tous les temps</h2>
-          <Card className="mt-4 border-loss/20">
+          <Card className="mt-4 ring-loss/30">
             <CardContent className="flex flex-col gap-1.5 pt-6">
               {worstEntries.map((e, i) => (
                 <div
