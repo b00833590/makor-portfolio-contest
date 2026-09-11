@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HallOfShameSection } from "./hall-of-shame-section";
 
 const pctFmt = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 const medals = ["🥇", "🥈", "🥉"];
@@ -18,12 +19,14 @@ export default async function HallOfFamePage() {
   await closeEndedPromotions();
   const { entries, seasons, participations } = await getHallOfFame(session.user.id);
   const record = entries[0] ?? null;
+  const worstRecord = entries.length > 0 ? entries[entries.length - 1] : null;
+  const worstEntries = [...entries].reverse();
 
   return (
     <>
       <SiteHeader name={session.user.name} role={session.user.role} avatarUrl={session.user.avatarUrl} />
       <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Hall of Fame</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Hall of Fame / Shame</h1>
 
         {record && (
           <Card className="mt-6 border-primary/40 bg-primary/5">
@@ -133,6 +136,8 @@ export default async function HallOfFamePage() {
             </div>
           </section>
         )}
+
+        <HallOfShameSection worstRecord={worstRecord} worstEntries={worstEntries} />
       </div>
     </>
   );
