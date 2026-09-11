@@ -59,7 +59,12 @@ export async function getHallOfFame(viewerUserId?: string): Promise<HallOfFameDa
   // Séquentiel (pas Promise.all) : la 2e requête a besoin de connaître la pire
   // entrée pour demander sa photo, ce qui suppose que la 1ère ait déjà répondu.
   const rows = await db.hallOfFameEntry.findMany({
-    orderBy: [{ finalReturnPct: "desc" }, { closedAt: "desc" }],
+    // closedAt départage entre concours (constant au sein d'un même concours — asOf
+    // unique par clôture, voir promotion-lifecycle.ts) ; finalRank départage ensuite à
+    // l'intérieur d'un même concours (unique par promotion, voir l'index plus bas) —
+    // ensemble ils donnent un ordre total même pour le cluster à 0,00% de qui n'a
+    // jamais tradé, le cas d'égalité le plus probable.
+    orderBy: [{ finalReturnPct: "desc" }, { closedAt: "desc" }, { finalRank: "asc" }],
     omit: { avatarUrl: true },
   });
   const worstEntry = rows.at(-1);

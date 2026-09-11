@@ -10,7 +10,7 @@ interface AvatarOrCond {
 interface FindManyOptions {
   orderBy?:
     | { finalReturnPct?: "asc" | "desc" }
-    | Array<{ finalReturnPct?: "asc" | "desc"; closedAt?: "asc" | "desc" }>;
+    | Array<{ finalReturnPct?: "asc" | "desc"; closedAt?: "asc" | "desc"; finalRank?: "asc" | "desc" }>;
   where?: { avatarUrl?: { not: null }; OR?: AvatarOrCond[] };
 }
 
@@ -48,10 +48,15 @@ const dbMock = {
           : [];
       if (orderByList.some((o) => o.finalReturnPct === "desc")) {
         const closedAtDesc = orderByList.some((o) => "closedAt" in o && o.closedAt === "desc");
+        const finalRankAsc = orderByList.some((o) => "finalRank" in o && o.finalRank === "asc");
         data.sort((a, b) => {
           const diff = (b.finalReturnPct as number) - (a.finalReturnPct as number);
           if (diff !== 0) return diff;
-          if (closedAtDesc) return (b.closedAt as Date).getTime() - (a.closedAt as Date).getTime();
+          if (closedAtDesc) {
+            const closedAtDiff = (b.closedAt as Date).getTime() - (a.closedAt as Date).getTime();
+            if (closedAtDiff !== 0) return closedAtDiff;
+          }
+          if (finalRankAsc) return (a.finalRank as number) - (b.finalRank as number);
           return 0;
         });
       }
@@ -202,6 +207,15 @@ describe("getHallOfFame", () => {
     ];
     const data = await getHallOfFame();
     expect(data.entries.map((e) => e.userName)).toEqual(["Recent", "Ancien"]);
+  });
+
+  it("départage par finalRank quand l'égalité vient du même concours (ex. cluster à 0% de qui n'a jamais tradé)", async () => {
+    storedEntries = [
+      entry({ userName: "Sans-trade-2", finalReturnPct: 0, promotionId: "p1", promotionName: "S1", finalRank: 8, closedAt: new Date("2026-01-31") }),
+      entry({ userName: "Sans-trade-1", finalReturnPct: 0, promotionId: "p1", promotionName: "S1", finalRank: 6, closedAt: new Date("2026-01-31") }),
+    ];
+    const data = await getHallOfFame();
+    expect(data.entries.map((e) => e.userName)).toEqual(["Sans-trade-1", "Sans-trade-2"]);
   });
 
   it("trie les participations par bestReturnPct décroissant", async () => {
